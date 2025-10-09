@@ -20,8 +20,16 @@ The system supports multiple event types (weddings, corporate events, birthdays,
     - **Conditional Fields in Fulfillment Plans**:
       - Team plans: Added "payment" field to enter payment amount
       - Asset plans: Added "purchased value" field (shows when "New" is selected in Asset Purchase Status)
+    - **Invoice Generation**: Professional PDF invoice generation with:
+      - Generate Invoice button on event details page
+      - Modern, elegant invoice template with company logo and business information
+      - Client details parsed from pipe-separated format (Name | Contact | Address | Email)
+      - Automatic GST calculation (18%) and total computation
+      - Terms & Conditions section from business configuration
+      - One-click PDF download with filename format: "Invoice_{EventName}_{Date}.pdf"
   - **Form Enhancements:**
     - Business Information: Logo upload with base64 storage and preview
+    - Business Information: Added Terms & Conditions textarea for invoice footer
     - Team Member: Designation changed to freeform text input (was dropdown)
     - Requirement: Owner changed to team member dropdown (was text input)
     - Requirement: "Order" field renamed to "Invoice Value" for clarity
@@ -147,6 +155,9 @@ Preferred communication style: Simple, everyday language.
 
 **Date Handling**:
 - `date-fns`: Date formatting and manipulation (used extensively for event date calculations)
+
+**Document Generation**:
+- `@react-pdf/renderer`: Client-side PDF generation for invoices
 
 **Development Tools**:
 - `@replit/vite-plugin-*`: Replit-specific development plugins (error overlay, cartographer, dev banner)
