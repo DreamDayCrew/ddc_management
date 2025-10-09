@@ -60,6 +60,7 @@ export interface IStorage {
   deleteEvent(id: string): Promise<boolean>;
 
   // Requirements
+  getAllRequirements(): Promise<Requirement[]>;
   getRequirements(eventId: string): Promise<Requirement[]>;
   getRequirement(id: string): Promise<Requirement | undefined>;
   createRequirement(requirement: InsertRequirement): Promise<Requirement>;
@@ -67,6 +68,7 @@ export interface IStorage {
   deleteRequirement(id: string): Promise<boolean>;
 
   // Fulfillment Plans
+  getAllFulfillmentPlans(): Promise<FulfillmentPlan[]>;
   getFulfillmentPlans(requirementId: string): Promise<FulfillmentPlan[]>;
   getFulfillmentPlan(id: string): Promise<FulfillmentPlan | undefined>;
   createFulfillmentPlan(plan: InsertFulfillmentPlan): Promise<FulfillmentPlan>;
@@ -295,6 +297,10 @@ export class MemStorage implements IStorage {
   }
 
   // Requirements
+  async getAllRequirements(): Promise<Requirement[]> {
+    return Array.from(this.requirements.values());
+  }
+
   async getRequirements(eventId: string): Promise<Requirement[]> {
     return Array.from(this.requirements.values()).filter((r) => r.eventId === eventId);
   }
@@ -329,6 +335,10 @@ export class MemStorage implements IStorage {
   }
 
   // Fulfillment Plans
+  async getAllFulfillmentPlans(): Promise<FulfillmentPlan[]> {
+    return Array.from(this.fulfillmentPlans.values());
+  }
+
   async getFulfillmentPlans(requirementId: string): Promise<FulfillmentPlan[]> {
     return Array.from(this.fulfillmentPlans.values()).filter((p) => p.requirementId === requirementId);
   }
@@ -344,11 +354,13 @@ export class MemStorage implements IStorage {
       planType: plan.planType,
       teamMemberId: plan.teamMemberId || null,
       teamRole: plan.teamRole || null,
+      payment: plan.payment || null,
       vendorId: plan.vendorId || null,
       vendorAmount: plan.vendorAmount || null,
       vendorPaymentStatus: plan.vendorPaymentStatus || null,
       assetId: plan.assetId || null,
       assetPurchaseStatus: plan.assetPurchaseStatus || null,
+      purchasedValue: plan.purchasedValue || null,
       planStatus: plan.planStatus || 'To Do',
     };
     this.fulfillmentPlans.set(newPlan.id, newPlan);

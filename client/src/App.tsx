@@ -10,6 +10,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import Dashboard from "@/pages/dashboard";
 import Events from "@/pages/events";
 import EventDetails from "@/pages/event-details";
+import Plans from "@/pages/plans";
 import Assets from "@/pages/assets";
 import Vendors from "@/pages/vendors";
 import Team from "@/pages/team";
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/events" component={Events} />
       <Route path="/events/:id" component={EventDetails} />
+      <Route path="/plans" component={Plans} />
       <Route path="/assets" component={Assets} />
       <Route path="/vendors" component={Vendors} />
       <Route path="/team" component={Team} />

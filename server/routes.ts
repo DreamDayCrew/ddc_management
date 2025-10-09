@@ -272,6 +272,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Requirement routes
+  app.get("/api/requirements", async (_req, res) => {
+    const requirements = await storage.getAllRequirements();
+    res.json(requirements);
+  });
+
   app.get("/api/events/:eventId/requirements", async (req, res) => {
     const requirements = await storage.getRequirements(req.params.eventId);
     res.json(requirements);
@@ -316,6 +321,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Fulfillment Plan routes
+  app.get("/api/plans", async (_req, res) => {
+    const plans = await storage.getAllFulfillmentPlans();
+    res.json(plans);
+  });
+
   app.get("/api/requirements/:requirementId/plans", async (req, res) => {
     const plans = await storage.getFulfillmentPlans(req.params.requirementId);
     res.json(plans);

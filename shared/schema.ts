@@ -100,11 +100,13 @@ export const fulfillmentPlans = pgTable("fulfillment_plans", {
   planType: text("plan_type").notNull(),
   teamMemberId: varchar("team_member_id").references(() => teamMembers.id),
   teamRole: text("team_role"),
+  payment: decimal("payment", { precision: 10, scale: 2 }),
   vendorId: varchar("vendor_id").references(() => vendors.id),
   vendorAmount: decimal("vendor_amount", { precision: 10, scale: 2 }),
   vendorPaymentStatus: text("vendor_payment_status"),
   assetId: varchar("asset_id").references(() => assets.id),
   assetPurchaseStatus: text("asset_purchase_status"),
+  purchasedValue: decimal("purchased_value", { precision: 10, scale: 2 }),
   planStatus: text("plan_status").notNull().default("To Do"),
 });
 

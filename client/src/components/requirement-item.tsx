@@ -257,11 +257,21 @@ export function RequirementItem({
                         </Select>
                       </div>
                       {plan.planType === "Team" && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Team: </span>
-                          <span data-testid={`plan-team-${plan.id}`}>
-                            {getTeamMemberName(plan.teamMemberId)} ({plan.teamRole})
-                          </span>
+                        <div className="text-sm space-y-1">
+                          <div>
+                            <span className="text-muted-foreground">Team: </span>
+                            <span data-testid={`plan-team-${plan.id}`}>
+                              {getTeamMemberName(plan.teamMemberId)} ({plan.teamRole})
+                            </span>
+                          </div>
+                          {plan.payment && (
+                            <div>
+                              <span className="text-muted-foreground">Payment: </span>
+                              <span data-testid={`plan-payment-amount-${plan.id}`}>
+                                ₹{parseFloat(plan.payment).toFixed(2)}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       )}
                       {plan.planType === "Vendor" && (
@@ -287,11 +297,21 @@ export function RequirementItem({
                         </div>
                       )}
                       {plan.planType === "Asset" && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Asset: </span>
-                          <span data-testid={`plan-asset-${plan.id}`}>
-                            {getAssetName(plan.assetId)} ({plan.assetPurchaseStatus})
-                          </span>
+                        <div className="text-sm space-y-1">
+                          <div>
+                            <span className="text-muted-foreground">Asset: </span>
+                            <span data-testid={`plan-asset-${plan.id}`}>
+                              {getAssetName(plan.assetId)} ({plan.assetPurchaseStatus})
+                            </span>
+                          </div>
+                          {plan.assetPurchaseStatus === "New" && plan.purchasedValue && (
+                            <div>
+                              <span className="text-muted-foreground">Purchased Value: </span>
+                              <span data-testid={`plan-purchased-value-${plan.id}`}>
+                                ₹{parseFloat(plan.purchasedValue).toFixed(2)}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

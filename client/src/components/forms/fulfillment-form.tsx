@@ -64,16 +64,19 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
       planType: plan?.planType || "",
       teamMemberId: plan?.teamMemberId || "",
       teamRole: plan?.teamRole || "",
+      payment: plan?.payment || "",
       vendorId: plan?.vendorId || "",
       vendorAmount: plan?.vendorAmount || "",
       vendorPaymentStatus: plan?.vendorPaymentStatus || "",
       assetId: plan?.assetId || "",
       assetPurchaseStatus: plan?.assetPurchaseStatus || "",
+      purchasedValue: plan?.purchasedValue || "",
       planStatus: plan?.planStatus || "To Do",
     },
   });
 
   const planType = form.watch("planType");
+  const assetPurchaseStatus = form.watch("assetPurchaseStatus");
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertFulfillmentPlan) => {
@@ -209,6 +212,20 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="payment"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Payment</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value || ""} type="number" step="0.01" placeholder="Enter payment amount" data-testid="input-payment" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </>
         )}
 
@@ -331,6 +348,22 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
                 </FormItem>
               )}
             />
+
+            {assetPurchaseStatus === "New" && (
+              <FormField
+                control={form.control}
+                name="purchasedValue"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Purchased Value</FormLabel>
+                    <FormControl>
+                      <Input {...field} value={field.value || ""} type="number" step="0.01" placeholder="Enter purchased value" data-testid="input-purchased-value" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
           </>
         )}
 
