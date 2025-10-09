@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { type Event } from "@shared/schema";
+import { type Event, type Requirement } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search } from "lucide-react";
@@ -24,6 +24,18 @@ export default function Events() {
   const { data: events = [], isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
   });
+
+  // Fetch requirements for all events to get counts
+  const { data: allRequirements = [] } = useQuery<Requirement[]>({
+    queryKey: ["/api/requirements"],
+    enabled: events.length > 0,
+  });
+
+  // Create a map of event ID to requirement count
+  const requirementCounts = allRequirements.reduce((acc, req) => {
+    acc[req.eventId] = (acc[req.eventId] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
   const filteredEvents = events.filter((event) => {
     const query = searchQuery.toLowerCase();
@@ -116,6 +128,7 @@ export default function Events() {
                 <EventCard
                   key={event.id}
                   {...event}
+                  requirementCount={requirementCounts[event.id] || 0}
                   onClick={() => handleEventClick(event.id)}
                 />
               ))}
@@ -134,6 +147,7 @@ export default function Events() {
                 <EventCard
                   key={event.id}
                   {...event}
+                  requirementCount={requirementCounts[event.id] || 0}
                   onClick={() => handleEventClick(event.id)}
                 />
               ))}
@@ -152,6 +166,7 @@ export default function Events() {
                 <EventCard
                   key={event.id}
                   {...event}
+                  requirementCount={requirementCounts[event.id] || 0}
                   onClick={() => handleEventClick(event.id)}
                 />
               ))}
@@ -170,6 +185,7 @@ export default function Events() {
                 <EventCard
                   key={event.id}
                   {...event}
+                  requirementCount={requirementCounts[event.id] || 0}
                   onClick={() => handleEventClick(event.id)}
                 />
               ))}
