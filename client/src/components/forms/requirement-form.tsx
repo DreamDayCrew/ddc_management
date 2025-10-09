@@ -184,6 +184,7 @@ export function RequirementForm({ requirement, eventId, onSuccess }: Requirement
                   {...field}
                   type="number"
                   onChange={(e) => field.onChange(Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
                   placeholder="Enter invoice value"
                   data-testid="input-requirement-order"
                 />
