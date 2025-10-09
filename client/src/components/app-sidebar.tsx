@@ -6,6 +6,7 @@ import {
   Users,
   Briefcase,
   DollarSign,
+  FileText,
   Settings,
 } from "lucide-react";
 import {
@@ -62,6 +63,12 @@ const menuItems = [
     url: "/expenses",
     icon: DollarSign,
     testId: "nav-expenses",
+  },
+  {
+    title: "Reports",
+    url: "/reports",
+    icon: FileText,
+    testId: "nav-reports",
   },
   {
     title: "Configuration",

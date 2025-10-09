@@ -369,6 +369,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(204).send();
   });
 
+  // Budget Reports route
+  app.get("/api/reports/budget", async (_req, res) => {
+    try {
+      // Get all completed events
+      const allEvents = await storage.getEvents();
+      const completedEvents = allEvents.filter(event => event.eventStatus === "Completed");
+
+      const reports = await Promise.all(
+        completedEvents.map(async (event) => {
+          // Get all requirements for this event
+          const requirements = await storage.getRequirements(event.id);
+
+          // Calculate total invoice value (sum of all requirement invoice values)
+          const totalRequirementInvoiceValue = requirements.reduce(
+            (sum: number, req) => sum + Number(req.order || 0),
+            0
+          );
+
+          // Calculate actual spent for each requirement
+          const requirementBreakdown = await Promise.all(
+            requirements.map(async (req) => {
+              const plans = await storage.getFulfillmentPlans(req.id);
+              
+              // Sum all costs from plans
+              const actualSpent = plans.reduce((sum: number, plan) => {
+                const payment = Number(plan.payment || 0);
+                const vendorAmount = Number(plan.vendorAmount || 0);
+                const purchasedValue = Number(plan.purchasedValue || 0);
+                return sum + payment + vendorAmount + purchasedValue;
+              }, 0);
+
+              const invoiceValue = Number(req.order || 0);
+              const variance = invoiceValue - actualSpent;
+
+              return {
+                id: req.id,
+                name: req.requirement,
+                invoiceValue,
+                actualSpent,
+                variance,
+              };
+            })
+          );
+
+          // Calculate total actual spent
+          const totalActualSpent = requirementBreakdown.reduce(
+            (sum: number, req) => sum + req.actualSpent,
+            0
+          );
+
+          // Calculate overall variance
+          const finalizedQuote = Number(event.finalizedQuote || event.initialQuote || 0);
+          const variance = finalizedQuote - totalActualSpent;
+          const variancePercentage = finalizedQuote > 0
+            ? (variance / finalizedQuote) * 100
+            : 0;
+
+          return {
+            eventId: event.id,
+            eventName: event.eventName,
+            eventDate: event.eventDate,
+            venue: event.venue,
+            finalizedQuote,
+            totalRequirementInvoiceValue,
+            totalActualSpent,
+            variance,
+            variancePercentage,
+            requirements: requirementBreakdown,
+          };
+        })
+      );
+
+      res.json(reports);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

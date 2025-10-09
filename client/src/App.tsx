@@ -15,6 +15,7 @@ import Assets from "@/pages/assets";
 import Vendors from "@/pages/vendors";
 import Team from "@/pages/team";
 import Expenses from "@/pages/expenses";
+import Reports from "@/pages/reports";
 import Configuration from "@/pages/configuration";
 import NotFound from "@/pages/not-found";
 
@@ -29,6 +30,7 @@ function Router() {
       <Route path="/vendors" component={Vendors} />
       <Route path="/team" component={Team} />
       <Route path="/expenses" component={Expenses} />
+      <Route path="/reports" component={Reports} />
       <Route path="/configuration" component={Configuration} />
       <Route component={NotFound} />
     </Switch>
