@@ -89,15 +89,10 @@ export default function EventDetails() {
     queryKey: ["/api/configuration"],
   });
 
-  // Parse client info from pipe-separated string
-  const parseClientInfo = (clientInfo: string) => {
-    const parts = clientInfo.split('|').map(s => s.trim());
-    return {
-      name: parts[0] || "N/A",
-      contact: parts[1] || "N/A",
-      address: parts[2] || "N/A",
-      email: parts[3] || "N/A",
-    };
+  // Generate invoice number based on event ID
+  const generateInvoiceNumber = (eventId: string) => {
+    const shortId = eventId.slice(0, 8).toUpperCase();
+    return `INV${shortId}`;
   };
 
   const updateEventStatusMutation = useMutation({
@@ -211,7 +206,7 @@ export default function EventDetails() {
         <div className="flex gap-2">
           {config && (
             <PDFDownloadLink
-              document={<InvoiceTemplate config={config} event={event} clientInfo={parseClientInfo(event.clientInfo)} />}
+              document={<InvoiceTemplate config={config} event={event} requirements={requirements} invoiceNumber={generateInvoiceNumber(event.id)} />}
               fileName={`Invoice_${event.eventName}_${format(new Date(), "yyyyMMdd")}.pdf`}
             >
               {({ loading }) => (
