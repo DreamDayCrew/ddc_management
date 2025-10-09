@@ -1,15 +1,364 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { seedDatabase } from "./seed";
+import {
+  insertConfigurationSchema,
+  insertAssetSchema,
+  insertVendorSchema,
+  insertTeamMemberSchema,
+  insertExpenseSchema,
+  insertEventSchema,
+  insertRequirementSchema,
+  insertFulfillmentPlanSchema,
+} from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+  // Seed database route
+  app.post("/api/seed", async (_req, res) => {
+    try {
+      const result = await seedDatabase();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  // Configuration routes
+  app.get("/api/configuration", async (_req, res) => {
+    const config = await storage.getConfiguration();
+    res.json(config);
+  });
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+  app.post("/api/configuration", async (req, res) => {
+    try {
+      const validatedData = insertConfigurationSchema.parse(req.body);
+      const config = await storage.createConfiguration(validatedData);
+      res.status(201).json(config);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/configuration/:id", async (req, res) => {
+    try {
+      const config = await storage.updateConfiguration(req.params.id, req.body);
+      if (!config) {
+        return res.status(404).json({ error: "Configuration not found" });
+      }
+      res.json(config);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Asset routes
+  app.get("/api/assets", async (_req, res) => {
+    const assets = await storage.getAssets();
+    res.json(assets);
+  });
+
+  app.get("/api/assets/:id", async (req, res) => {
+    const asset = await storage.getAsset(req.params.id);
+    if (!asset) {
+      return res.status(404).json({ error: "Asset not found" });
+    }
+    res.json(asset);
+  });
+
+  app.post("/api/assets", async (req, res) => {
+    try {
+      const validatedData = insertAssetSchema.parse(req.body);
+      const asset = await storage.createAsset(validatedData);
+      res.status(201).json(asset);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/assets/:id", async (req, res) => {
+    try {
+      const asset = await storage.updateAsset(req.params.id, req.body);
+      if (!asset) {
+        return res.status(404).json({ error: "Asset not found" });
+      }
+      res.json(asset);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/assets/:id", async (req, res) => {
+    const deleted = await storage.deleteAsset(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Asset not found" });
+    }
+    res.status(204).send();
+  });
+
+  // Vendor routes
+  app.get("/api/vendors", async (_req, res) => {
+    const vendors = await storage.getVendors();
+    res.json(vendors);
+  });
+
+  app.get("/api/vendors/:id", async (req, res) => {
+    const vendor = await storage.getVendor(req.params.id);
+    if (!vendor) {
+      return res.status(404).json({ error: "Vendor not found" });
+    }
+    res.json(vendor);
+  });
+
+  app.post("/api/vendors", async (req, res) => {
+    try {
+      const validatedData = insertVendorSchema.parse(req.body);
+      const vendor = await storage.createVendor(validatedData);
+      res.status(201).json(vendor);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/vendors/:id", async (req, res) => {
+    try {
+      const vendor = await storage.updateVendor(req.params.id, req.body);
+      if (!vendor) {
+        return res.status(404).json({ error: "Vendor not found" });
+      }
+      res.json(vendor);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/vendors/:id", async (req, res) => {
+    const deleted = await storage.deleteVendor(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Vendor not found" });
+    }
+    res.status(204).send();
+  });
+
+  // Team Member routes
+  app.get("/api/team", async (_req, res) => {
+    const members = await storage.getTeamMembers();
+    res.json(members);
+  });
+
+  app.get("/api/team/:id", async (req, res) => {
+    const member = await storage.getTeamMember(req.params.id);
+    if (!member) {
+      return res.status(404).json({ error: "Team member not found" });
+    }
+    res.json(member);
+  });
+
+  app.post("/api/team", async (req, res) => {
+    try {
+      const validatedData = insertTeamMemberSchema.parse(req.body);
+      const member = await storage.createTeamMember(validatedData);
+      res.status(201).json(member);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/team/:id", async (req, res) => {
+    try {
+      const member = await storage.updateTeamMember(req.params.id, req.body);
+      if (!member) {
+        return res.status(404).json({ error: "Team member not found" });
+      }
+      res.json(member);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/team/:id", async (req, res) => {
+    const deleted = await storage.deleteTeamMember(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Team member not found" });
+    }
+    res.status(204).send();
+  });
+
+  // Expense routes
+  app.get("/api/expenses", async (_req, res) => {
+    const expenses = await storage.getExpenses();
+    res.json(expenses);
+  });
+
+  app.get("/api/expenses/:id", async (req, res) => {
+    const expense = await storage.getExpense(req.params.id);
+    if (!expense) {
+      return res.status(404).json({ error: "Expense not found" });
+    }
+    res.json(expense);
+  });
+
+  app.post("/api/expenses", async (req, res) => {
+    try {
+      const validatedData = insertExpenseSchema.parse(req.body);
+      const expense = await storage.createExpense(validatedData);
+      res.status(201).json(expense);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/expenses/:id", async (req, res) => {
+    try {
+      const expense = await storage.updateExpense(req.params.id, req.body);
+      if (!expense) {
+        return res.status(404).json({ error: "Expense not found" });
+      }
+      res.json(expense);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/expenses/:id", async (req, res) => {
+    const deleted = await storage.deleteExpense(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Expense not found" });
+    }
+    res.status(204).send();
+  });
+
+  // Event routes
+  app.get("/api/events", async (_req, res) => {
+    const events = await storage.getEvents();
+    res.json(events);
+  });
+
+  app.get("/api/events/:id", async (req, res) => {
+    const event = await storage.getEvent(req.params.id);
+    if (!event) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+    res.json(event);
+  });
+
+  app.post("/api/events", async (req, res) => {
+    try {
+      const validatedData = insertEventSchema.parse(req.body);
+      const event = await storage.createEvent(validatedData);
+      res.status(201).json(event);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/events/:id", async (req, res) => {
+    try {
+      const event = await storage.updateEvent(req.params.id, req.body);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      res.json(event);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/events/:id", async (req, res) => {
+    const deleted = await storage.deleteEvent(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+    res.status(204).send();
+  });
+
+  // Requirement routes
+  app.get("/api/events/:eventId/requirements", async (req, res) => {
+    const requirements = await storage.getRequirements(req.params.eventId);
+    res.json(requirements);
+  });
+
+  app.get("/api/requirements/:id", async (req, res) => {
+    const requirement = await storage.getRequirement(req.params.id);
+    if (!requirement) {
+      return res.status(404).json({ error: "Requirement not found" });
+    }
+    res.json(requirement);
+  });
+
+  app.post("/api/requirements", async (req, res) => {
+    try {
+      const validatedData = insertRequirementSchema.parse(req.body);
+      const requirement = await storage.createRequirement(validatedData);
+      res.status(201).json(requirement);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/requirements/:id", async (req, res) => {
+    try {
+      const requirement = await storage.updateRequirement(req.params.id, req.body);
+      if (!requirement) {
+        return res.status(404).json({ error: "Requirement not found" });
+      }
+      res.json(requirement);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/requirements/:id", async (req, res) => {
+    const deleted = await storage.deleteRequirement(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Requirement not found" });
+    }
+    res.status(204).send();
+  });
+
+  // Fulfillment Plan routes
+  app.get("/api/requirements/:requirementId/plans", async (req, res) => {
+    const plans = await storage.getFulfillmentPlans(req.params.requirementId);
+    res.json(plans);
+  });
+
+  app.get("/api/plans/:id", async (req, res) => {
+    const plan = await storage.getFulfillmentPlan(req.params.id);
+    if (!plan) {
+      return res.status(404).json({ error: "Fulfillment plan not found" });
+    }
+    res.json(plan);
+  });
+
+  app.post("/api/plans", async (req, res) => {
+    try {
+      const validatedData = insertFulfillmentPlanSchema.parse(req.body);
+      const plan = await storage.createFulfillmentPlan(validatedData);
+      res.status(201).json(plan);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/plans/:id", async (req, res) => {
+    try {
+      const plan = await storage.updateFulfillmentPlan(req.params.id, req.body);
+      if (!plan) {
+        return res.status(404).json({ error: "Fulfillment plan not found" });
+      }
+      res.json(plan);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/plans/:id", async (req, res) => {
+    const deleted = await storage.deleteFulfillmentPlan(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Fulfillment plan not found" });
+    }
+    res.status(204).send();
+  });
 
   const httpServer = createServer(app);
-
   return httpServer;
 }

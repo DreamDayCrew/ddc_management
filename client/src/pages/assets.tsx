@@ -1,65 +1,83 @@
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { type Asset } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Search } from "lucide-react";
 import { AssetItem } from "@/components/asset-item";
+import { AssetForm } from "@/components/forms/asset-form";
 
 export default function Assets() {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<Asset | undefined>();
 
-  const assetsData = [
-    {
-      id: "1",
-      name: "LED Stage Lights (Set of 10)",
-      category: "Audio System",
-      quantity: 10,
-      status: "Active",
-      purchasedAmount: "45,000",
+  const { data: assets = [], isLoading } = useQuery<Asset[]>({
+    queryKey: ["/api/assets"],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/assets/${id}`);
     },
-    {
-      id: "2",
-      name: "Portable Sound System",
-      category: "Audio System",
-      quantity: 2,
-      status: "Active",
-      purchasedAmount: "85,000",
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      toast({
+        title: "Success",
+        description: "Asset deleted successfully",
+      });
     },
-    {
-      id: "3",
-      name: "Decorative Backdrop Panels",
-      category: "Decoration",
-      quantity: 15,
-      status: "Active",
-      purchasedAmount: "12,500",
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     },
-    {
-      id: "4",
-      name: "Folding Chairs (Set of 50)",
-      category: "Furniture",
-      quantity: 50,
-      status: "Active",
-      purchasedAmount: "30,000",
-    },
-    {
-      id: "5",
-      name: "Photography Equipment Kit",
-      category: "Photography",
-      quantity: 1,
-      status: "Inactive",
-      purchasedAmount: "1,25,000",
-    },
-  ];
+  });
+
+  const filteredAssets = assets.filter((asset) =>
+    asset.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleEdit = (asset: Asset) => {
+    setEditingAsset(asset);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm("Are you sure you want to delete this asset?")) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      setEditingAsset(undefined);
+    }
+  };
+
+  const handleFormSuccess = () => {
+    handleDialogClose(false);
+  };
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold" data-testid="page-title">Assets</h1>
+          <h1 className="text-3xl font-semibold" data-testid="page-title">
+            Assets
+          </h1>
           <p className="text-muted-foreground mt-1">
             Manage and track all your assets
           </p>
         </div>
-        <Button data-testid="button-add-asset">
+        <Button onClick={() => setDialogOpen(true)} data-testid="button-add-asset">
           <Plus className="h-4 w-4 mr-2" />
           Add Asset
         </Button>
@@ -76,16 +94,38 @@ export default function Assets() {
         />
       </div>
 
-      <div className="space-y-3">
-        {assetsData.map((asset) => (
-          <AssetItem
-            key={asset.id}
-            {...asset}
-            onEdit={() => console.log(`Edit asset ${asset.id}`)}
-            onDelete={() => console.log(`Delete asset ${asset.id}`)}
-          />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="text-muted-foreground">Loading assets...</div>
+      ) : (
+        <div className="space-y-3">
+          {filteredAssets.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">
+              No assets found
+            </div>
+          ) : (
+            filteredAssets.map((asset) => (
+              <AssetItem
+                key={asset.id}
+                {...asset}
+                purchasedAmount={asset.purchasedAmount || "0"}
+                onEdit={() => handleEdit(asset)}
+                onDelete={() => handleDelete(asset.id)}
+              />
+            ))
+          )}
+        </div>
+      )}
+
+      <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingAsset ? "Edit Asset" : "Add New Asset"}
+            </DialogTitle>
+          </DialogHeader>
+          <AssetForm asset={editingAsset} onSuccess={handleFormSuccess} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

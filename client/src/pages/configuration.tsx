@@ -1,28 +1,147 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { type Configuration, type InsertConfiguration } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Building2, Package, Briefcase, Users as UsersIcon, DollarSign, CheckCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Plus, Building2, Package, Briefcase, Users as UsersIcon, DollarSign, CheckCircle, Pencil, X } from "lucide-react";
+
+const businessInfoSchema = z.object({
+  businessName: z.string().min(1, "Business name is required"),
+  phone: z.string().optional(),
+  email: z.string().email().optional().or(z.literal("")),
+  address: z.string().optional(),
+  gstNumber: z.string().optional(),
+  website: z.string().optional(),
+});
+
+const arrayItemSchema = z.object({
+  item: z.string().min(1, "Item is required"),
+});
 
 export default function Configuration() {
-  const configData = {
-    assetCategories: ["Audio System", "Decoration", "Furniture", "Photography", "Lighting"],
-    servicesProvided: ["Wedding Planning", "Corporate Event", "Birthday Party", "Product Launch"],
-    planStatuses: ["To Do", "In Progress", "Completed"],
-    roles: ["Designer", "Coordinator", "Manager", "Technical Support"],
-    paymentModes: ["Cash", "Gray", "Bank Transfer", "UPI"],
-    paymentStatuses: ["Pending", "Partial", "Completed"],
-    vendorCategories: ["Decoration", "Photography", "Catering", "Audio/Visual", "Venue"],
+  const { toast } = useToast();
+  const [businessInfoOpen, setBusinessInfoOpen] = useState(false);
+  const [arrayDialogOpen, setArrayDialogOpen] = useState(false);
+  const [arrayDialogConfig, setArrayDialogConfig] = useState<{
+    title: string;
+    field: keyof Configuration;
+  } | null>(null);
+
+  const { data: config, isLoading } = useQuery<Configuration>({
+    queryKey: ["/api/configuration"],
+  });
+
+  const businessForm = useForm<z.infer<typeof businessInfoSchema>>({
+    resolver: zodResolver(businessInfoSchema),
+    values: {
+      businessName: config?.businessName || "",
+      phone: config?.phone || "",
+      email: config?.email || "",
+      address: config?.address || "",
+      gstNumber: config?.gstNumber || "",
+      website: config?.website || "",
+    },
+  });
+
+  const arrayForm = useForm<z.infer<typeof arrayItemSchema>>({
+    resolver: zodResolver(arrayItemSchema),
+    defaultValues: {
+      item: "",
+    },
+  });
+
+  const updateConfigMutation = useMutation({
+    mutationFn: async (data: Partial<InsertConfiguration>) => {
+      if (!config?.id) {
+        const res = await apiRequest("POST", "/api/configuration", data);
+        return res.json();
+      }
+      const res = await apiRequest("PATCH", `/api/configuration/${config.id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configuration"] });
+      toast({
+        title: "Success",
+        description: "Configuration updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onBusinessInfoSubmit = (data: z.infer<typeof businessInfoSchema>) => {
+    updateConfigMutation.mutate(data, {
+      onSuccess: () => setBusinessInfoOpen(false),
+    });
   };
 
-  const ConfigSection = ({ 
-    title, 
-    icon: Icon, 
-    items, 
-    addButtonId 
-  }: { 
-    title: string; 
-    icon: React.ElementType; 
-    items: string[]; 
+  const onArrayItemAdd = (data: z.infer<typeof arrayItemSchema>) => {
+    if (!arrayDialogConfig || !config) return;
+    
+    const currentArray = (config[arrayDialogConfig.field] as string[]) || [];
+    
+    if (currentArray.includes(data.item)) {
+      toast({
+        title: "Error",
+        description: "Item already exists",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateConfigMutation.mutate(
+      {
+        [arrayDialogConfig.field]: [...currentArray, data.item],
+      },
+      {
+        onSuccess: () => {
+          arrayForm.reset();
+          setArrayDialogOpen(false);
+          setArrayDialogConfig(null);
+        },
+      }
+    );
+  };
+
+  const removeArrayItem = (field: keyof Configuration, item: string) => {
+    if (!config) return;
+    const currentArray = (config[field] as string[]) || [];
+    updateConfigMutation.mutate({
+      [field]: currentArray.filter((i) => i !== item),
+    });
+  };
+
+  const openArrayDialog = (title: string, field: keyof Configuration) => {
+    setArrayDialogConfig({ title, field });
+    setArrayDialogOpen(true);
+  };
+
+  const ConfigSection = ({
+    title,
+    icon: Icon,
+    items,
+    field,
+    addButtonId,
+  }: {
+    title: string;
+    icon: React.ElementType;
+    items: string[];
+    field: keyof Configuration;
     addButtonId: string;
   }) => (
     <Card>
@@ -31,15 +150,33 @@ export default function Configuration() {
           <Icon className="h-4 w-4" />
           {title}
         </CardTitle>
-        <Button variant="ghost" size="sm" data-testid={addButtonId}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => openArrayDialog(title, field)}
+          data-testid={addButtonId}
+        >
           <Plus className="h-4 w-4" />
         </Button>
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap gap-2">
-          {items.map((item, index) => (
-            <Badge key={index} variant="secondary" className="cursor-pointer hover-elevate">
+          {items?.map((item, index) => (
+            <Badge
+              key={index}
+              variant="secondary"
+              className="group cursor-pointer hover-elevate pr-1"
+            >
               {item}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-4 w-4 ml-1 opacity-0 group-hover:opacity-100"
+                onClick={() => removeArrayItem(field, item)}
+                data-testid={`button-remove-${field}-${index}`}
+              >
+                <X className="h-3 w-3" />
+              </Button>
             </Badge>
           ))}
         </div>
@@ -47,10 +184,20 @@ export default function Configuration() {
     </Card>
   );
 
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="text-muted-foreground">Loading configuration...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold" data-testid="page-title">Configuration</h1>
+        <h1 className="text-3xl font-semibold" data-testid="page-title">
+          Configuration
+        </h1>
         <p className="text-muted-foreground mt-1">
           Manage system settings and dropdown options
         </p>
@@ -66,17 +213,33 @@ export default function Configuration() {
         <CardContent className="space-y-3">
           <div>
             <p className="text-sm font-medium">Business Name</p>
-            <p className="text-muted-foreground">Dream Day Crew</p>
+            <p className="text-muted-foreground">{config?.businessName || "Not set"}</p>
           </div>
-          <div>
-            <p className="text-sm font-medium">Contact</p>
-            <p className="text-muted-foreground">contact@dreamdaycrew.com | +91 98765 43210</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium">Address</p>
-            <p className="text-muted-foreground">123 Event Plaza, Mumbai, Maharashtra 400001</p>
-          </div>
-          <Button variant="outline" size="sm" data-testid="button-edit-business-info">
+          {config?.phone && (
+            <div>
+              <p className="text-sm font-medium">Phone</p>
+              <p className="text-muted-foreground">{config.phone}</p>
+            </div>
+          )}
+          {config?.email && (
+            <div>
+              <p className="text-sm font-medium">Email</p>
+              <p className="text-muted-foreground">{config.email}</p>
+            </div>
+          )}
+          {config?.address && (
+            <div>
+              <p className="text-sm font-medium">Address</p>
+              <p className="text-muted-foreground">{config.address}</p>
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setBusinessInfoOpen(true)}
+            data-testid="button-edit-business-info"
+          >
+            <Pencil className="h-4 w-4 mr-2" />
             Edit Information
           </Button>
         </CardContent>
@@ -86,46 +249,186 @@ export default function Configuration() {
         <ConfigSection
           title="Asset Categories"
           icon={Package}
-          items={configData.assetCategories}
+          items={config?.assetCategories || []}
+          field="assetCategories"
           addButtonId="button-add-asset-category"
         />
         <ConfigSection
           title="Services Provided"
           icon={Briefcase}
-          items={configData.servicesProvided}
+          items={config?.servicesProvided || []}
+          field="servicesProvided"
           addButtonId="button-add-service"
         />
         <ConfigSection
           title="Plan Statuses"
           icon={CheckCircle}
-          items={configData.planStatuses}
+          items={config?.planStatuses || []}
+          field="planStatuses"
           addButtonId="button-add-plan-status"
         />
         <ConfigSection
           title="Team Roles"
           icon={UsersIcon}
-          items={configData.roles}
+          items={config?.roles || []}
+          field="roles"
           addButtonId="button-add-role"
         />
         <ConfigSection
           title="Payment Modes"
           icon={DollarSign}
-          items={configData.paymentModes}
+          items={config?.paymentModes || []}
+          field="paymentModes"
           addButtonId="button-add-payment-mode"
         />
         <ConfigSection
           title="Payment Statuses"
           icon={CheckCircle}
-          items={configData.paymentStatuses}
+          items={config?.paymentStatuses || []}
+          field="paymentStatuses"
           addButtonId="button-add-payment-status"
         />
         <ConfigSection
           title="Vendor Categories"
           icon={Briefcase}
-          items={configData.vendorCategories}
+          items={config?.vendorCategories || []}
+          field="vendorCategories"
           addButtonId="button-add-vendor-category"
         />
       </div>
+
+      <Dialog open={businessInfoOpen} onOpenChange={setBusinessInfoOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Business Information</DialogTitle>
+          </DialogHeader>
+          <Form {...businessForm}>
+            <form onSubmit={businessForm.handleSubmit(onBusinessInfoSubmit)} className="space-y-4">
+              <FormField
+                control={businessForm.control}
+                name="businessName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Business Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Enter business name" data-testid="input-business-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={businessForm.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Enter phone number" data-testid="input-business-phone" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={businessForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="email" placeholder="Enter email" data-testid="input-business-email" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={businessForm.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Enter address" data-testid="input-business-address" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={businessForm.control}
+                name="gstNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>GST Number</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Enter GST number" data-testid="input-business-gst" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={businessForm.control}
+                name="website"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Website</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Enter website URL" data-testid="input-business-website" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  disabled={updateConfigMutation.isPending}
+                  data-testid="button-save-business-info"
+                >
+                  {updateConfigMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={arrayDialogOpen} onOpenChange={setArrayDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add {arrayDialogConfig?.title}</DialogTitle>
+          </DialogHeader>
+          <Form {...arrayForm}>
+            <form onSubmit={arrayForm.handleSubmit(onArrayItemAdd)} className="space-y-4">
+              <FormField
+                control={arrayForm.control}
+                name="item"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Item Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Enter item name" data-testid="input-array-item" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  disabled={updateConfigMutation.isPending}
+                  data-testid="button-add-array-item"
+                >
+                  {updateConfigMutation.isPending ? "Adding..." : "Add Item"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

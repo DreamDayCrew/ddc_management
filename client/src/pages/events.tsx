@@ -1,61 +1,55 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { type Event } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { EventCard } from "@/components/event-card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { EventForm } from "@/components/forms/event-form";
 
 export default function Events() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [addEventOpen, setAddEventOpen] = useState(false);
+  const [, setLocation] = useLocation();
 
-  const eventsData = {
-    completed: [
-      {
-        id: "1",
-        eventName: "Birthday Celebration - Priya",
-        eventDate: "2025-09-20",
-        venue: "Riverside Garden, Pune",
-        clientInfo: "Mrs. Meena Patel - 9123456789",
-        eventStatus: "Completed",
-        providedService: "Birthday Party",
-        requirementCount: 4,
-      },
-    ],
-    inquired: [
-      {
-        id: "2",
-        eventName: "Corporate Annual Meet 2025",
-        eventDate: "2025-12-10",
-        venue: "Convention Center, Delhi",
-        clientInfo: "TechCorp Solutions",
-        eventStatus: "Inquired",
-        providedService: "Corporate Event",
-        requirementCount: 5,
-      },
-      {
-        id: "3",
-        eventName: "Product Launch Event",
-        eventDate: "2025-11-25",
-        venue: "Tech Hub, Bangalore",
-        clientInfo: "StartupX Innovations",
-        eventStatus: "Inquired",
-        providedService: "Product Launch",
-        requirementCount: 6,
-      },
-    ],
-    inProgress: [
-      {
-        id: "4",
-        eventName: "Wedding Reception - Sharma Family",
-        eventDate: "2025-11-15",
-        venue: "Grand Palace Hotel, Mumbai",
-        clientInfo: "Mr. Rajesh Sharma - 9876543210",
-        eventStatus: "In Progress",
-        providedService: "Wedding Planning",
-        requirementCount: 8,
-      },
-    ],
+  const { data: events = [], isLoading } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+  });
+
+  const filteredEvents = events.filter((event) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      event.eventName.toLowerCase().includes(query) ||
+      event.venue.toLowerCase().includes(query) ||
+      event.clientInfo.toLowerCase().includes(query) ||
+      event.providedService.toLowerCase().includes(query)
+    );
+  });
+
+  const inquiredEvents = filteredEvents.filter((e) => e.eventStatus === "Inquired");
+  const inProgressEvents = filteredEvents.filter((e) => e.eventStatus === "In Progress");
+  const completedEvents = filteredEvents.filter((e) => e.eventStatus === "Completed");
+
+  const handleEventClick = (eventId: string) => {
+    setLocation(`/events/${eventId}`);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-muted-foreground">Loading events...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -66,10 +60,20 @@ export default function Events() {
             Manage and track all your events
           </p>
         </div>
-        <Button data-testid="button-add-event">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Event
-        </Button>
+        <Dialog open={addEventOpen} onOpenChange={setAddEventOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-add-event">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Event
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Add Event</DialogTitle>
+            </DialogHeader>
+            <EventForm onSuccess={() => setAddEventOpen(false)} />
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="relative">
@@ -85,58 +89,92 @@ export default function Events() {
 
       <Tabs defaultValue="all" className="w-full">
         <TabsList>
-          <TabsTrigger value="all" data-testid="tab-all-events">All Events</TabsTrigger>
-          <TabsTrigger value="inquired" data-testid="tab-inquired">Inquired</TabsTrigger>
-          <TabsTrigger value="inProgress" data-testid="tab-in-progress">In Progress</TabsTrigger>
-          <TabsTrigger value="completed" data-testid="tab-completed">Completed</TabsTrigger>
+          <TabsTrigger value="all" data-testid="tab-all-events">
+            All Events ({filteredEvents.length})
+          </TabsTrigger>
+          <TabsTrigger value="inquired" data-testid="tab-inquired">
+            Inquired ({inquiredEvents.length})
+          </TabsTrigger>
+          <TabsTrigger value="inProgress" data-testid="tab-in-progress">
+            In Progress ({inProgressEvents.length})
+          </TabsTrigger>
+          <TabsTrigger value="completed" data-testid="tab-completed">
+            Completed ({completedEvents.length})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="mt-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[...eventsData.completed, ...eventsData.inquired, ...eventsData.inProgress].map((event) => (
-              <EventCard
-                key={event.id}
-                {...event}
-                onClick={() => console.log(`View event ${event.id}`)}
-              />
-            ))}
-          </div>
+          {filteredEvents.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-muted-foreground">
+                {searchQuery ? "No events found matching your search" : "No events yet. Create your first event!"}
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredEvents.map((event) => (
+                <EventCard
+                  key={event.id}
+                  {...event}
+                  onClick={() => handleEventClick(event.id)}
+                />
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="inquired" className="mt-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {eventsData.inquired.map((event) => (
-              <EventCard
-                key={event.id}
-                {...event}
-                onClick={() => console.log(`View event ${event.id}`)}
-              />
-            ))}
-          </div>
+          {inquiredEvents.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-muted-foreground">No inquired events</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {inquiredEvents.map((event) => (
+                <EventCard
+                  key={event.id}
+                  {...event}
+                  onClick={() => handleEventClick(event.id)}
+                />
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="inProgress" className="mt-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {eventsData.inProgress.map((event) => (
-              <EventCard
-                key={event.id}
-                {...event}
-                onClick={() => console.log(`View event ${event.id}`)}
-              />
-            ))}
-          </div>
+          {inProgressEvents.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-muted-foreground">No events in progress</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {inProgressEvents.map((event) => (
+                <EventCard
+                  key={event.id}
+                  {...event}
+                  onClick={() => handleEventClick(event.id)}
+                />
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="completed" className="mt-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {eventsData.completed.map((event) => (
-              <EventCard
-                key={event.id}
-                {...event}
-                onClick={() => console.log(`View event ${event.id}`)}
-              />
-            ))}
-          </div>
+          {completedEvents.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-muted-foreground">No completed events</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {completedEvents.map((event) => (
+                <EventCard
+                  key={event.id}
+                  {...event}
+                  onClick={() => handleEventClick(event.id)}
+                />
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

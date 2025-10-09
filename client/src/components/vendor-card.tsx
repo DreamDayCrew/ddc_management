@@ -6,11 +6,11 @@ import { MapPin, Phone, Star, Edit } from "lucide-react";
 interface VendorCardProps {
   id: string;
   name: string;
-  category?: string;
-  specialization?: string;
-  location?: string;
-  contactInfo?: string;
-  rating?: number;
+  category?: string | null;
+  specialization?: string | null;
+  location?: string | null;
+  contactInfo?: string | null;
+  rating?: number | null;
   onEdit?: () => void;
 }
 
@@ -56,12 +56,12 @@ export function VendorCard({
             <Star
               key={i}
               className={`h-4 w-4 ${
-                i < rating ? "fill-chart-3 text-chart-3" : "text-muted-foreground"
+                i < (rating || 0) ? "fill-chart-3 text-chart-3" : "text-muted-foreground"
               }`}
             />
           ))}
           <span className="text-sm text-muted-foreground ml-2" data-testid={`vendor-rating-${id}`}>
-            ({rating}/5)
+            ({rating || 0}/5)
           </span>
         </div>
       </CardContent>

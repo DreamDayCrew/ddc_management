@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
-import { ArrowDownRight, ArrowUpRight, ArrowLeftRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowDownRight, ArrowUpRight, ArrowLeftRight, Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface ExpenseRowProps {
@@ -7,9 +8,11 @@ interface ExpenseRowProps {
   type: "Credit" | "Debit" | "Transfer";
   description: string;
   amount: string;
-  mode?: string;
+  mode?: string | null;
   date: string;
   status: string;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 export function ExpenseRow({
@@ -20,6 +23,8 @@ export function ExpenseRow({
   mode,
   date,
   status,
+  onEdit,
+  onDelete,
 }: ExpenseRowProps) {
   const typeConfig = {
     Credit: {
@@ -78,6 +83,30 @@ export function ExpenseRow({
         >
           {status}
         </Badge>
+        {(onEdit || onDelete) && (
+          <div className="flex items-center gap-1">
+            {onEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onEdit}
+                data-testid={`button-edit-expense-${id}`}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onDelete}
+                data-testid={`button-delete-expense-${id}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
