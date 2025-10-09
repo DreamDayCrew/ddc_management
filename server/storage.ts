@@ -102,6 +102,7 @@ export class MemStorage implements IStorage {
       email: config.email || null,
       website: config.website || null,
       socialLinks: config.socialLinks || null,
+      termsAndConditions: config.termsAndConditions || null,
       assetCategories: config.assetCategories || [],
       assetPurchaseStatus: config.assetPurchaseStatus || ['Existing', 'New'],
       servicesProvided: config.servicesProvided || [],

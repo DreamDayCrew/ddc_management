@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { PDFDownloadLink } from "@react-pdf/renderer";
 import { 
   type Event, 
   type Requirement, 
@@ -49,7 +50,8 @@ import { EventForm } from "@/components/forms/event-form";
 import { RequirementForm } from "@/components/forms/requirement-form";
 import { FulfillmentForm } from "@/components/forms/fulfillment-form";
 import { RequirementItem } from "@/components/requirement-item";
-import { ArrowLeft, Calendar, MapPin, User, DollarSign, Edit, Plus } from "lucide-react";
+import { InvoiceTemplate } from "@/components/invoice-template";
+import { ArrowLeft, Calendar, MapPin, User, DollarSign, Edit, Plus, FileDown } from "lucide-react";
 import { format } from "date-fns";
 
 export default function EventDetails() {
@@ -86,6 +88,17 @@ export default function EventDetails() {
   const { data: config } = useQuery<Configuration>({
     queryKey: ["/api/configuration"],
   });
+
+  // Parse client info from pipe-separated string
+  const parseClientInfo = (clientInfo: string) => {
+    const parts = clientInfo.split('|').map(s => s.trim());
+    return {
+      name: parts[0] || "N/A",
+      contact: parts[1] || "N/A",
+      address: parts[2] || "N/A",
+      email: parts[3] || "N/A",
+    };
+  };
 
   const updateEventStatusMutation = useMutation({
     mutationFn: async (status: string) => {
@@ -195,20 +208,35 @@ export default function EventDetails() {
           <h1 className="text-3xl font-semibold" data-testid="event-details-title">{event.eventName}</h1>
           <p className="text-muted-foreground mt-1">{event.providedService}</p>
         </div>
-        <Dialog open={editEventOpen} onOpenChange={setEditEventOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-edit-event">
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Event
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Edit Event</DialogTitle>
-            </DialogHeader>
-            <EventForm event={event} onSuccess={() => setEditEventOpen(false)} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          {config && (
+            <PDFDownloadLink
+              document={<InvoiceTemplate config={config} event={event} clientInfo={parseClientInfo(event.clientInfo)} />}
+              fileName={`Invoice_${event.eventName}_${format(new Date(), "yyyyMMdd")}.pdf`}
+            >
+              {({ loading }) => (
+                <Button variant="outline" disabled={loading} data-testid="button-generate-invoice">
+                  <FileDown className="h-4 w-4 mr-2" />
+                  {loading ? "Generating..." : "Generate Invoice"}
+                </Button>
+              )}
+            </PDFDownloadLink>
+          )}
+          <Dialog open={editEventOpen} onOpenChange={setEditEventOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-edit-event">
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Event
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Edit Event</DialogTitle>
+              </DialogHeader>
+              <EventForm event={event} onSuccess={() => setEditEventOpen(false)} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card>

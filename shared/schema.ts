@@ -14,6 +14,7 @@ export const configurations = pgTable("configurations", {
   email: text("email"),
   website: text("website"),
   socialLinks: text("social_links").array(),
+  termsAndConditions: text("terms_and_conditions"),
   assetCategories: text("asset_categories").array().notNull().default(sql`ARRAY[]::text[]`),
   assetPurchaseStatus: text("asset_purchase_status").array().notNull().default(sql`ARRAY['Existing', 'New']::text[]`),
   servicesProvided: text("services_provided").array().notNull().default(sql`ARRAY[]::text[]`),

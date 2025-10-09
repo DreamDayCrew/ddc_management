@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Plus, Building2, Package, Briefcase, Users as UsersIcon, DollarSign, CheckCircle, Pencil, X } from "lucide-react";
@@ -22,6 +23,7 @@ const businessInfoSchema = z.object({
   address: z.string().optional(),
   gstNumber: z.string().optional(),
   website: z.string().optional(),
+  termsAndConditions: z.string().optional(),
 });
 
 const arrayItemSchema = z.object({
@@ -51,6 +53,7 @@ export default function Configuration() {
       address: config?.address || "",
       gstNumber: config?.gstNumber || "",
       website: config?.website || "",
+      termsAndConditions: config?.termsAndConditions || "",
     },
   });
 
@@ -417,6 +420,19 @@ export default function Configuration() {
                     <FormLabel>Website</FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="Enter website URL" data-testid="input-business-website" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={businessForm.control}
+                name="termsAndConditions"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Terms & Conditions</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} placeholder="Enter invoice terms and conditions" rows={4} data-testid="input-terms-conditions" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
