@@ -1,0 +1,76 @@
+package it.skytv.skygo.cerebro.login.service;
+
+import it.skytv.skygo.cerebro.client.SkyIdManagerClient;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class SkyIdManagerServiceTest {
+
+    @Mock
+    private SkyIdManagerClient skyIdManagerClient;
+
+    @InjectMocks
+    private SkyIdManagerService skyIdManagerService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    @DisplayName("Should return externalId when client returns a value")
+    void shouldReturnExternalIdWhenClientReturnsValue() {
+        // Arrange
+        String skyId = "sky123";
+        String expectedExternalId = "ext-789";
+        when(skyIdManagerClient.getExternalIdBySkyId(skyId)).thenReturn(Optional.of(expectedExternalId));
+
+        // Act
+        Optional<String> result = skyIdManagerService.getExternalIdForUser(skyId);
+
+        // Assert
+        assertTrue(result.isPresent(), "Expected externalId to be present");
+        assertEquals(expectedExternalId, result.get(), "ExternalId should match expected value");
+        verify(skyIdManagerClient).getExternalIdBySkyId(skyId);
+    }
+
+    @Test
+    @DisplayName("Should return empty Optional when client returns empty")
+    void shouldReturnEmptyWhenClientReturnsEmpty() {
+        // Arrange
+        String skyId = "sky999";
+        when(skyIdManagerClient.getExternalIdBySkyId(skyId)).thenReturn(Optional.empty());
+
+        // Act
+        Optional<String> result = skyIdManagerService.getExternalIdForUser(skyId);
+
+        // Assert
+        assertTrue(result.isEmpty(), "Expected empty Optional when client returns empty");
+        verify(skyIdManagerClient).getExternalIdBySkyId(skyId);
+    }
+
+    @Test
+    @DisplayName("Should handle exception gracefully and return empty Optional")
+    void shouldHandleExceptionGracefully() {
+        // Arrange
+        String skyId = "skyError";
+        when(skyIdManagerClient.getExternalIdBySkyId(skyId))
+                .thenThrow(new RuntimeException("Service unavailable"));
+
+        // Act
+        Optional<String> result = skyIdManagerService.getExternalIdForUser(skyId);
+
+        // Assert
+        assertTrue(result.isEmpty(), "Expected empty Optional when exception occurs");
+        verify(skyIdManagerClient).getExternalIdBySkyId(skyId);
+    }
+}
