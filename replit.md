@@ -14,6 +14,11 @@ The system supports multiple event types (weddings, corporate events, birthdays,
 - ✅ Real-time dashboard with charts and statistics
 - ✅ Form validation using Zod schemas
 - ✅ End-to-end tests passing for all major workflows
+- ✅ Recent form improvements (Oct 9, 2025):
+  - Business Information form: Logo upload with base64 storage and preview
+  - Team Member form: Designation changed to freeform text input (was dropdown)
+  - Requirement form: Owner changed to team member dropdown (was text input)
+  - Requirement form: "Order" field renamed to "Invoice Value" for clarity
 
 ## User Preferences
 
