@@ -40,13 +40,17 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  // Seed database on startup if empty
+  // Database seeding disabled - your data will persist across restarts
+  // If you need to reseed sample data, uncomment the code below:
+  /*
   try {
     await seedDatabase();
     log("Database seeded successfully");
   } catch (error) {
     log("Database seeding skipped or failed:", error);
   }
+  */
+  log("Database seeding disabled - using existing data");
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
