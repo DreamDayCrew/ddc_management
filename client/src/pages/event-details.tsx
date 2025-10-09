@@ -40,7 +40,8 @@ import {
 import { EventForm } from "@/components/forms/event-form";
 import { RequirementForm } from "@/components/forms/requirement-form";
 import { FulfillmentForm } from "@/components/forms/fulfillment-form";
-import { ArrowLeft, Calendar, MapPin, User, DollarSign, Edit, Plus, Trash2 } from "lucide-react";
+import { RequirementItem } from "@/components/requirement-item";
+import { ArrowLeft, Calendar, MapPin, User, DollarSign, Edit, Plus } from "lucide-react";
 import { format } from "date-fns";
 
 export default function EventDetails() {
@@ -49,9 +50,7 @@ export default function EventDetails() {
   const { toast } = useToast();
   const [editEventOpen, setEditEventOpen] = useState(false);
   const [addRequirementOpen, setAddRequirementOpen] = useState(false);
-  const [editRequirement, setEditRequirement] = useState<Requirement | null>(null);
   const [deleteRequirement, setDeleteRequirement] = useState<Requirement | null>(null);
-  const [addPlanRequirementId, setAddPlanRequirementId] = useState<string | null>(null);
   const [editPlan, setEditPlan] = useState<{ plan: FulfillmentPlan; requirementId: string } | null>(null);
   const [deletePlan, setDeletePlan] = useState<FulfillmentPlan | null>(null);
 
@@ -75,12 +74,6 @@ export default function EventDetails() {
   const { data: assets = [] } = useQuery<Asset[]>({
     queryKey: ["/api/assets"],
   });
-
-  const requirementPlansQueries = requirements.map((req) => 
-    useQuery<FulfillmentPlan[]>({
-      queryKey: ["/api/requirements", req.id, "plans"],
-    })
-  );
 
   const deleteRequirementMutation = useMutation({
     mutationFn: async (reqId: string) => {
@@ -107,11 +100,11 @@ export default function EventDetails() {
     mutationFn: async (planId: string) => {
       await apiRequest("DELETE", `/api/plans/${planId}`);
     },
-    onSuccess: () => {
+    onSuccess: (_data, _variables, context: any) => {
+      if (context?.requirementId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/requirements", context.requirementId, "plans"] });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/events", id, "requirements"] });
-      requirements.forEach((req) => {
-        queryClient.invalidateQueries({ queryKey: ["/api/requirements", req.id, "plans"] });
-      });
       toast({
         title: "Success",
         description: "Fulfillment plan deleted successfully",
@@ -126,21 +119,6 @@ export default function EventDetails() {
       });
     },
   });
-
-  const getTeamMemberName = (id?: string | null) => {
-    if (!id) return "N/A";
-    return teamMembers.find((m) => m.id === id)?.name || "Unknown";
-  };
-
-  const getVendorName = (id?: string | null) => {
-    if (!id) return "N/A";
-    return vendors.find((v) => v.id === id)?.name || "Unknown";
-  };
-
-  const getAssetName = (id?: string | null) => {
-    if (!id) return "N/A";
-    return assets.find((a) => a.id === id)?.name || "Unknown";
-  };
 
   if (eventLoading || requirementsLoading) {
     return (
@@ -317,202 +295,19 @@ export default function EventDetails() {
         <Accordion type="multiple" className="space-y-4">
           {requirements
             .sort((a, b) => a.order - b.order)
-            .map((requirement, index) => {
-              const plansData = requirementPlansQueries[index]?.data || [];
-              return (
-                <AccordionItem
-                  key={requirement.id}
-                  value={requirement.id}
-                  className="border rounded-lg px-4"
-                  data-testid={`requirement-item-${requirement.id}`}
-                >
-                  <AccordionTrigger className="hover:no-underline">
-                    <div className="flex items-center justify-between w-full pr-4">
-                      <div className="flex items-center gap-3">
-                        <Badge variant="outline" className="text-xs">#{requirement.order}</Badge>
-                        <span className="font-medium" data-testid={`requirement-text-${requirement.id}`}>
-                          {requirement.requirement}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-chart-1 text-white" data-testid={`requirement-status-${requirement.id}`}>
-                          {requirement.requirementStatus}
-                        </Badge>
-                        {requirement.requirementOwner && (
-                          <Badge variant="outline" data-testid={`requirement-owner-${requirement.id}`}>
-                            {requirement.requirementOwner}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="space-y-4 pt-4">
-                    <div className="flex gap-2">
-                      <Dialog
-                        open={editRequirement?.id === requirement.id}
-                        onOpenChange={(open) => !open && setEditRequirement(null)}
-                      >
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setEditRequirement(requirement)}
-                            data-testid={`button-edit-requirement-${requirement.id}`}
-                          >
-                            <Edit className="h-3 w-3 mr-1" />
-                            Edit
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Edit Requirement</DialogTitle>
-                          </DialogHeader>
-                          <RequirementForm
-                            requirement={requirement}
-                            eventId={id!}
-                            onSuccess={() => setEditRequirement(null)}
-                          />
-                        </DialogContent>
-                      </Dialog>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setDeleteRequirement(requirement)}
-                        data-testid={`button-delete-requirement-${requirement.id}`}
-                      >
-                        <Trash2 className="h-3 w-3 mr-1" />
-                        Delete
-                      </Button>
-
-                      <Dialog
-                        open={addPlanRequirementId === requirement.id}
-                        onOpenChange={(open) => !open && setAddPlanRequirementId(null)}
-                      >
-                        <DialogTrigger asChild>
-                          <Button
-                            size="sm"
-                            onClick={() => setAddPlanRequirementId(requirement.id)}
-                            data-testid={`button-add-plan-${requirement.id}`}
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Add Plan
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Add Fulfillment Plan</DialogTitle>
-                          </DialogHeader>
-                          <FulfillmentForm
-                            requirementId={requirement.id}
-                            eventId={id!}
-                            onSuccess={() => setAddPlanRequirementId(null)}
-                          />
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-sm">Fulfillment Plans</h4>
-                      {plansData.length === 0 ? (
-                        <p className="text-sm text-muted-foreground py-4">No fulfillment plans added yet</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {plansData.map((plan) => (
-                            <Card key={plan.id} className="p-3" data-testid={`plan-item-${plan.id}`}>
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1 space-y-1">
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="outline" data-testid={`plan-type-${plan.id}`}>{plan.planType}</Badge>
-                                    <Badge className="bg-chart-1 text-white" data-testid={`plan-status-${plan.id}`}>
-                                      {plan.planStatus}
-                                    </Badge>
-                                  </div>
-                                  {plan.planType === "Team" && (
-                                    <div className="text-sm">
-                                      <span className="text-muted-foreground">Team: </span>
-                                      <span data-testid={`plan-team-${plan.id}`}>
-                                        {getTeamMemberName(plan.teamMemberId)} ({plan.teamRole})
-                                      </span>
-                                    </div>
-                                  )}
-                                  {plan.planType === "Vendor" && (
-                                    <div className="text-sm space-y-1">
-                                      <div>
-                                        <span className="text-muted-foreground">Vendor: </span>
-                                        <span data-testid={`plan-vendor-${plan.id}`}>
-                                          {getVendorName(plan.vendorId)}
-                                        </span>
-                                      </div>
-                                      <div>
-                                        <span className="text-muted-foreground">Amount: </span>
-                                        <span data-testid={`plan-amount-${plan.id}`}>
-                                          ₹{parseFloat(plan.vendorAmount || "0").toFixed(2)}
-                                        </span>
-                                      </div>
-                                      <div>
-                                        <span className="text-muted-foreground">Payment: </span>
-                                        <Badge variant="outline" data-testid={`plan-payment-${plan.id}`}>
-                                          {plan.vendorPaymentStatus}
-                                        </Badge>
-                                      </div>
-                                    </div>
-                                  )}
-                                  {plan.planType === "Asset" && (
-                                    <div className="text-sm">
-                                      <span className="text-muted-foreground">Asset: </span>
-                                      <span data-testid={`plan-asset-${plan.id}`}>
-                                        {getAssetName(plan.assetId)} ({plan.assetPurchaseStatus})
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex gap-1">
-                                  <Dialog
-                                    open={editPlan?.plan.id === plan.id}
-                                    onOpenChange={(open) => !open && setEditPlan(null)}
-                                  >
-                                    <DialogTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => setEditPlan({ plan, requirementId: requirement.id })}
-                                        data-testid={`button-edit-plan-${plan.id}`}
-                                      >
-                                        <Edit className="h-3 w-3" />
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent>
-                                      <DialogHeader>
-                                        <DialogTitle>Edit Fulfillment Plan</DialogTitle>
-                                      </DialogHeader>
-                                      <FulfillmentForm
-                                        plan={plan}
-                                        requirementId={requirement.id}
-                                        eventId={id!}
-                                        onSuccess={() => setEditPlan(null)}
-                                      />
-                                    </DialogContent>
-                                  </Dialog>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setDeletePlan(plan)}
-                                    data-testid={`button-delete-plan-${plan.id}`}
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </Card>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              );
-            })}
+            .map((requirement) => (
+              <RequirementItem
+                key={requirement.id}
+                requirement={requirement}
+                eventId={id!}
+                teamMembers={teamMembers}
+                vendors={vendors}
+                assets={assets}
+                onDelete={setDeleteRequirement}
+                onEditPlan={(plan, requirementId) => setEditPlan({ plan, requirementId })}
+                onDeletePlan={setDeletePlan}
+              />
+            ))}
         </Accordion>
       )}
 
