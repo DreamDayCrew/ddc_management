@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Plus, Building2, Package, Briefcase, Users as UsersIcon, DollarSign, CheckCircle, Pencil, X } from "lucide-react";
@@ -22,8 +23,10 @@ const businessInfoSchema = z.object({
   email: z.string().email().optional().or(z.literal("")),
   address: z.string().optional(),
   gstNumber: z.string().optional(),
+  includeGst: z.string().optional(),
   website: z.string().optional(),
   termsAndConditions: z.string().optional(),
+  signatureImage: z.string().optional(),
 });
 
 const arrayItemSchema = z.object({
@@ -52,8 +55,10 @@ export default function Configuration() {
       email: config?.email || "",
       address: config?.address || "",
       gstNumber: config?.gstNumber || "",
+      includeGst: config?.includeGst || "true",
       website: config?.website || "",
       termsAndConditions: config?.termsAndConditions || "",
+      signatureImage: config?.signatureImage || "",
     },
   });
 
@@ -434,6 +439,59 @@ export default function Configuration() {
                     <FormControl>
                       <Textarea {...field} placeholder="Enter invoice terms and conditions" rows={4} data-testid="input-terms-conditions" />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={businessForm.control}
+                name="includeGst"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox 
+                        checked={field.value === "true"} 
+                        onCheckedChange={(checked) => field.onChange(checked ? "true" : "false")}
+                        data-testid="checkbox-include-gst"
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Include GST in Invoices</FormLabel>
+                      <p className="text-sm text-muted-foreground">
+                        When enabled, GST calculation (18%) will be shown on invoices
+                      </p>
+                    </div>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={businessForm.control}
+                name="signatureImage"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Signature Image (for Invoices)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              field.onChange(reader.result as string);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        data-testid="input-signature-image"
+                      />
+                    </FormControl>
+                    {field.value && (
+                      <div className="mt-2">
+                        <img src={field.value} alt="Signature preview" className="h-16 w-32 object-contain rounded border" />
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
