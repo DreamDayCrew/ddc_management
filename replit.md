@@ -7,7 +7,7 @@ Dream Day Crew is a comprehensive event management system designed for managing 
 The system supports multiple event types (weddings, corporate events, birthdays, product launches, etc.) and provides integrated management of all event-related resources including inventory, vendor relationships, team assignments, and financial tracking.
 
 **Current Status (October 9, 2025):**
-- ✅ Full-stack implementation complete with all 7 core modules functional
+- ✅ Full-stack implementation complete with all 8 core modules functional
 - ✅ Database automatically seeded with sample data on startup
 - ✅ All CRUD operations working (Create, Read, Update, Delete)
 - ✅ Complex nested event management (Events → Requirements → Fulfillment Plans)
@@ -15,6 +15,11 @@ The system supports multiple event types (weddings, corporate events, birthdays,
 - ✅ Form validation using Zod schemas
 - ✅ End-to-end tests passing for all major workflows
 - ✅ Recent improvements (Oct 9, 2025):
+  - **New Features:**
+    - **Fulfillment Plans Page**: Dedicated page showing all fulfillment plans across all events with search and filtering
+    - **Conditional Fields in Fulfillment Plans**:
+      - Team plans: Added "payment" field to enter payment amount
+      - Asset plans: Added "purchased value" field (shows when "New" is selected in Asset Purchase Status)
   - **Form Enhancements:**
     - Business Information: Logo upload with base64 storage and preview
     - Team Member: Designation changed to freeform text input (was dropdown)
