@@ -130,8 +130,11 @@ export default function EventDetails() {
 
   if (!event) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <p className="text-muted-foreground">Event not found</p>
+        <Button onClick={() => setLocation("/")} data-testid="button-back-to-dashboard">
+          Back to Dashboard
+        </Button>
       </div>
     );
   }
