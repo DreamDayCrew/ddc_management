@@ -54,7 +54,10 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
       registeredOn: event?.registeredOn || format(new Date(), "yyyy-MM-dd"),
       eventDate: event?.eventDate || "",
       venue: event?.venue || "",
-      clientInfo: event?.clientInfo || "",
+      clientName: event?.clientName || "",
+      clientPhone: event?.clientPhone || "",
+      clientAddress: event?.clientAddress || "",
+      clientEmail: event?.clientEmail || "",
       eventStatus: event?.eventStatus || "Inquired",
       initialQuote: event?.initialQuote || "",
       finalizedQuote: event?.finalizedQuote || "",
@@ -218,12 +221,54 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
 
           <FormField
             control={form.control}
-            name="clientInfo"
+            name="clientName"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Client Info</FormLabel>
+                <FormLabel>Client Name</FormLabel>
                 <FormControl>
-                  <Input {...field} placeholder="Enter client info" data-testid="input-client-info" />
+                  <Input {...field} value={field.value || ""} placeholder="Enter client name" data-testid="input-client-name" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="clientPhone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Client Phone</FormLabel>
+                <FormControl>
+                  <Input {...field} value={field.value || ""} placeholder="Enter client phone" data-testid="input-client-phone" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="clientAddress"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Client Address</FormLabel>
+                <FormControl>
+                  <Input {...field} value={field.value || ""} placeholder="Enter client address" data-testid="input-client-address" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="clientEmail"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Client Email</FormLabel>
+                <FormControl>
+                  <Input {...field} value={field.value || ""} type="email" placeholder="Enter client email" data-testid="input-client-email" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
