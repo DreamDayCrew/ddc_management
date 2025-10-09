@@ -14,11 +14,19 @@ The system supports multiple event types (weddings, corporate events, birthdays,
 - ✅ Real-time dashboard with charts and statistics
 - ✅ Form validation using Zod schemas
 - ✅ End-to-end tests passing for all major workflows
-- ✅ Recent form improvements (Oct 9, 2025):
-  - Business Information form: Logo upload with base64 storage and preview
-  - Team Member form: Designation changed to freeform text input (was dropdown)
-  - Requirement form: Owner changed to team member dropdown (was text input)
-  - Requirement form: "Order" field renamed to "Invoice Value" for clarity
+- ✅ Recent improvements (Oct 9, 2025):
+  - **Form Enhancements:**
+    - Business Information: Logo upload with base64 storage and preview
+    - Team Member: Designation changed to freeform text input (was dropdown)
+    - Requirement: Owner changed to team member dropdown (was text input)
+    - Requirement: "Order" field renamed to "Invoice Value" for clarity
+  - **UX Improvements:**
+    - Event not found page now includes "Back to Dashboard" button
+    - Added inline status update dropdowns for Events, Requirements, and Fulfillment Plans
+    - No need to open edit forms just to change status
+  - **Bug Fixes:**
+    - Increased Express body size limit to 10mb (fixed logo upload PayloadTooLargeError)
+    - Added missing edit functionality for Fulfillment Plans
 
 ## User Preferences
 
