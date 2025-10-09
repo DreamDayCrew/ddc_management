@@ -7,13 +7,21 @@ import {
   type FulfillmentPlan,
   type TeamMember,
   type Vendor,
-  type Asset
+  type Asset,
+  type Configuration
 } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Accordion,
   AccordionContent,
@@ -73,6 +81,30 @@ export default function EventDetails() {
 
   const { data: assets = [] } = useQuery<Asset[]>({
     queryKey: ["/api/assets"],
+  });
+
+  const { data: config } = useQuery<Configuration>({
+    queryKey: ["/api/configuration"],
+  });
+
+  const updateEventStatusMutation = useMutation({
+    mutationFn: async (status: string) => {
+      return await apiRequest("PATCH", `/api/events/${id}`, { eventStatus: status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events", id] });
+      toast({
+        title: "Success",
+        description: "Event status updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const deleteRequirementMutation = useMutation({
@@ -182,9 +214,22 @@ export default function EventDetails() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-3">
           <CardTitle className="text-lg">Event Information</CardTitle>
-          <Badge className={statusColors[event.eventStatus] || "bg-muted"} data-testid="event-status-badge">
-            {event.eventStatus}
-          </Badge>
+          <Select
+            value={event.eventStatus}
+            onValueChange={(value) => updateEventStatusMutation.mutate(value)}
+            disabled={updateEventStatusMutation.isPending}
+          >
+            <SelectTrigger className="w-[180px]" data-testid="select-event-status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {["Inquired", "In Progress", "Completed"].map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1">
@@ -353,6 +398,22 @@ export default function EventDetails() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!editPlan} onOpenChange={(open) => !open && setEditPlan(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Fulfillment Plan</DialogTitle>
+          </DialogHeader>
+          {editPlan && (
+            <FulfillmentForm
+              requirementId={editPlan.requirementId}
+              eventId={id!}
+              plan={editPlan.plan}
+              onSuccess={() => setEditPlan(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

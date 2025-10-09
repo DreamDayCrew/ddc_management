@@ -1,15 +1,25 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   type Requirement,
   type FulfillmentPlan,
   type TeamMember,
   type Vendor,
   type Asset,
+  type Configuration,
 } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AccordionContent,
   AccordionItem,
@@ -47,11 +57,56 @@ export function RequirementItem({
   onEditPlan,
   onDeletePlan,
 }: RequirementItemProps) {
+  const { toast } = useToast();
   const [editRequirement, setEditRequirement] = useState(false);
   const [addPlanOpen, setAddPlanOpen] = useState(false);
 
   const { data: plans = [] } = useQuery<FulfillmentPlan[]>({
     queryKey: ["/api/requirements", requirement.id, "plans"],
+  });
+
+  const { data: config } = useQuery<Configuration>({
+    queryKey: ["/api/configuration"],
+  });
+
+  const updateRequirementStatusMutation = useMutation({
+    mutationFn: async (status: string) => {
+      return await apiRequest("PATCH", `/api/requirements/${requirement.id}`, { requirementStatus: status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events", eventId, "requirements"] });
+      toast({
+        title: "Success",
+        description: "Requirement status updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updatePlanStatusMutation = useMutation({
+    mutationFn: async ({ planId, status }: { planId: string; status: string }) => {
+      return await apiRequest("PATCH", `/api/plans/${planId}`, { planStatus: status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/requirements", requirement.id, "plans"] });
+      toast({
+        title: "Success",
+        description: "Fulfillment plan status updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const getTeamMemberName = (id: string | null) => {
@@ -89,9 +144,22 @@ export function RequirementItem({
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className="bg-chart-1 text-white" data-testid={`requirement-status-${requirement.id}`}>
-              {requirement.requirementStatus}
-            </Badge>
+            <Select
+              value={requirement.requirementStatus}
+              onValueChange={(value) => updateRequirementStatusMutation.mutate(value)}
+              disabled={updateRequirementStatusMutation.isPending}
+            >
+              <SelectTrigger className="w-[140px] h-8" data-testid={`select-requirement-status-${requirement.id}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["To Do", "In Progress", "Completed"].map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {status}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {requirement.requirementOwner && (
               <Badge variant="outline" data-testid={`requirement-owner-${requirement.id}`}>
                 {requirement.requirementOwner}
@@ -171,9 +239,22 @@ export function RequirementItem({
                         <Badge variant="outline" data-testid={`plan-type-${plan.id}`}>
                           {plan.planType}
                         </Badge>
-                        <Badge className="bg-chart-1 text-white" data-testid={`plan-status-${plan.id}`}>
-                          {plan.planStatus}
-                        </Badge>
+                        <Select
+                          value={plan.planStatus}
+                          onValueChange={(value) => updatePlanStatusMutation.mutate({ planId: plan.id, status: value })}
+                          disabled={updatePlanStatusMutation.isPending}
+                        >
+                          <SelectTrigger className="w-[120px] h-7" data-testid={`select-plan-status-${plan.id}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {config?.planStatuses?.map((status) => (
+                              <SelectItem key={status} value={status}>
+                                {status}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       {plan.planType === "Team" && (
                         <div className="text-sm">
