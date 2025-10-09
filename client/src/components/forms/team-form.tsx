@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { insertTeamMemberSchema, type TeamMember, type InsertTeamMember, type Configuration } from "@shared/schema";
+import { useMutation } from "@tanstack/react-query";
+import { insertTeamMemberSchema, type TeamMember, type InsertTeamMember } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -14,13 +14,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 interface TeamFormProps {
   member?: TeamMember;
@@ -30,10 +23,6 @@ interface TeamFormProps {
 export function TeamForm({ member, onSuccess }: TeamFormProps) {
   const { toast } = useToast();
   const isEditing = !!member;
-
-  const { data: config } = useQuery<Configuration>({
-    queryKey: ["/api/configuration"],
-  });
 
   const form = useForm<InsertTeamMember>({
     resolver: zodResolver(insertTeamMemberSchema),
@@ -121,20 +110,9 @@ export function TeamForm({ member, onSuccess }: TeamFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Designation</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger data-testid="select-team-designation">
-                    <SelectValue placeholder="Select designation" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {config?.roles?.map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {role}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FormControl>
+                <Input {...field} placeholder="Enter designation (e.g., Event Coordinator, Manager)" data-testid="input-team-designation" />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}

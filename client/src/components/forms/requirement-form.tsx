@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { insertRequirementSchema, type Requirement, type InsertRequirement, type Configuration } from "@shared/schema";
+import { insertRequirementSchema, type Requirement, type InsertRequirement, type Configuration, type TeamMember } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,10 @@ export function RequirementForm({ requirement, eventId, onSuccess }: Requirement
 
   const { data: config } = useQuery<Configuration>({
     queryKey: ["/api/configuration"],
+  });
+
+  const { data: teamMembers = [] } = useQuery<TeamMember[]>({
+    queryKey: ["/api/team"],
   });
 
   const form = useForm<InsertRequirement>({
@@ -125,9 +129,20 @@ export function RequirementForm({ requirement, eventId, onSuccess }: Requirement
           render={({ field }) => (
             <FormItem>
               <FormLabel>Requirement Owner</FormLabel>
-              <FormControl>
-                <Input {...field} value={field.value || ""} placeholder="Enter owner" data-testid="input-requirement-owner" />
-              </FormControl>
+              <Select onValueChange={field.onChange} value={field.value || undefined}>
+                <FormControl>
+                  <SelectTrigger data-testid="select-requirement-owner">
+                    <SelectValue placeholder="Select team member" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {teamMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.name}>
+                      {member.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -163,13 +178,13 @@ export function RequirementForm({ requirement, eventId, onSuccess }: Requirement
           name="order"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Order</FormLabel>
+              <FormLabel>Invoice Value</FormLabel>
               <FormControl>
                 <Input
                   {...field}
                   type="number"
                   onChange={(e) => field.onChange(Number(e.target.value))}
-                  placeholder="Enter order number"
+                  placeholder="Enter invoice value"
                   data-testid="input-requirement-order"
                 />
               </FormControl>

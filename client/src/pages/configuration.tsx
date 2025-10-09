@@ -16,6 +16,7 @@ import { Plus, Building2, Package, Briefcase, Users as UsersIcon, DollarSign, Ch
 
 const businessInfoSchema = z.object({
   businessName: z.string().min(1, "Business name is required"),
+  logo: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
   address: z.string().optional(),
@@ -44,6 +45,7 @@ export default function Configuration() {
     resolver: zodResolver(businessInfoSchema),
     values: {
       businessName: config?.businessName || "",
+      logo: config?.logo || "",
       phone: config?.phone || "",
       email: config?.email || "",
       address: config?.address || "",
@@ -211,6 +213,12 @@ export default function Configuration() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          {config?.logo && (
+            <div>
+              <p className="text-sm font-medium">Logo</p>
+              <img src={config.logo} alt="Business logo" className="h-16 w-16 object-contain rounded border mt-2" />
+            </div>
+          )}
           <div>
             <p className="text-sm font-medium">Business Name</p>
             <p className="text-muted-foreground">{config?.businessName || "Not set"}</p>
@@ -313,6 +321,38 @@ export default function Configuration() {
                     <FormControl>
                       <Input {...field} placeholder="Enter business name" data-testid="input-business-name" />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={businessForm.control}
+                name="logo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Logo</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              field.onChange(reader.result as string);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        data-testid="input-business-logo"
+                      />
+                    </FormControl>
+                    {field.value && (
+                      <div className="mt-2">
+                        <img src={field.value} alt="Logo preview" className="h-20 w-20 object-contain rounded border" />
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
