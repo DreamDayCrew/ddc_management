@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -73,9 +74,26 @@ app.use((req, res, next) => {
   // Render provides PORT automatically, default to 10000 for Render compatibility
   // this serves both the API and the client.
   const port = parseInt(process.env.PORT || '10000', 10);
-  server.listen(port, '0.0.0.0', () => {
+  
+  // Test database connection
+  const testDbConnection = async () => {
+    try {
+      if (process.env.DATABASE_URL) {
+        const { DatabaseStorage } = await import('./database-storage');
+        const dbStorage = new DatabaseStorage();
+        const isConnected = await dbStorage.testConnection();
+        log(`💾 Database: ${isConnected ? 'Connected (Neon)' : 'Connection Failed'}`);
+      } else {
+        log(`💾 Database: Using Memory Storage`);
+      }
+    } catch (error) {
+      log(`💾 Database: Connection Error - ${error}`);
+    }
+  };
+  
+  server.listen(port, '0.0.0.0', async () => {
     log(`🚀 Server running on port ${port}`);
     log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-    log(`💾 Database connected: ${process.env.DATABASE_URL ? 'Yes' : 'No'}`);
+    await testDbConnection();
   });
 })();

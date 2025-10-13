@@ -97,12 +97,14 @@ export class MemStorage implements IStorage {
       businessName: config.businessName,
       logo: config.logo || null,
       gstNumber: config.gstNumber || null,
+      includeGst: config.includeGst || null,
       address: config.address || null,
       phone: config.phone || null,
       email: config.email || null,
       website: config.website || null,
       socialLinks: config.socialLinks || null,
       termsAndConditions: config.termsAndConditions || null,
+      signatureImage: config.signatureImage || null,
       assetCategories: config.assetCategories || [],
       assetPurchaseStatus: config.assetPurchaseStatus || ['Existing', 'New'],
       servicesProvided: config.servicesProvided || [],
@@ -141,6 +143,8 @@ export class MemStorage implements IStorage {
       purchaseDate: asset.purchaseDate || null,
       purchasedAmount: asset.purchasedAmount || null,
       status: asset.status || 'Active',
+      detailsAndUse: asset.detailsAndUse || null,
+      warranty: asset.warranty || null,
     };
     this.assets.set(newAsset.id, newAsset);
     return newAsset;
@@ -272,7 +276,11 @@ export class MemStorage implements IStorage {
       registeredOn: event.registeredOn,
       eventDate: event.eventDate,
       venue: event.venue,
-      clientInfo: event.clientInfo,
+      clientInfo: event.clientInfo || null,
+      clientName: event.clientName || null,
+      clientPhone: event.clientPhone || null,
+      clientAddress: event.clientAddress || null,
+      clientEmail: event.clientEmail || null,
       eventStatus: event.eventStatus || 'Inquired',
       initialQuote: event.initialQuote || null,
       finalizedQuote: event.finalizedQuote || null,
@@ -381,4 +389,9 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+import { DatabaseStorage } from './database-storage';
+
+// Use database storage if DATABASE_URL is provided, otherwise fall back to memory storage
+export const storage = process.env.DATABASE_URL 
+  ? new DatabaseStorage() 
+  : new MemStorage();
