@@ -6,7 +6,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Form,
   FormControl,
@@ -170,6 +169,44 @@ export function AssetForm({ asset, onSuccess }: AssetFormProps) {
 
         <FormField
           control={form.control}
+          name="detailsAndUse"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Details & Use</FormLabel>
+              <FormControl>
+                <Input 
+                  {...field}
+                  value={field.value || ""}
+                  placeholder="Enter asset details and usage specifications..." 
+                  data-testid="input-asset-details"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="warranty"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Warranty</FormLabel>
+              <FormControl>
+                <Input 
+                  {...field}
+                  value={field.value || ""}
+                  placeholder="Enter warranty information (period, terms, etc.)..." 
+                  data-testid="input-asset-warranty"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="purchaseDate"
           render={({ field }) => (
             <FormItem>
@@ -214,46 +251,6 @@ export function AssetForm({ asset, onSuccess }: AssetFormProps) {
                   <SelectItem value="Maintenance">Maintenance</SelectItem>
                 </SelectContent>
               </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="detailsAndUse"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Details & Use</FormLabel>
-              <FormControl>
-                <Textarea 
-                  {...field}
-                  value={field.value || ""}
-                  placeholder="Enter asset details and usage specifications..." 
-                  className="min-h-[80px]"
-                  data-testid="textarea-asset-details"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="warranty"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Warranty</FormLabel>
-              <FormControl>
-                <Textarea 
-                  {...field}
-                  value={field.value || ""}
-                  placeholder="Enter warranty information (period, terms, etc.)..." 
-                  className="min-h-[60px]"
-                  data-testid="textarea-asset-warranty"
-                />
-              </FormControl>
               <FormMessage />
             </FormItem>
           )}
