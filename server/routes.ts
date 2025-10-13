@@ -23,8 +23,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Root endpoint 
-  app.get("/", (_req, res) => {
+  // Root endpoint - only serve API response in production
+  app.get("/api", (_req, res) => {
     res.json({ 
       message: "DDC Management API is running!", 
       status: "healthy",
