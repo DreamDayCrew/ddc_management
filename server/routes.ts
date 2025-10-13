@@ -14,6 +14,24 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint for Render deployment
+  app.get("/health", (_req, res) => {
+    res.status(200).json({ 
+      status: "OK", 
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development'
+    });
+  });
+
+  // Root endpoint 
+  app.get("/", (_req, res) => {
+    res.json({ 
+      message: "DDC Management API is running!", 
+      status: "healthy",
+      version: "1.0.0"
+    });
+  });
+
   // Seed database route
   app.post("/api/seed", async (_req, res) => {
     try {
