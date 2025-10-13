@@ -41,14 +41,15 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  // Database seeding disabled - your data will persist across restarts
+  // Database seeding disabled - configuration now exists in database
+  // Seeding was run once to populate initial configuration data
   // If you need to reseed sample data, uncomment the code below:
   /*
   try {
     await seedDatabase();
     log("Database seeded successfully");
   } catch (error) {
-    log("Database seeding skipped or failed:", error);
+    log("Database seeding skipped or failed:", String(error));
   }
   */
   log("Database seeding disabled - using existing data");
