@@ -37,6 +37,8 @@ export const assets = pgTable("assets", {
   purchaseDate: date("purchase_date"),
   purchasedAmount: decimal("purchased_amount", { precision: 10, scale: 2 }),
   status: text("status").notNull().default("Active"),
+  detailsAndUse: text("details_and_use"),
+  warranty: text("warranty"),
 });
 
 // Vendors Schema
