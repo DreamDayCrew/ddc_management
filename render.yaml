@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: ddc-management
+    runtime: node
+    buildCommand: npm run build
+    startCommand: npm start
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # This will be set manually in Render dashboard
