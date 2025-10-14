@@ -272,10 +272,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/events", async (req, res) => {
     try {
+      console.log('Creating event with data:', JSON.stringify(req.body, null, 2));
       const validatedData = insertEventSchema.parse(req.body);
+      console.log('Validation passed, creating event with:', JSON.stringify(validatedData, null, 2));
       const event = await storage.createEvent(validatedData);
       res.status(201).json(event);
     } catch (error: any) {
+      console.error('Event creation failed:', error.message);
+      console.error('Full error:', error);
+      if (error.issues) {
+        console.error('Validation issues:', JSON.stringify(error.issues, null, 2));
+      }
       res.status(400).json({ error: error.message });
     }
   });

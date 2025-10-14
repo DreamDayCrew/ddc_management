@@ -125,7 +125,14 @@ export const insertAssetSchema = createInsertSchema(assets).omit({ id: true });
 export const insertVendorSchema = createInsertSchema(vendors).omit({ id: true });
 export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id: true });
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true });
-export const insertEventSchema = createInsertSchema(events).omit({ id: true });
+export const insertEventSchema = createInsertSchema(events)
+  .omit({ id: true })
+  .extend({
+    initialQuote: z.string().optional().transform((val) => val === "" ? undefined : val),
+    finalizedQuote: z.string().optional().transform((val) => val === "" ? undefined : val),
+    ddcCost: z.string().optional().transform((val) => val === "" ? undefined : val),
+    profitLoss: z.string().optional().transform((val) => val === "" ? undefined : val),
+  });
 export const insertRequirementSchema = createInsertSchema(requirements).omit({ id: true });
 export const insertFulfillmentPlanSchema = createInsertSchema(fulfillmentPlans).omit({ id: true });
 

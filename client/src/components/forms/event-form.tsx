@@ -125,10 +125,19 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
   });
 
   const onSubmit = (data: EventFormData) => {
+    // Transform empty strings to undefined for decimal fields
+    const transformedData = {
+      ...data,
+      initialQuote: data.initialQuote === "" ? undefined : data.initialQuote,
+      finalizedQuote: data.finalizedQuote === "" ? undefined : data.finalizedQuote,
+      ddcCost: data.ddcCost === "" ? undefined : data.ddcCost,
+      profitLoss: data.profitLoss === "" ? undefined : data.profitLoss,
+    } as InsertEvent;
+
     if (isEditing) {
-      updateMutation.mutate(data as InsertEvent);
+      updateMutation.mutate(transformedData);
     } else {
-      createMutation.mutate(data as InsertEvent);
+      createMutation.mutate(transformedData);
     }
   };
 
