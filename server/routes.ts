@@ -23,6 +23,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Debug endpoint to check storage type and environment
+  app.get("/debug", (_req, res) => {
+    res.status(200).json({ 
+      storageType: storage.getStorageType(),
+      hasDatabaseUrl: !!process.env.DATABASE_URL,
+      databaseUrl: process.env.DATABASE_URL ? '[REDACTED]' : 'NOT_SET',
+      environment: process.env.NODE_ENV || 'development',
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // Root endpoint - only serve API response in production
   app.get("/api", (_req, res) => {
     res.json({ 

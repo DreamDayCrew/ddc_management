@@ -74,6 +74,9 @@ export interface IStorage {
   createFulfillmentPlan(plan: InsertFulfillmentPlan): Promise<FulfillmentPlan>;
   updateFulfillmentPlan(id: string, plan: Partial<InsertFulfillmentPlan>): Promise<FulfillmentPlan | undefined>;
   deleteFulfillmentPlan(id: string): Promise<boolean>;
+  
+  // Debug method
+  getStorageType(): string;
 }
 
 export class MemStorage implements IStorage {
@@ -387,11 +390,21 @@ export class MemStorage implements IStorage {
   async deleteFulfillmentPlan(id: string): Promise<boolean> {
     return this.fulfillmentPlans.delete(id);
   }
+  
+  getStorageType(): string {
+    return 'MemStorage';
+  }
 }
 
 import { DatabaseStorage } from './database-storage';
 
 // Use database storage if DATABASE_URL is provided, otherwise fall back to memory storage
+console.log('Storage initialization:', {
+  hasDatabaseUrl: !!process.env.DATABASE_URL,
+  databaseUrl: process.env.DATABASE_URL ? '[REDACTED]' : 'NOT_SET',
+  storageType: process.env.DATABASE_URL ? 'DatabaseStorage' : 'MemStorage'
+});
+
 export const storage = process.env.DATABASE_URL 
   ? new DatabaseStorage() 
   : new MemStorage();

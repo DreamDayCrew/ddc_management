@@ -268,4 +268,8 @@ export class DatabaseStorage implements IStorage {
     const result = await db.delete(fulfillmentPlans).where(eq(fulfillmentPlans.id, id)).returning();
     return result.length > 0;
   }
+  
+  getStorageType(): string {
+    return 'DatabaseStorage';
+  }
 }
