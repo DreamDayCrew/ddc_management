@@ -377,10 +377,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/plans", async (req, res) => {
     try {
+      console.log('Creating plan with data:', JSON.stringify(req.body, null, 2));
       const validatedData = insertFulfillmentPlanSchema.parse(req.body);
+      console.log('Validation passed, creating plan with:', JSON.stringify(validatedData, null, 2));
       const plan = await storage.createFulfillmentPlan(validatedData);
       res.status(201).json(plan);
     } catch (error: any) {
+      console.error('Plan creation failed:', error.message);
+      console.error('Full error:', error);
+      if (error.issues) {
+        console.error('Validation issues:', JSON.stringify(error.issues, null, 2));
+      }
       res.status(400).json({ error: error.message });
     }
   });

@@ -126,10 +126,18 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
   });
 
   const onSubmit = (data: InsertFulfillmentPlan) => {
+    // Transform empty strings to undefined for decimal fields
+    const transformedData = {
+      ...data,
+      payment: data.payment === "" ? undefined : data.payment,
+      vendorAmount: data.vendorAmount === "" ? undefined : data.vendorAmount,
+      purchasedValue: data.purchasedValue === "" ? undefined : data.purchasedValue,
+    };
+
     if (isEditing) {
-      updateMutation.mutate(data);
+      updateMutation.mutate(transformedData);
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(transformedData);
     }
   };
 

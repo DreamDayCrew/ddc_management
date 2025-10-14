@@ -134,7 +134,13 @@ export const insertEventSchema = createInsertSchema(events)
     profitLoss: z.string().optional().transform((val) => val === "" ? undefined : val),
   });
 export const insertRequirementSchema = createInsertSchema(requirements).omit({ id: true });
-export const insertFulfillmentPlanSchema = createInsertSchema(fulfillmentPlans).omit({ id: true });
+export const insertFulfillmentPlanSchema = createInsertSchema(fulfillmentPlans)
+  .omit({ id: true })
+  .extend({
+    payment: z.string().optional().transform((val) => val === "" ? undefined : val),
+    vendorAmount: z.string().optional().transform((val) => val === "" ? undefined : val),
+    purchasedValue: z.string().optional().transform((val) => val === "" ? undefined : val),
+  });
 
 // Types
 export type Configuration = typeof configurations.$inferSelect;
