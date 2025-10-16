@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, Building2, Package, Briefcase, Users as UsersIcon, DollarSign, CheckCircle, Pencil, X } from "lucide-react";
+import { Plus, Building2, Package, Briefcase, Users as UsersIcon, DollarSign, CheckCircle, Pencil, X, CreditCard } from "lucide-react";
 
 const businessInfoSchema = z.object({
   businessName: z.string().min(1, "Business name is required"),
@@ -310,6 +310,13 @@ export default function Configuration() {
           items={config?.vendorCategories || []}
           field="vendorCategories"
           addButtonId="button-add-vendor-category"
+        />
+        <ConfigSection
+          title="Expense Categories"
+          icon={CreditCard}
+          items={config?.expenseCategories || []}
+          field="expenseCategories"
+          addButtonId="button-add-expense-category"
         />
       </div>
 

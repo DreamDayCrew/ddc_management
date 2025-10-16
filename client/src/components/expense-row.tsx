@@ -8,6 +8,7 @@ interface ExpenseRowProps {
   type: "Credit" | "Debit" | "Transfer";
   description: string;
   amount: string;
+  category?: string | null;
   mode?: string | null;
   date: string;
   status: string;
@@ -20,6 +21,7 @@ export function ExpenseRow({
   type,
   description,
   amount,
+  category,
   mode,
   date,
   status,
@@ -57,10 +59,26 @@ export function ExpenseRow({
           <Icon className={`h-5 w-5 ${config.color}`} />
         </div>
         <div className="flex-1 min-w-0">
-          <h4 className="font-medium truncate" data-testid={`expense-description-${id}`}>
+          <div className="flex items-center gap-2 mb-1">
+            <span 
+              className="text-xs font-medium px-2 py-0.5 rounded-md bg-muted text-muted-foreground"
+              data-testid={`expense-type-${id}`}
+            >
+              {type}
+            </span>
+            {category && (
+              <span 
+                className="text-xs font-medium px-2 py-0.5 rounded-md bg-muted text-muted-foreground"
+                data-testid={`expense-category-${id}`}
+              >
+                {category}
+              </span>
+            )}
+          </div>
+          <h4 className="font-medium truncate mb-1" data-testid={`expense-description-${id}`}>
             {description}
           </h4>
-          <div className="flex items-center gap-3 mt-1">
+          <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground" data-testid={`expense-date-${id}`}>
               {format(new Date(date), "MMM dd, yyyy")}
             </span>

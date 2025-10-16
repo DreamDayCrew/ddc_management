@@ -6,21 +6,36 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Search, TrendingUp, TrendingDown } from "lucide-react";
+import { Plus, Search, TrendingUp, TrendingDown, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExpenseRow } from "@/components/expense-row";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExpenseForm } from "@/components/forms/expense-form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 export default function Expenses() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | undefined>();
 
   const { data: expenses = [], isLoading } = useQuery<Expense[]>({
     queryKey: ["/api/expenses"],
   });
+
+  interface AppConfig {
+    expenseCategories: string[];
+  }
+
+  const { data: config } = useQuery<AppConfig>({
+    queryKey: ["/api/configuration"],
+  });
+
+  const categories = useMemo(() => {
+    return config?.expenseCategories || [];
+  }, [config]);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -58,9 +73,20 @@ export default function Expenses() {
     };
   }, [expenses]);
 
-  const filteredExpenses = expenses.filter((expense) =>
-    expense.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((expense) => {
+      const matchesSearch = expense.description.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = !selectedCategory || expense.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [expenses, searchQuery, selectedCategory]);
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setSelectedCategory("");
+  };
+
+  const hasActiveFilters = searchQuery || selectedCategory;
 
   const handleEdit = (expense: Expense) => {
     setEditingExpense(expense);
@@ -142,16 +168,73 @@ export default function Expenses() {
         </Card>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search transactions..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-          data-testid="input-search-expenses"
-        />
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search transactions..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+            data-testid="input-search-expenses"
+          />
+        </div>
+
+        <div className="w-full sm:w-64">
+          <Select 
+            value={selectedCategory} 
+            onValueChange={setSelectedCategory}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Filter by category" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((category: string) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      {hasActiveFilters && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {searchQuery && (
+            <Badge variant="secondary" className="gap-1">
+              Search: {searchQuery}
+              <button 
+                onClick={() => setSearchQuery("")} 
+                className="ml-1 rounded-full hover:bg-muted p-0.5"
+                aria-label="Clear search"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {selectedCategory && (
+            <Badge variant="secondary" className="gap-1">
+              Category: {selectedCategory}
+              <button 
+                onClick={() => setSelectedCategory("")} 
+                className="ml-1 rounded-full hover:bg-muted p-0.5"
+                aria-label="Clear category filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={clearFilters}
+            className="h-6 px-2 text-xs text-muted-foreground"
+          >
+            Clear all
+          </Button>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="text-muted-foreground">Loading transactions...</div>

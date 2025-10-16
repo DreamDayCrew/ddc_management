@@ -26,6 +26,7 @@ export const configurations = pgTable("configurations", {
   paymentModes: text("payment_modes").array().notNull().default(sql`ARRAY['Cash', 'Gray']::text[]`),
   paymentStatuses: text("payment_statuses").array().notNull().default(sql`ARRAY['To Do', 'Completed']::text[]`),
   vendorCategories: text("vendor_categories").array().notNull().default(sql`ARRAY['Decoration', 'Photography']::text[]`),
+  expenseCategories: text("expense_categories").array().notNull().default(sql`ARRAY['Materials', 'Labor', 'Venue', 'Catering', 'Equipment', 'Transportation', 'Marketing', 'Miscellaneous']::text[]`),
 });
 
 // Assets Schema
@@ -64,6 +65,7 @@ export const expenses = pgTable("expenses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   type: text("type").notNull(),
   description: text("description").notNull(),
+  category: text("category"),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   mode: text("mode"),
   date: date("date").notNull(),

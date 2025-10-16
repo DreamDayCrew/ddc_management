@@ -42,6 +42,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     defaultValues: {
       type: expense?.type || "Debit",
       description: expense?.description || "",
+      category: expense?.category || "",
       amount: expense?.amount || "",
       mode: expense?.mode || "",
       date: expense?.date || format(new Date(), "yyyy-MM-dd"),
@@ -139,6 +140,31 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
               <FormControl>
                 <Textarea {...field} placeholder="Enter description" data-testid="input-expense-description" />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="category"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Category</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value || ""}>
+                <FormControl>
+                  <SelectTrigger data-testid="select-expense-category">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {config?.expenseCategories?.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}

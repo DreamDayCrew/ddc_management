@@ -206,8 +206,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Requirements
-  async getRequirements(): Promise<Requirement[]> {
-    return await db.select().from(requirements);
+  async getRequirements(eventId: string): Promise<Requirement[]> {
+    return await db.select().from(requirements).where(eq(requirements.eventId, eventId));
   }
 
   async getAllRequirements(): Promise<Requirement[]> {
@@ -238,8 +238,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Fulfillment Plans
-  async getFulfillmentPlans(): Promise<FulfillmentPlan[]> {
-    return await db.select().from(fulfillmentPlans);
+  async getFulfillmentPlans(requirementId: string): Promise<FulfillmentPlan[]> {
+    return await db.select().from(fulfillmentPlans).where(eq(fulfillmentPlans.requirementId, requirementId));
   }
 
   async getAllFulfillmentPlans(): Promise<FulfillmentPlan[]> {

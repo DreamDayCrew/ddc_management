@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,9 +25,17 @@ type BudgetReport = {
 };
 
 export default function Reports() {
-  const { data: reports, isLoading } = useQuery<BudgetReport[]>({
+  const { data: reportsData, isLoading } = useQuery<BudgetReport[]>({
     queryKey: ["/api/reports/budget"],
   });
+
+  // Sort reports by event date in descending order (newest first)
+  const reports = useMemo(() => {
+    if (!reportsData) return [];
+    return [...reportsData].sort((a, b) => {
+      return new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime();
+    });
+  }, [reportsData]);
 
   if (isLoading) {
     return (
@@ -96,7 +105,7 @@ export default function Reports() {
       </div>
 
       <div className="space-y-6">
-        {reports.map((report) => (
+        {reports.map((report: BudgetReport) => (
           <Card key={report.eventId} data-testid={`report-${report.eventId}`}>
             <CardHeader>
               <div className="flex items-start justify-between">
@@ -169,7 +178,7 @@ export default function Reports() {
                     Requirement Breakdown
                   </h3>
                   <div className="space-y-2">
-                    {report.requirements.map((req) => (
+                    {report.requirements.map((req: { id: string; name: string; invoiceValue: number; actualSpent: number; variance: number }) => (
                       <div
                         key={req.id}
                         className="flex items-center justify-between p-3 rounded-lg border bg-card"
