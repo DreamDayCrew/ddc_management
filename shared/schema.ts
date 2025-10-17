@@ -77,21 +77,22 @@ export const events = pgTable("events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   providedService: text("provided_service").notNull(),
   eventName: text("event_name").notNull(),
-  registeredOn: date("registered_on").notNull(),
   eventDate: date("event_date").notNull(),
   venue: text("venue").notNull(),
-  clientInfo: text("client_info"),
+  source: text("source"),
   clientName: text("client_name"),
   clientPhone: text("client_phone"),
-  clientAddress: text("client_address"),
   clientEmail: text("client_email"),
-  eventStatus: text("event_status").notNull().default("Inquired"),
-  initialQuote: decimal("initial_quote", { precision: 10, scale: 2 }),
+  clientAddress: text("client_address"),
+  eventStatus: text("event_status").notNull().default("Draft"),
+  paymentStatus: text("payment_status").notNull().default("Pending"),
+  paymentMode: text("payment_mode"),
+  notes: text("notes"),
+  registeredOn: date("registered_on").notNull().default(sql`CURRENT_DATE`),
   finalizedQuote: decimal("finalized_quote", { precision: 10, scale: 2 }),
+  initialQuote: decimal("initial_quote", { precision: 10, scale: 2 }),
   ddcCost: decimal("ddc_cost", { precision: 10, scale: 2 }),
   profitLoss: decimal("profit_loss", { precision: 10, scale: 2 }),
-  paymentMode: text("payment_mode"),
-  paymentStatus: text("payment_status").notNull().default("Pending"),
 });
 
 // Requirements Schema (nested under Events)
@@ -102,6 +103,8 @@ export const requirements = pgTable("requirements", {
   requirementOwner: text("requirement_owner"),
   requirementStatus: text("requirement_status").notNull().default("To Do"),
   order: integer("order").notNull().default(0),
+  price: integer("price").notNull().default(0),
+  quantity: integer("quantity").notNull().default(1),
 });
 
 // Fulfillment Plans Schema (nested under Requirements)

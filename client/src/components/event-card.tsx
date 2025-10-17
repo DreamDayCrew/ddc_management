@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, User, ChevronRight } from "lucide-react";
+import { Calendar, MapPin, User, ChevronRight, Link } from "lucide-react";
 import { format } from "date-fns";
 
 interface EventCardProps {
@@ -9,10 +9,11 @@ interface EventCardProps {
   eventName: string;
   eventDate: string;
   venue: string;
-  clientInfo: string;
+  clientName: string;
   eventStatus: string;
   providedService: string;
   requirementCount?: number;
+  source?: string;
   onClick?: () => void;
 }
 
@@ -21,10 +22,11 @@ export function EventCard({
   eventName,
   eventDate,
   venue,
-  clientInfo,
+  clientName,
   eventStatus,
   providedService,
   requirementCount = 0,
+  source = "",
   onClick,
 }: EventCardProps) {
   const statusColors: Record<string, string> = {
@@ -63,7 +65,11 @@ export function EventCard({
         </div>
         <div className="flex items-center gap-2 text-sm">
           <User className="h-4 w-4 text-muted-foreground" />
-          <span className="truncate" data-testid={`event-client-${id}`}>{clientInfo}</span>
+          <span className="truncate" data-testid={`event-client-${id}`}>{clientName}</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <Link className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium" data-testid={`event-source-${id}`}>{source}</span>
         </div>
         <div className="flex items-center justify-between pt-2">
           <span className="text-xs text-muted-foreground">

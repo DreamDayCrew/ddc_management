@@ -51,8 +51,9 @@ import { RequirementForm } from "@/components/forms/requirement-form";
 import { FulfillmentForm } from "@/components/forms/fulfillment-form";
 import { RequirementItem } from "@/components/requirement-item";
 import { InvoiceTemplate } from "@/components/invoice-template";
-import { ArrowLeft, Calendar, MapPin, User, DollarSign, Edit, Plus, FileDown } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, User, Edit, Plus, FileDown, Link, IndianRupee } from "lucide-react";
 import { format } from "date-fns";
+
 
 export default function EventDetails() {
   const { id } = useParams();
@@ -185,6 +186,27 @@ export default function EventDetails() {
     Inquired: "bg-chart-1 text-white",
   };
 
+  const calculateInvoiceValue = () => {
+    // console.log('Current event ID:', id);
+    // console.log('Requirements for event:', requirements);
+    
+    if (!requirements || requirements.length === 0) {
+      // console.log('No requirements found for calculation');
+      return 0;
+    }
+    
+    const total = requirements.reduce((total, req) => {
+      const price = Number(req.price) || 0;
+      const quantity = Number(req.quantity) || 0;
+      const itemTotal = price * quantity;
+      // console.log(`Requirement: ${req.id}, Price: ${price}, Quantity: ${quantity}, Item Total: ${itemTotal}`);
+      return total + itemTotal;
+    }, 0);
+    
+    // console.log('Total calculated invoice value:', total);
+    return total;
+  };
+
   const profitLoss = parseFloat(event.profitLoss || "0");
   const isProfitable = profitLoss >= 0;
 
@@ -228,115 +250,162 @@ export default function EventDetails() {
               <DialogHeader>
                 <DialogTitle>Edit Event</DialogTitle>
               </DialogHeader>
-              <EventForm event={event} onSuccess={() => setEditEventOpen(false)} />
+              <EventForm 
+                event={event} 
+                invoiceAmount={calculateInvoiceValue()} 
+                onSuccess={() => setEditEventOpen(false)} 
+              />
             </DialogContent>
           </Dialog>
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-3">
-          <CardTitle className="text-lg">Event Information</CardTitle>
-          <Select
-            value={event.eventStatus}
-            onValueChange={(value) => updateEventStatusMutation.mutate(value)}
-            disabled={updateEventStatusMutation.isPending}
-          >
-            <SelectTrigger className="w-[180px]" data-testid="select-event-status">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {["Inquired", "In Progress", "Completed"].map((status) => (
-                <SelectItem key={status} value={status}>
-                  {status}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              <span>Event Date</span>
-            </div>
-            <p className="font-medium" data-testid="event-date">
-              {format(new Date(event.eventDate), "MMM dd, yyyy")}
-            </p>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              <span>Registered On</span>
-            </div>
-            <p className="font-medium" data-testid="registered-on">
-              {format(new Date(event.registeredOn), "MMM dd, yyyy")}
-            </p>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <MapPin className="h-4 w-4" />
-              <span>Venue</span>
-            </div>
-            <p className="font-medium" data-testid="event-venue">{event.venue}</p>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <User className="h-4 w-4" />
-              <span>Client</span>
-            </div>
-            <p className="font-medium" data-testid="event-client">{event.clientInfo}</p>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <DollarSign className="h-4 w-4" />
-              <span>Initial Quote</span>
-            </div>
-            <p className="font-medium" data-testid="initial-quote">
-              {event.initialQuote ? `₹${parseFloat(event.initialQuote).toFixed(2)}` : "N/A"}
-            </p>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <DollarSign className="h-4 w-4" />
-              <span>Finalized Quote</span>
-            </div>
-            <p className="font-medium" data-testid="finalized-quote">
-              {event.finalizedQuote ? `₹${parseFloat(event.finalizedQuote).toFixed(2)}` : "N/A"}
-            </p>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <DollarSign className="h-4 w-4" />
-              <span>DDC Cost</span>
-            </div>
-            <p className="font-medium" data-testid="ddc-cost">
-              {event.ddcCost ? `₹${parseFloat(event.ddcCost).toFixed(2)}` : "N/A"}
-            </p>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <DollarSign className="h-4 w-4" />
-              <span>Profit/Loss</span>
-            </div>
-            <p className={`font-medium ${isProfitable ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`} data-testid="profit-loss">
-              {isProfitable ? "+" : ""}₹{profitLoss.toFixed(2)}
-            </p>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Payment Mode</span>
-            </div>
-            <p className="font-medium" data-testid="payment-mode">{event.paymentMode || "N/A"}</p>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Payment Status</span>
-            </div>
-            <Badge variant="outline" data-testid="payment-status">{event.paymentStatus}</Badge>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <Card className="overflow-hidden border border-gray-200 dark:border-gray-800">
+          <Accordion type="multiple" defaultValue={['basic-info', 'client-info', 'payment-info']}>
+            {/* Basic Information Section */}
+            <AccordionItem value="basic-info" className="border-b-0">
+              <AccordionTrigger className="px-6 py-4 hover:no-underline bg-gray-50 dark:bg-gray-800">
+                <div className="flex items-center gap-4">
+                  <h3 className="text-lg font-medium">Basic Information</h3>
+                  <Select
+                    value={event.eventStatus}
+                    onValueChange={(value) => updateEventStatusMutation.mutate(value)}
+                    disabled={updateEventStatusMutation.isPending}
+                  >
+                    <SelectTrigger className="w-[180px]" data-testid="select-event-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["Inquired", "In Progress", "Completed"].map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pt-2 pb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span>Event Date</span>
+                    </div>
+                    <p className="font-medium" data-testid="event-date">
+                      {format(new Date(event.eventDate), "MMM dd, yyyy")}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span>Registered On</span>
+                    </div>
+                    <p className="font-medium" data-testid="registered-on">
+                      {format(new Date(event.registeredOn), "MMM dd, yyyy")}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="h-4 w-4" />
+                      <span>Venue</span>
+                    </div>
+                    <p className="font-medium" data-testid="event-venue">{event.venue}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Link className="h-4 w-4" />
+                      <span>Source</span>
+                    </div>
+                    <p className="font-medium" data-testid="event-client">{event.source || "N/A"}</p>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* Client Information Section */}
+            <AccordionItem value="client-info" className="border-b-0">
+              <AccordionTrigger className="px-6 py-4 hover:no-underline bg-gray-50 dark:bg-gray-800">
+                <h3 className="text-lg font-medium">Client Information</h3>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pt-2 pb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <User className="h-4 w-4" />
+                      <span>Name</span>
+                    </div>
+                    <p className="font-medium" data-testid="event-client">{event.clientName || "N/A"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <User className="h-4 w-4" />
+                      <span>Contact Number</span>
+                    </div>
+                    <p className="font-medium" data-testid="client-phone">{event.clientPhone || "N/A"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <User className="h-4 w-4" />
+                      <span>Email</span>
+                    </div>
+                    <p className="font-medium" data-testid="client-email">{event.clientEmail || "N/A"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <User className="h-4 w-4" />
+                      <span>Address</span>
+                    </div>
+                    <p className="font-medium" data-testid="client-address">{event.clientAddress || "N/A"}</p>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* Payment Information Section */}
+            <AccordionItem value="payment-info" className="border-b-0">
+              <AccordionTrigger className="px-6 py-4 hover:no-underline bg-gray-50 dark:bg-gray-800">
+                <h3 className="text-lg font-medium">Payment Information</h3>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pt-2 pb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <IndianRupee className="h-4 w-4" />
+                      <span>Invoice Value</span>
+                    </div>
+                    <p className="font-medium" data-testid="invoice-value">
+                      {`₹${calculateInvoiceValue()}`}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <IndianRupee className="h-4 w-4" />
+                      <span>DDC Spent</span>
+                    </div>
+                    <p className="font-medium" data-testid="ddc-cost">
+                      {event.ddcCost ? `₹${parseFloat(event.ddcCost).toFixed(2)}` : "N/A"}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>Mode of Transaction</span>
+                    </div>
+                    <p className="font-medium" data-testid="payment-mode">{event.paymentMode || "N/A"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>Status</span>
+                    </div>
+                    <Badge variant="outline" data-testid="payment-status">{event.paymentStatus}</Badge>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </Card>
+      </div>
 
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold">Requirements</h2>

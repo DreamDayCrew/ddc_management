@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { RequirementForm } from "@/components/forms/requirement-form";
 import { FulfillmentForm } from "@/components/forms/fulfillment-form";
-import { Edit, Plus, Trash2 } from "lucide-react";
+import { Edit, Plus, Trash2, IndianRupee } from "lucide-react";
 
 interface RequirementItemProps {
   requirement: Requirement;
@@ -136,12 +136,11 @@ export function RequirementItem({
       <AccordionTrigger className="hover:no-underline">
         <div className="flex items-center justify-between w-full pr-4">
           <div className="flex items-center gap-3">
-            <Badge variant="outline" className="text-xs">
-              #{requirement.order}
-            </Badge>
             <span className="font-medium" data-testid={`requirement-text-${requirement.id}`}>
               {requirement.requirement}
             </span>
+            <IndianRupee className="h-4 w-4" />
+            <span>{requirement.order}</span>
           </div>
           <div className="flex items-center gap-2">
             <Select

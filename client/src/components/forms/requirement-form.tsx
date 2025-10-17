@@ -1,6 +1,7 @@
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { insertRequirementSchema, type Requirement, type InsertRequirement, type Configuration, type TeamMember } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -40,16 +41,33 @@ export function RequirementForm({ requirement, eventId, onSuccess }: Requirement
     queryKey: ["/api/team"],
   });
 
-  const form = useForm<InsertRequirement>({
-    resolver: zodResolver(insertRequirementSchema),
+  const form = useForm<Omit<InsertRequirement, 'order'>>({
+    resolver: zodResolver(insertRequirementSchema.omit({ order: true })),
     defaultValues: {
       eventId: requirement?.eventId || eventId,
       requirement: requirement?.requirement || "",
       requirementOwner: requirement?.requirementOwner || "",
       requirementStatus: requirement?.requirementStatus || "To Do",
-      order: requirement?.order || 0,
+      price: requirement?.price || 0,
+      quantity: requirement?.quantity || 1,
     },
   });
+
+  // Watch price and quantity fields for local calculation
+  const price = form.watch('price');
+  const quantity = form.watch('quantity');
+  
+  // Debug log form values
+  console.log('Form values:', {
+    price,
+    quantity,
+    priceType: typeof price,
+    quantityType: typeof quantity
+  });
+  
+  // Calculate order for display only
+  const order = (Number(price) || 0) * (Number(quantity) || 1);
+  console.log('Calculated order:', order);
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertRequirement) => {
@@ -96,9 +114,15 @@ export function RequirementForm({ requirement, eventId, onSuccess }: Requirement
     },
   });
 
-  const onSubmit = (data: InsertRequirement) => {
-    if (isEditing) {
-      updateMutation.mutate(data);
+  const onSubmit = (data: Omit<InsertRequirement, 'order'>) => {
+    console.log("Submitting form data:", {
+      ...data,
+      // Add the calculated order to the logged data (but not to the actual submission)
+      _calculatedOrder: (Number(data.price) || 0) * (Number(data.quantity) || 1)
+    });
+    
+    if (isEditing && requirement?.id) {
+      updateMutation.mutate({ id: requirement.id, ...data });
     } else {
       createMutation.mutate(data);
     }
@@ -175,24 +199,58 @@ export function RequirementForm({ requirement, eventId, onSuccess }: Requirement
 
         <FormField
           control={form.control}
-          name="order"
+          name="price"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Invoice Value</FormLabel>
+              <FormLabel>Price</FormLabel>
               <FormControl>
                 <Input
                   {...field}
                   type="number"
                   onChange={(e) => field.onChange(Number(e.target.value))}
                   onFocus={(e) => e.target.select()}
-                  placeholder="Enter invoice value"
-                  data-testid="input-requirement-order"
+                  placeholder="Enter price for single quantity"
+                  data-testid="input-requirement-price"
                 />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
+
+        <FormField
+          control={form.control}
+          name="quantity"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Quantity</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  onChange={(e) => field.onChange(Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
+                  placeholder="Enter the quantity"
+                  data-testid="input-requirement-quantity"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormItem>
+          <FormLabel>Invoice Amount (Auto-calculated)</FormLabel>
+          <FormControl>
+            <Input
+              type="number"
+              readOnly
+              className="bg-muted/50"
+              value={order}
+              data-testid="input-requirement-order"
+            />
+          </FormControl>
+        </FormItem>
 
         <div className="flex justify-end gap-3 pt-4">
           <Button type="submit" disabled={isPending} data-testid="button-submit-requirement">

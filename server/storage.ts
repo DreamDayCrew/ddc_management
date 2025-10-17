@@ -117,6 +117,7 @@ export class MemStorage implements IStorage {
       paymentModes: config.paymentModes || ['Cash', 'Gray'],
       paymentStatuses: config.paymentStatuses || ['To Do', 'Completed'],
       vendorCategories: config.vendorCategories || ['Decoration', 'Photography'],
+      expenseCategories: config.expenseCategories || ['Office', 'Asset', 'Event', 'Vendor', 'Team', 'Miscellaneous'],
     };
     this.configuration = newConfig;
     return newConfig;
@@ -240,6 +241,7 @@ export class MemStorage implements IStorage {
     const newExpense: Expense = { 
       id: randomUUID(),
       type: expense.type,
+      category: expense.category || null,
       description: expense.description,
       amount: expense.amount,
       mode: expense.mode || null,
@@ -276,10 +278,9 @@ export class MemStorage implements IStorage {
       id: randomUUID(),
       providedService: event.providedService,
       eventName: event.eventName,
-      registeredOn: event.registeredOn,
+      registeredOn: event.registeredOn || new Date().toISOString().split('T')[0], // YYYY-MM-DD format
       eventDate: event.eventDate,
       venue: event.venue,
-      clientInfo: event.clientInfo || null,
       clientName: event.clientName || null,
       clientPhone: event.clientPhone || null,
       clientAddress: event.clientAddress || null,
@@ -291,6 +292,8 @@ export class MemStorage implements IStorage {
       profitLoss: event.profitLoss || null,
       paymentMode: event.paymentMode || null,
       paymentStatus: event.paymentStatus || 'Pending',
+      source: event.source || null,
+      notes: event.notes || null,
     };
     this.events.set(newEvent.id, newEvent);
     return newEvent;
@@ -329,6 +332,8 @@ export class MemStorage implements IStorage {
       requirementOwner: requirement.requirementOwner || null,
       requirementStatus: requirement.requirementStatus || 'To Do',
       order: requirement.order ?? 0,
+      price: requirement.price ?? 0,
+      quantity: requirement.quantity ?? 1,
     };
     this.requirements.set(newRequirement.id, newRequirement);
     return newRequirement;
