@@ -74,6 +74,32 @@ export default function EventDetails() {
     enabled: !!id,
   });
 
+  // Fetch all plans for the current event's requirements
+  const { data: allPlans = [], isLoading: isLoadingPlans } = useQuery({
+    queryKey: ['/api/plans'],
+    select: (plans: any[]) => {
+      const filteredPlans = plans.filter(plan => 
+        requirements.some(req => req.id === plan.requirementId)
+      );
+      return filteredPlans;
+    },
+    enabled: requirements.length > 0,
+  });
+
+  const calculateDDCCost = () => {
+    
+    if (!allPlans || allPlans.length === 0) {
+      return 0;
+    }
+    
+    const total = allPlans.reduce((sum, plan, index) => {
+      const payment = Number(plan.payment || 0);
+      return sum + payment;
+    }, 0);
+    
+    return total;
+  };
+
   const { data: teamMembers = [] } = useQuery<TeamMember[]>({
     queryKey: ["/api/team"],
   });
@@ -432,7 +458,7 @@ export default function EventDetails() {
                       <span>DDC Spent</span>
                     </div>
                     <p className="font-medium" data-testid="ddc-cost">
-                      {event.ddcCost ? `₹${parseFloat(event.ddcCost).toFixed(2)}` : "N/A"}
+                      {`₹${calculateDDCCost()}`}
                     </p>
                   </div>
                   <div className="space-y-1">

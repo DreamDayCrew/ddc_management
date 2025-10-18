@@ -299,6 +299,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update event budget information (finalizedQuote, ddcCost)
+  app.patch("/api/events/:id/budget", async (req, res) => {
+    try {
+      const { finalizedQuote, ddcCost } = req.body;
+      
+      // Validate input
+      if (finalizedQuote === undefined && ddcCost === undefined) {
+        return res.status(400).json({ error: "At least one field (finalizedQuote or ddcCost) is required" });
+      }
+      
+      // Prepare update object with only the fields that were provided
+      const updateData: { finalizedQuote?: number; ddcCost?: number } = {};
+      
+      if (finalizedQuote !== undefined) {
+        const quote = Number(finalizedQuote);
+        if (isNaN(quote) || quote < 0) {
+          return res.status(400).json({ error: "finalizedQuote must be a positive number" });
+        }
+        updateData.finalizedQuote = quote;
+      }
+      
+      if (ddcCost !== undefined) {
+        const cost = Number(ddcCost);
+        if (isNaN(cost) || cost < 0) {
+          return res.status(400).json({ error: "ddcCost must be a positive number" });
+        }
+        updateData.ddcCost = cost;
+      }
+      
+      const updatedEvent = await storage.updateEvent(req.params.id, updateData);
+      if (!updatedEvent) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      
+      res.json(updatedEvent);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.delete("/api/events/:id", async (req, res) => {
     const deleted = await storage.deleteEvent(req.params.id);
     if (!deleted) {
@@ -366,10 +406,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Fulfillment Plan routes
-  /*app.get("/api/plans", async (_req, res) => {
+  app.get("/api/plans", async (_req, res) => {
     const plans = await storage.getAllFulfillmentPlans();
     res.json(plans);
-  });*/
+  });
   
   app.delete("/api/plans/:id", async (req, res) => {
     const planId = req.params.id;

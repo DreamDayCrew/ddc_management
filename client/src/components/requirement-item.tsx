@@ -139,12 +139,28 @@ export function RequirementItem({
     >
       <AccordionTrigger className="hover:no-underline">
         <div className="flex items-center justify-between w-full pr-4">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-1">
             <span className="font-medium" data-testid={`requirement-text-${requirement.id}`}>
               {requirement.requirement}
             </span>
-            <IndianRupee className="h-4 w-4" />
-            <span>{requirement.order}</span>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center">
+                <span className="mr-1">Invoice:</span>
+                <IndianRupee className="h-3 w-3" />
+                <span>{requirement.order || 0}</span>
+              </div>
+              <span>•</span>
+              <div className="flex items-center">
+                <span className="mr-1">Total Spent:</span>
+                <IndianRupee className="h-3 w-3" />
+                <span>
+                  {plans?.reduce((sum, plan) => {
+                    const payment = Number(plan.payment || 0);
+                    return sum + payment;
+                  }, 0) || 0}
+                </span>
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Select
