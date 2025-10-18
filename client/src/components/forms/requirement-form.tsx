@@ -115,16 +115,24 @@ export function RequirementForm({ requirement, eventId, onSuccess }: Requirement
   });
 
   const onSubmit = (data: Omit<InsertRequirement, 'order'>) => {
+    // Calculate the order before submission
+    const order = (Number(data.price) || 0) * (Number(data.quantity) || 1);
+    
     console.log("Submitting form data:", {
       ...data,
-      // Add the calculated order to the logged data (but not to the actual submission)
-      _calculatedOrder: (Number(data.price) || 0) * (Number(data.quantity) || 1)
+      order // Include order in the logged data
     });
     
+    // Include the calculated order in the submission
+    const submissionData = {
+      ...data,
+      order
+    };
+    
     if (isEditing && requirement?.id) {
-      updateMutation.mutate({ id: requirement.id, ...data });
+      updateMutation.mutate({ id: requirement.id, ...submissionData });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(submissionData);
     }
   };
 

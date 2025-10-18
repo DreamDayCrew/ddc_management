@@ -114,9 +114,9 @@ export function RequirementItem({
   });
 
   const getTeamMemberName = (id: string | null) => {
-    if (!id) return "Unknown";
+    if (!id || !teamMembers || teamMembers.length === 0) return "Unassigned";
     const member = teamMembers.find((m) => m.id === id);
-    return member?.name || "Unknown";
+    return member?.name || `Unknown (${id})`;
   };
 
   const getVendorName = (id: string | null) => {

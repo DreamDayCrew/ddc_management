@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { 
   type Event, 
@@ -51,7 +51,7 @@ import { RequirementForm } from "@/components/forms/requirement-form";
 import { FulfillmentForm } from "@/components/forms/fulfillment-form";
 import { RequirementItem } from "@/components/requirement-item";
 import { InvoiceTemplate } from "@/components/invoice-template";
-import { ArrowLeft, Calendar, MapPin, User, Edit, Plus, FileDown, Link, IndianRupee } from "lucide-react";
+import { RefreshCcwDot, ArrowLeft, FileDown, Upload, Calendar, MapPin, Link, User, IndianRupee, Plus, Edit } from "lucide-react";
 import { format } from "date-fns";
 
 
@@ -59,62 +59,251 @@ export default function EventDetails() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const [editEventOpen, setEditEventOpen] = useState(false);
   const [addRequirementOpen, setAddRequirementOpen] = useState(false);
   const [deleteRequirement, setDeleteRequirement] = useState<Requirement | null>(null);
   const [editPlan, setEditPlan] = useState<{ plan: FulfillmentPlan; requirementId: string } | null>(null);
   const [deletePlan, setDeletePlan] = useState<FulfillmentPlan | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  
+  // Handle refresh invoice value button click
+  const handleRefreshInvoice = async () => {
+    try {
+      await refetchRequirements();
+      const newInvoiceValue = calculateInvoiceValue();
+      
+      setInitialValues(prev => ({
+        ...prev,
+        invoiceValue: newInvoiceValue
+      }));
+      
+      // Force a re-render to update the UI
+      setRefreshKey(prev => prev + 1);
+      
+      toast({
+        title: "Refreshed",
+        description: "Invoice value has been updated with the latest data.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to refresh invoice value: " + (error as Error).message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const [initialValues, setInitialValues] = useState({ invoiceValue: 0, ddcCost: 0 });
+  const [valuesMatch, setValuesMatch] = useState(false);
 
   const { data: event, isLoading: eventLoading } = useQuery<Event>({
     queryKey: ["/api/events", id],
   });
 
-  const { data: requirements = [], isLoading: requirementsLoading } = useQuery<Requirement[]>({
+  const { data: requirements = [], isLoading: requirementsLoading, refetch: refetchRequirements } = useQuery<Requirement[]>({
     queryKey: ["/api/events", id, "requirements"],
     enabled: !!id,
   });
 
   // Fetch all plans for the current event's requirements
-  const { data: allPlans = [], isLoading: isLoadingPlans } = useQuery({
+  const { 
+    data: allPlans = [], 
+    isLoading: isLoadingPlans, 
+    refetch: refetchPlans 
+  } = useQuery<FulfillmentPlan[]>({
     queryKey: ['/api/plans'],
-    select: (plans: any[]) => {
-      const filteredPlans = plans.filter(plan => 
-        requirements.some(req => req.id === plan.requirementId)
-      );
-      return filteredPlans;
-    },
-    enabled: requirements.length > 0,
+    enabled: !!id,
   });
 
-  const calculateDDCCost = () => {
-    
-    if (!allPlans || allPlans.length === 0) {
-      return 0;
-    }
-    
-    const total = allPlans.reduce((sum, plan, index) => {
-      const payment = Number(plan.payment || 0);
-      return sum + payment;
-    }, 0);
-    
-    return total;
-  };
-
+  // Fetch team members, vendors, and assets
   const { data: teamMembers = [] } = useQuery<TeamMember[]>({
-    queryKey: ["/api/team"],
+    queryKey: ['/api/team'],
+    enabled: !!id,
   });
 
   const { data: vendors = [] } = useQuery<Vendor[]>({
-    queryKey: ["/api/vendors"],
+    queryKey: ['/api/vendors'],
+    enabled: !!id,
   });
 
   const { data: assets = [] } = useQuery<Asset[]>({
-    queryKey: ["/api/assets"],
+    queryKey: ['/api/assets'],
+    enabled: !!id,
   });
+
+  // Calculate DDC cost based on current event's plans
+  const calculateDDCCost = useCallback(() => {
+    if (!allPlans || allPlans.length === 0 || !requirements || requirements.length === 0) return 0;
+    
+    // Get all requirement IDs for the current event
+    const requirementIds = new Set(requirements.map(req => req.id));
+    
+    // Filter plans to only include those for this event's requirements
+    const eventPlans = allPlans.filter(plan => requirementIds.has(plan.requirementId));
+    
+    return eventPlans.reduce((total, plan) => {
+      const cost = parseFloat(plan.payment || '0');
+      return total + (isNaN(cost) ? 0 : cost);
+    }, 0);
+  }, [allPlans, requirements, refreshKey]);
+
+  // Calculate invoice value based on requirements
+  const calculateInvoiceValue = useCallback(() => {
+    if (!requirements || requirements.length === 0) return 0;
+    return requirements.reduce((total, req) => {
+      const price = parseFloat(String(req.order ?? '0'));
+      return total + (isNaN(price) ? 0 : price);
+    }, 0);
+  }, [requirements]);
+
+  // Set initial values when event data is loaded and check for matches
+  useEffect(() => {
+    if (event) {
+      const currentInvoiceValue = calculateInvoiceValue();
+      const currentDDCCost = calculateDDCCost();
+      
+      setInitialValues({
+        invoiceValue: currentInvoiceValue,
+        ddcCost: currentDDCCost
+      });
+
+      // Check if values match the database
+      const dbInvoiceValue = parseFloat(event.finalizedQuote || '0');
+      const dbDDCCost = parseFloat(event.ddcCost || '0');
+      
+      setValuesMatch(
+        Math.abs(currentInvoiceValue - dbInvoiceValue) < 0.01 && 
+        Math.abs(currentDDCCost - dbDDCCost) < 0.01
+      );
+    }
+  }, [event, calculateInvoiceValue, calculateDDCCost]);
+
+  // Check if there are changes to either invoice value or DDC cost
+  const hasChanges = useMemo(() => {
+    if (!event) return false;
+    
+    const currentInvoiceValue = calculateInvoiceValue();
+    const currentDDCCost = calculateDDCCost();
+    
+    // Get database values
+    const dbInvoiceValue = parseFloat(event.finalizedQuote || '0');
+    const dbDDCCost = parseFloat(event.ddcCost || '0');
+    
+    // Check if either value doesn't match the database
+    const invoiceChanged = Math.abs(currentInvoiceValue - dbInvoiceValue) > 0.01;
+    const ddcCostChanged = Math.abs(currentDDCCost - dbDDCCost) > 0.01;
+    
+    return invoiceChanged || ddcCostChanged;
+  }, [event, calculateInvoiceValue, calculateDDCCost]);
+
+  // Update budget mutation
+  const updateBudgetMutation = useMutation({
+    mutationFn: async ({ finalizedQuote, ddcCost }: { finalizedQuote?: number, ddcCost?: number }) => {
+      const payload: any = {};
+      if (finalizedQuote !== undefined) payload.finalizedQuote = finalizedQuote.toString();
+      if (ddcCost !== undefined) payload.ddcCost = ddcCost.toString();
+      
+      return await apiRequest('PATCH', `/api/events/${id}/budget`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/events', id] });
+      setInitialValues({
+        invoiceValue: calculateInvoiceValue(),
+        ddcCost: calculateDDCCost()
+      });
+      toast({
+        title: "Budget updated",
+        description: "The budget information has been updated successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update budget: " + (error as Error).message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleConfirmUpdate = async () => {
+    await updateBudgetMutation.mutateAsync({
+      ddcCost: calculateDDCCost(),
+      finalizedQuote: calculateInvoiceValue()
+    });
+    await refetchPlans(); // Refresh plans after updating budget
+    setShowConfirmDialog(false);
+  };
+
+  // Handle refresh DDC cost button click
+  const handleRefresh = async () => {
+    try {
+      await refetchPlans();
+      // Update the initial values with the newly fetched data
+      const newDDCCost = allPlans.reduce((total, plan) => {
+        const cost = parseFloat(plan.payment || '0');
+        return total + (isNaN(cost) ? 0 : cost);
+      }, 0);
+      
+      setInitialValues(prev => ({ 
+        ...prev, 
+        ddcCost: newDDCCost 
+      }));
+      
+      // Force a re-render to update the UI
+      setRefreshKey(prev => prev + 1);
+      
+      toast({
+        title: "Refreshed",
+        description: "DDC cost has been updated with the latest data.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to refresh DDC cost. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const { data: config } = useQuery<Configuration>({
     queryKey: ["/api/configuration"],
   });
+
+  // Add the confirmation dialog JSX here to keep related code together
+  const confirmationDialog = (
+    <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Confirm Update</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to update the following values?
+            <div className="mt-2 space-y-2">
+              <div>DDC Spent: ₹{calculateDDCCost()}</div>
+              <div>Invoice Value: ₹{calculateInvoiceValue()}</div>
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowConfirmDialog(false)}
+            disabled={updateBudgetMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleConfirmUpdate}
+            disabled={updateBudgetMutation.isPending}
+          >
+            {updateBudgetMutation.isPending ? 'Updating...' : 'Confirm Update'}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 
   // Generate invoice number based on event ID
   const generateInvoiceNumber = (eventId: string) => {
@@ -259,26 +448,7 @@ export default function EventDetails() {
     Inquired: "bg-chart-1 text-white",
   };
 
-  const calculateInvoiceValue = () => {
-    // console.log('Current event ID:', id);
-    // console.log('Requirements for event:', requirements);
-    
-    if (!requirements || requirements.length === 0) {
-      // console.log('No requirements found for calculation');
-      return 0;
-    }
-    
-    const total = requirements.reduce((total, req) => {
-      const price = Number(req.price) || 0;
-      const quantity = Number(req.quantity) || 0;
-      const itemTotal = price * quantity;
-      // console.log(`Requirement: ${req.id}, Price: ${price}, Quantity: ${quantity}, Item Total: ${itemTotal}`);
-      return total + itemTotal;
-    }, 0);
-    
-    // console.log('Total calculated invoice value:', total);
-    return total;
-  };
+  // calculateInvoiceValue is now defined above as a useCallback
 
   const profitLoss = parseFloat(event.profitLoss || "0");
   const isProfitable = profitLoss >= 0;
@@ -448,19 +618,58 @@ export default function EventDetails() {
                       <IndianRupee className="h-4 w-4" />
                       <span>Invoice Value</span>
                     </div>
-                    <p className="font-medium" data-testid="invoice-value">
-                      {`₹${calculateInvoiceValue()}`}
-                    </p>
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium" data-testid="invoice-value">
+                        {`₹${calculateInvoiceValue()}`}
+                      </span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 w-6 p-0"
+                        onClick={handleRefreshInvoice}
+                        disabled={updateBudgetMutation.isPending}
+                        title="Refresh Invoice Value"
+                        aria-label="Refresh Invoice Value"
+                      >
+                        <RefreshCcwDot className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <IndianRupee className="h-4 w-4" />
                       <span>DDC Spent</span>
                     </div>
-                    <p className="font-medium" data-testid="ddc-cost">
-                      {`₹${calculateDDCCost()}`}
-                    </p>
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium" data-testid="ddc-cost">
+                        {`₹${calculateDDCCost()}`}
+                      </span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 w-6 p-0"
+                        onClick={handleRefresh}
+                        disabled={updateBudgetMutation.isPending}
+                        title="Refresh DDC Cost"
+                        aria-label="Refresh DDC Cost"
+                      >
+                        <RefreshCcwDot className="h-3 w-3" />
+                      </Button>
+                      {!valuesMatch && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 w-6 p-0"
+                          onClick={() => setShowConfirmDialog(true)}
+                          title="Update DDC Spent and Invoice Value"
+                          disabled={!hasChanges || updateBudgetMutation.isPending}
+                        >
+                          <Upload className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
+
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <span>Mode of Transaction</span>
@@ -580,6 +789,36 @@ export default function EventDetails() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Update Budget Information</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to update the budget information?
+              <div className="mt-2 space-y-2">
+                <div className="flex justify-between">
+                  <span>Invoice Value:</span>
+                  <span className="font-medium">₹{calculateInvoiceValue()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>DDC Cost:</span>
+                  <span className="font-medium">₹{calculateDDCCost()}</span>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmUpdate}
+              disabled={updateBudgetMutation.isPending}
+            >
+              {updateBudgetMutation.isPending ? 'Updating...' : 'Update'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
