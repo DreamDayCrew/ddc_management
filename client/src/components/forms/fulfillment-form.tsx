@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -56,27 +57,82 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
   const { data: assets } = useQuery<Asset[]>({
     queryKey: ["/api/assets"],
   });
+  
+  // Get vendor categories from config
+  const vendorCategories = config?.vendorCategories || [];
+  const assetCategories = config?.assetCategories || [];
 
   const form = useForm<InsertFulfillmentPlan>({
     resolver: zodResolver(insertFulfillmentPlanSchema),
     defaultValues: {
       requirementId: plan?.requirementId || requirementId,
-      planType: plan?.planType || "",
+      planType: (plan?.planType || "") as "Vendor" | "Team" | "Asset",
       teamMemberId: plan?.teamMemberId || "",
       teamRole: plan?.teamRole || "",
-      payment: plan?.payment || "",
       vendorId: plan?.vendorId || "",
-      vendorAmount: plan?.vendorAmount || "",
-      vendorPaymentStatus: plan?.vendorPaymentStatus || "",
+      vendorCategory: plan?.vendorCategory || "",
+      payment: plan?.payment ? String(plan.payment) : "0",
+      paymentStatus: plan?.paymentStatus || "Pending",
       assetId: plan?.assetId || "",
+      assetCategory: plan?.assetCategory || "",
       assetPurchaseStatus: plan?.assetPurchaseStatus || "",
-      purchasedValue: plan?.purchasedValue || "",
       planStatus: plan?.planStatus || "To Do",
     },
   });
 
   const planType = form.watch("planType");
   const assetPurchaseStatus = form.watch("assetPurchaseStatus");
+  const selectedVendorCategory = form.watch("vendorCategory");
+  const selectedAssetCategory = form.watch("assetCategory");
+
+  // Filter vendors based on selected category
+  const filteredVendors = selectedVendorCategory 
+    ? vendors?.filter(vendor => vendor.category === selectedVendorCategory) || []
+    : [];
+
+  // Filter assets based on selected category
+  const filteredAssets = selectedAssetCategory 
+    ? assets?.filter(a => a.category === selectedAssetCategory) || []
+    : [];
+
+  // Reset vendorId when vendorCategory changes
+  useEffect(() => {
+    if (selectedVendorCategory) {
+      form.setValue("vendorId", "");
+    }
+  }, [selectedVendorCategory, form]);
+
+  // Reset assetId when assetCategory changes
+  useEffect(() => {
+    if (selectedAssetCategory) {
+      form.setValue("assetId", "");
+    }
+  }, [selectedAssetCategory, form]);
+
+  // Reset fields when planType changes
+  useEffect(() => {
+    if (planType !== "Vendor") {
+      form.setValue("vendorId", "");
+      form.setValue("vendorCategory", "");
+    }
+    if (planType !== "Asset") {
+      form.setValue("assetId", "");
+      form.setValue("assetCategory", "");
+    }
+  }, [planType, form]);
+
+  // Reset form when plan changes
+  useEffect(() => {
+    if (plan) {
+      form.reset({
+        ...plan,
+        payment: plan.payment ? String(plan.payment) : "",
+        // Convert string dates to Date objects if they exist
+        ...(plan.createdAt && { createdAt: new Date(plan.createdAt) }),
+        ...(plan.updatedAt && { updatedAt: new Date(plan.updatedAt) })
+      });
+    }
+  }, [plan, form]);
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertFulfillmentPlan) => {
@@ -104,19 +160,29 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
 
   const updateMutation = useMutation({
     mutationFn: async (data: InsertFulfillmentPlan) => {
-      const res = await apiRequest("PATCH", `/api/plans/${plan?.id}`, data);
-      return res.json();
+      console.log('Update mutation started with data:', data);
+      try {
+        const res = await apiRequest("PATCH", `/api/plans/${plan?.id}`, data);
+        const result = await res.json();
+        console.log('Update mutation successful, response:', result);
+        return result;
+      } catch (error) {
+        console.error('Update mutation error:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
+      console.log('Update mutation onSuccess called');
       queryClient.invalidateQueries({ queryKey: ["/api/requirements", requirementId, "plans"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events", eventId, "requirements"] });
       toast({
         title: "Success",
-        description: "Fulfillment plan updated successfully",
+        description: "Plan updated successfully",
       });
       onSuccess?.();
     },
     onError: (error: Error) => {
+      console.error('Update mutation onError:', error);
       toast({
         title: "Error",
         description: error.message,
@@ -126,26 +192,64 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
   });
 
   const onSubmit = (data: InsertFulfillmentPlan) => {
-    // Transform empty strings to undefined for decimal fields
+    console.log('Form submitted with data:', data);
+    
+    // Transform data for the API
     const transformedData = {
       ...data,
-      payment: data.payment === "" ? undefined : data.payment,
-      vendorAmount: data.vendorAmount === "" ? undefined : data.vendorAmount,
-      purchasedValue: data.purchasedValue === "" ? undefined : data.purchasedValue,
+      // Convert empty strings to 0 for payment
+      payment: data.payment === "" ? "0" : data.payment,
+      // Set default payment status if not provided
+      paymentStatus: data.paymentStatus || "Pending",
+      // Convert date strings to Date objects
+      ...(data.createdAt && { createdAt: new Date(data.createdAt) }),
+      updatedAt: new Date(),
+      // Ensure teamMemberId is null when not a Team plan
+      ...(data.planType !== 'Team' && { teamMemberId: null }),
+      // Ensure vendorId is null when not a Vendor plan
+      ...(data.planType !== 'Vendor' && { vendorId: null }),
+      // Ensure assetId is null when not an Asset plan
+      ...(data.planType !== 'Asset' && { assetId: null }),
     };
 
+    console.log('Transformed data before mutation:', transformedData);
+
     if (isEditing) {
+      console.log('Calling update mutation');
       updateMutation.mutate(transformedData);
     } else {
+      console.log('Calling create mutation');
       createMutation.mutate(transformedData);
     }
+  };
+
+  // Add form state logging
+  useEffect(() => {
+    const subscription = form.watch((value, { name, type }) => {
+      console.log('Form value changed:', { value, name, type });
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
+  // Log form errors
+  useEffect(() => {
+    console.log('Form errors:', form.formState.errors);
+  }, [form.formState.errors]);
+
+  // Add form submission handler with error logging
+  const handleSubmit = (e: React.FormEvent) => {
+    console.log('Form submit event triggered');
+    e.preventDefault();
+    form.handleSubmit(onSubmit)(e).catch(error => {
+      console.error('Form submission error:', error);
+    });
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="planType"
@@ -220,16 +324,49 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
                 </FormItem>
               )}
             />
-
             <FormField
               control={form.control}
               name="payment"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Payment</FormLabel>
+                  <FormLabel>Payment Amount</FormLabel>
                   <FormControl>
-                    <Input {...field} value={field.value || ""} type="number" step="0.01" placeholder="Enter payment amount" data-testid="input-payment" />
+                    <Input 
+                      {...field} 
+                      value={field.value || ""} 
+                      type="number" 
+                      step="0.01" 
+                      placeholder="Enter payment amount" 
+                      data-testid="input-payment-amount" 
+                    />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="paymentStatus"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Payment Status</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value || ""}
+                  >
+                    <FormControl>
+                      <SelectTrigger data-testid="select-payment-status">
+                        <SelectValue placeholder="Select payment status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {config?.paymentStatuses?.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -241,18 +378,58 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
           <>
             <FormField
               control={form.control}
+              name="vendorCategory"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Vendor Category</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value || ""}
+                    disabled={planType !== "Vendor"}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a vendor category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {vendorCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="vendorId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Vendor</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value || ""}
+                    disabled={!selectedVendorCategory || planType !== "Vendor"}
+                  >
                     <FormControl>
                       <SelectTrigger data-testid="select-vendor">
-                        <SelectValue placeholder="Select vendor" />
+                        <SelectValue 
+                          placeholder={
+                            !selectedVendorCategory 
+                              ? "Select a vendor category first" 
+                              : filteredVendors.length === 0 
+                                ? "No vendors available for this category"
+                                : "Select vendor"
+                          } 
+                        />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {vendors?.map((vendor) => (
+                      {filteredVendors.map((vendor) => (
                         <SelectItem key={vendor.id} value={vendor.id}>
                           {vendor.name}
                         </SelectItem>
@@ -266,12 +443,19 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
 
             <FormField
               control={form.control}
-              name="vendorAmount"
+              name="payment"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Vendor Amount</FormLabel>
+                  <FormLabel>Payment Amount</FormLabel>
                   <FormControl>
-                    <Input {...field} value={field.value || ""} type="number" step="0.01" placeholder="Enter amount" data-testid="input-vendor-amount" />
+                    <Input 
+                      {...field} 
+                      value={field.value || ""} 
+                      type="number" 
+                      step="0.01" 
+                      placeholder="Enter payment amount" 
+                      data-testid="input-payment-amount" 
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -280,13 +464,16 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
 
             <FormField
               control={form.control}
-              name="vendorPaymentStatus"
+              name="paymentStatus"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Vendor Payment Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                  <FormLabel>Payment Status</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value || ""}
+                  >
                     <FormControl>
-                      <SelectTrigger data-testid="select-vendor-payment-status">
+                      <SelectTrigger data-testid="select-payment-status">
                         <SelectValue placeholder="Select payment status" />
                       </SelectTrigger>
                     </FormControl>
@@ -309,18 +496,58 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
           <>
             <FormField
               control={form.control}
+              name="assetCategory"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Asset Category</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value || ""}
+                    disabled={planType !== "Asset"}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an asset category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {assetCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="assetId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Asset</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value || ""}
+                    disabled={!selectedAssetCategory || planType !== "Asset"}
+                  >
                     <FormControl>
                       <SelectTrigger data-testid="select-asset">
-                        <SelectValue placeholder="Select asset" />
+                        <SelectValue 
+                          placeholder={
+                            !selectedAssetCategory 
+                              ? "Select an asset category first" 
+                              : filteredAssets.length === 0 
+                                ? "No assets available for this category"
+                                : "Select asset"
+                          } 
+                        />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {assets?.map((asset) => (
+                      {filteredAssets.map((asset) => (
                         <SelectItem key={asset.id} value={asset.id}>
                           {asset.name}
                         </SelectItem>
@@ -360,12 +587,19 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
             {assetPurchaseStatus === "New" && (
               <FormField
                 control={form.control}
-                name="purchasedValue"
+                name="payment"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Purchased Value</FormLabel>
+                    <FormLabel>Payment Amount</FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value || ""} type="number" step="0.01" placeholder="Enter purchased value" data-testid="input-purchased-value" />
+                      <Input 
+                        {...field} 
+                        value={field.value || ""} 
+                        type="number" 
+                        step="0.01" 
+                        placeholder="Enter payment amount" 
+                        data-testid="input-payment-amount" 
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

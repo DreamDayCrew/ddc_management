@@ -266,7 +266,7 @@ export async function seedDatabase() {
       planType: "Vendor",
       vendorId: vendors[0]?.id || null,
       vendorAmount: "35000",
-      vendorPaymentStatus: "Completed",
+      paymentStatus: "Completed",
       planStatus: "In Progress",
     });
 

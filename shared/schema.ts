@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, date } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, date, timestamp, check } from "drizzle-orm/pg-core";
+import { v4 as uuidv4 } from 'uuid';
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -108,21 +109,48 @@ export const requirements = pgTable("requirements", {
 });
 
 // Fulfillment Plans Schema (nested under Requirements)
-export const fulfillmentPlans = pgTable("fulfillment_plans", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  requirementId: varchar("requirement_id").notNull().references(() => requirements.id),
-  planType: text("plan_type").notNull(),
-  teamMemberId: varchar("team_member_id").references(() => teamMembers.id),
-  teamRole: text("team_role"),
-  payment: decimal("payment", { precision: 10, scale: 2 }),
-  vendorId: varchar("vendor_id").references(() => vendors.id),
-  vendorAmount: decimal("vendor_amount", { precision: 10, scale: 2 }),
-  vendorPaymentStatus: text("vendor_payment_status"),
-  assetId: varchar("asset_id").references(() => assets.id),
-  assetPurchaseStatus: text("asset_purchase_status"),
-  purchasedValue: decimal("purchased_value", { precision: 10, scale: 2 }),
-  planStatus: text("plan_status").notNull().default("To Do"),
+// In your schema.ts file
+// Create a custom date schema that can handle both string and Date objects
+const dateSchema = z.union([z.string(), z.date()]).transform((val) => {
+  if (val instanceof Date) return val;
+  return new Date(val);
 });
+
+export const fulfillmentPlans = pgTable('fulfillment_plans', {
+  id: text('id').primaryKey().$defaultFn(() => uuidv4()),
+  requirementId: text('requirement_id').notNull().references(() => requirements.id, { onDelete: 'cascade' }),
+  planType: text('plan_type', { enum: ['Vendor', 'Team', 'Asset'] }).notNull(),
+  
+  // Vendor fields
+  vendorId: text('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
+  vendorCategory: text('vendor_category'),
+  
+  // Team fields
+  teamMemberId: text('team_member_id').references(() => teamMembers.id, { onDelete: 'set null' }),
+  teamRole: text('team_role'),
+  
+  // Asset fields
+  assetId: text('asset_id').references(() => assets.id, { onDelete: 'set null' }),
+  assetPurchaseStatus: text('asset_purchase_status'),
+  assetCategory: text('asset_category'),
+
+  // Payment field (common for all plan types)
+  payment: decimal('payment', { precision: 10, scale: 2 }),
+  paymentStatus: text('payment_status'),
+
+  // Common fields
+  planStatus: text('plan_status').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  // Add check constraints
+  chkVendorPlan: check('chk_vendor_plan', 
+    sql`(plan_type = 'Vendor' AND vendor_id IS NOT NULL) OR plan_type != 'Vendor'`),
+  chkTeamPlan: check('chk_team_plan',
+    sql`(plan_type = 'Team' AND team_member_id IS NOT NULL) OR plan_type != 'Team'`),
+  chkAssetPlan: check('chk_asset_plan',
+    sql`(plan_type = 'Asset' AND asset_id IS NOT NULL) OR plan_type != 'Asset'`),
+}));
 
 // Insert Schemas
 export const insertConfigurationSchema = createInsertSchema(configurations).omit({ id: true });
@@ -137,15 +165,19 @@ export const insertEventSchema = createInsertSchema(events)
     finalizedQuote: z.string().optional().transform((val) => val === "" ? undefined : val),
     ddcCost: z.string().optional().transform((val) => val === "" ? undefined : val),
     profitLoss: z.string().optional().transform((val) => val === "" ? undefined : val),
+    registeredOn: dateSchema.optional(),
   });
 export const insertRequirementSchema = createInsertSchema(requirements).omit({ id: true });
-export const insertFulfillmentPlanSchema = createInsertSchema(fulfillmentPlans)
-  .omit({ id: true })
-  .extend({
-    payment: z.string().optional().transform((val) => val === "" ? undefined : val),
-    vendorAmount: z.string().optional().transform((val) => val === "" ? undefined : val),
-    purchasedValue: z.string().optional().transform((val) => val === "" ? undefined : val),
-  });
+export const insertFulfillmentPlanSchema = createInsertSchema(fulfillmentPlans, {
+  // Use the custom date schema for date fields
+  createdAt: dateSchema.optional(),
+  updatedAt: dateSchema.optional(),
+  // Handle payment as string for form input
+  payment: z.union([z.string(), z.number()])
+    .transform(val => val === "" ? undefined : val)
+    .pipe(z.coerce.number().nullable().optional())
+    .default(undefined),
+}).omit({ id: true });
 
 // Types
 export type Configuration = typeof configurations.$inferSelect;
@@ -162,5 +194,16 @@ export type Event = typeof events.$inferSelect;
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type Requirement = typeof requirements.$inferSelect;
 export type InsertRequirement = z.infer<typeof insertRequirementSchema>;
+
+// Base types from the database
 export type FulfillmentPlan = typeof fulfillmentPlans.$inferSelect;
-export type InsertFulfillmentPlan = z.infer<typeof insertFulfillmentPlanSchema>;
+
+// Form type that handles string/number conversions
+export type FulfillmentPlanForm = Omit<FulfillmentPlan, 'payment'> & {
+  payment?: string | null;
+};
+
+// Insert type with proper transformations
+export type InsertFulfillmentPlan = Omit<z.infer<typeof insertFulfillmentPlanSchema>, 'payment'> & {
+  payment?: string | number | null;
+};

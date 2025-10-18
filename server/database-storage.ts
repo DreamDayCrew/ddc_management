@@ -233,8 +233,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteRequirement(id: string): Promise<boolean> {
-    const result = await db.delete(requirements).where(eq(requirements.id, id)).returning();
-    return result.length > 0;
+    console.log('Database: Deleting requirement with ID:', id);
+    try {
+      const result = await db.delete(requirements).where(eq(requirements.id, id)).returning();
+      console.log('Database: Delete result:', { deletedCount: result.length, id });
+      return result.length > 0;
+    } catch (error) {
+      console.error('Database: Error deleting requirement:', error);
+      throw error;
+    }
   }
 
   // Fulfillment Plans
@@ -252,21 +259,66 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createFulfillmentPlan(plan: InsertFulfillmentPlan): Promise<FulfillmentPlan> {
-    const result = await db.insert(fulfillmentPlans).values(plan).returning();
+    // Create a clean plan object with only the relevant fields
+    const planData: any = {
+      ...plan,
+      // Clear fields that should be null based on plan type
+      ...(plan.planType === 'Vendor' && {
+        teamMemberId: null,
+        teamRole: null,
+        assetId: null,
+        assetPurchaseStatus: null
+      }),
+      ...(plan.planType === 'Team' && {
+        vendorId: null,
+        assetId: null,
+        assetPurchaseStatus: null
+      }),
+      ...(plan.planType === 'Asset' && {
+        vendorId: null,
+        teamMemberId: null,
+        teamRole: null
+      })
+    };
+
+    const result = await db.insert(fulfillmentPlans)
+      .values(planData)
+      .returning();
     return result[0];
   }
 
   async updateFulfillmentPlan(id: string, plan: Partial<InsertFulfillmentPlan>): Promise<FulfillmentPlan | undefined> {
+    // Convert numeric values to strings if needed
+    const sanitizedPlan = {
+      ...plan,
+      ...(plan.payment !== undefined && { payment: plan.payment?.toString() }),
+    };
+
     const result = await db.update(fulfillmentPlans)
-      .set(plan)
+      .set(sanitizedPlan)
       .where(eq(fulfillmentPlans.id, id))
       .returning();
     return result[0];
   }
 
   async deleteFulfillmentPlan(id: string): Promise<boolean> {
-    const result = await db.delete(fulfillmentPlans).where(eq(fulfillmentPlans.id, id)).returning();
-    return result.length > 0;
+    console.log('Database: Deleting fulfillment plan with ID:', id);
+    try {
+      const result = await db.delete(fulfillmentPlans)
+        .where(eq(fulfillmentPlans.id, id))
+        .returning();
+      
+      console.log('Database: Fulfillment plan deletion result:', { 
+        deletedCount: result.length,
+        id,
+        result 
+      });
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error('Database: Error deleting fulfillment plan:', error);
+      throw error;
+    }
   }
   
   getStorageType(): string {

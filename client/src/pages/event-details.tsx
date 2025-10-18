@@ -138,28 +138,75 @@ export default function EventDetails() {
   });
 
   const deletePlanMutation = useMutation({
-    mutationFn: async (planId: string) => {
-      await apiRequest("DELETE", `/api/plans/${planId}`);
+    mutationFn: async (variables: { planId: string; requirementId: string }) => {
+      return await apiRequest("DELETE", `/api/plans/${variables.planId}`);
     },
-    onSuccess: (_data, _variables, context: any) => {
-      if (context?.requirementId) {
-        queryClient.invalidateQueries({ queryKey: ["/api/requirements", context.requirementId, "plans"] });
+    onSuccess: async (data, variables) => {
+      try {
+        // Invalidate and refetch both the plans and requirements data
+        await Promise.all([
+          queryClient.invalidateQueries({ 
+            queryKey: ["/api/requirements", variables.requirementId, "plans"],
+            refetchType: 'active',
+          }),
+          queryClient.invalidateQueries({ 
+            queryKey: ["/api/events", id, "requirements"],
+            refetchType: 'active',
+          })
+        ]);
+        
+        // Also invalidate any other related queries
+        await queryClient.invalidateQueries({
+          queryKey: ["/api/plans"],
+          refetchType: 'active',
+        });
+        
+        // Close the delete confirmation dialog
+        setDeletePlan(null);
+        
+        toast({
+          title: "Success",
+          description: "Fulfillment plan deleted successfully",
+        });
+      } catch (error) {
+        console.error('Error refreshing data after deletion:', error);
+        toast({
+          title: "Error",
+          description: "Plan was deleted but there was an error refreshing the data",
+          variant: "destructive",
+        });
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/events", id, "requirements"] });
-      toast({
-        title: "Success",
-        description: "Fulfillment plan deleted successfully",
-      });
-      setDeletePlan(null);
     },
     onError: (error: Error) => {
+      console.error('Delete plan error:', error);
       toast({
         title: "Error",
         description: error.message,
         variant: "destructive",
       });
     },
+    onSettled: () => {
+      setDeletePlan(null); // Close the dialog
+    }
   });
+
+  const handleDeletePlan = (plan: FulfillmentPlan) => {
+    setDeletePlan(plan);
+  };
+
+  const confirmDeletePlan = async () => {
+    if (!deletePlan) return;
+    
+    console.log('Going to call delete', deletePlan);
+    try {
+      await deletePlanMutation.mutateAsync({ 
+        planId: deletePlan.id, 
+        requirementId: deletePlan.requirementId 
+      });
+    } catch (error) {
+      console.error('Error in confirmDeletePlan:', error);
+    }
+  };
 
   if (eventLoading || requirementsLoading) {
     return (
@@ -481,9 +528,10 @@ export default function EventDetails() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-delete-plan">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deletePlan && deletePlanMutation.mutate(deletePlan.id)}
-              data-testid="button-confirm-delete-plan"
+            <AlertDialogAction 
+              onClick={confirmDeletePlan}
+              className="bg-destructive hover:bg-destructive/90"
+              data-testid="confirm-delete-plan"
             >
               Delete
             </AlertDialogAction>

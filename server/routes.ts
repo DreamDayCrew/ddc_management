@@ -349,17 +349,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/requirements/:id", async (req, res) => {
-    const deleted = await storage.deleteRequirement(req.params.id);
-    if (!deleted) {
-      return res.status(404).json({ error: "Requirement not found" });
+    const requirementId = req.params.id;
+    try {
+      const deleted = await storage.deleteRequirement(requirementId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Requirement not found" });
+      }
+      
+      return res.json({ success: true });
+    } catch (error) {
+      return res.status(500).json({ 
+        error: "Failed to delete requirement",
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
-    res.status(204).send();
   });
 
   // Fulfillment Plan routes
-  app.get("/api/plans", async (_req, res) => {
+  /*app.get("/api/plans", async (_req, res) => {
     const plans = await storage.getAllFulfillmentPlans();
     res.json(plans);
+  });*/
+  
+  app.delete("/api/plans/:id", async (req, res) => {
+    const planId = req.params.id;
+    console.log('DELETE /api/plans/:id - Starting deletion for plan:', planId);
+    
+    try {
+      const deleted = await storage.deleteFulfillmentPlan(planId);
+      console.log('DELETE /api/plans/:id - Deletion result:', { deleted, planId });
+      
+      if (!deleted) {
+        console.log('DELETE /api/plans/:id - Plan not found:', planId);
+        return res.status(404).json({ error: "Plan not found" });
+      }
+      
+      console.log('DELETE /api/plans/:id - Successfully deleted plan:', planId);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('DELETE /api/plans/:id - Error deleting plan:', error);
+      return res.status(500).json({ 
+        error: "Failed to delete plan",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/plans", async (req, res) => {
+    try {
+      console.log('Creating plan with data:', JSON.stringify(req.body, null, 2));
+      
+      // Create a clean copy of the request body
+      const planData = { ...req.body };
+      
+      // Handle different plan types
+      if (planData.planType === 'Vendor') {
+        // For vendor plans, ensure team_member_id is null
+        planData.teamMemberId = null;
+      } else if (planData.planType === 'Team') {
+        // For team plans, ensure vendor_id is null
+        planData.vendorId = null;
+      }
+      
+      // Validate the data
+      const validatedData = insertFulfillmentPlanSchema.parse(planData);
+      console.log('Validation passed, creating plan with:', JSON.stringify(validatedData, null, 2));
+      
+      const plan = await storage.createFulfillmentPlan(validatedData);
+      res.status(201).json(plan);
+    } catch (error: any) {
+      console.error('Plan creation failed:', error.message);
+      console.error('Full error:', error);
+      if (error.issues) {
+        console.error('Validation issues:', JSON.stringify(error.issues, null, 2));
+      }
+      res.status(400).json({ 
+        error: error.message,
+        details: error.issues?.map((issue: any) => issue.message) || []
+      });
+    }
   });
 
   app.get("/api/requirements/:requirementId/plans", async (req, res) => {
@@ -373,6 +441,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ error: "Fulfillment plan not found" });
     }
     res.json(plan);
+  });
+
+  app.patch("/api/plans/:id", async (req, res) => {
+    try {
+      console.log('Updating plan with data:', JSON.stringify(req.body, null, 2));
+      
+      // Validate and parse the request body
+      const validatedData = insertFulfillmentPlanSchema.partial().parse({
+        ...req.body,
+        // Always update the updatedAt timestamp
+        updatedAt: new Date()
+      });
+
+      const plan = await storage.updateFulfillmentPlan(req.params.id, validatedData);
+      if (!plan) {
+        return res.status(404).json({ error: "Fulfillment plan not found" });
+      }
+      
+      console.log('Successfully updated plan:', JSON.stringify(plan, null, 2));
+      res.json(plan);
+    } catch (error) {
+      console.error('Error updating plan:', error);
+      res.status(400).json({ 
+        error: error instanceof Error ? error.message : "Failed to update fulfillment plan",
+        details: error instanceof Error ? error.stack : undefined
+      });
+    }
   });
 
   app.post("/api/plans", async (req, res) => {
@@ -389,24 +484,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('Validation issues:', JSON.stringify(error.issues, null, 2));
       }
       res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.patch("/api/plans/:id", async (req, res) => {
-    try {
-      const plan = await storage.updateFulfillmentPlan(req.params.id, req.body);
-      if (!plan) {
-        return res.status(404).json({ error: "Fulfillment plan not found" });
-      }
-      res.json(plan);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.delete("/api/plans/:id", async (req, res) => {
-    const deleted = await storage.deleteFulfillmentPlan(req.params.id);
-    if (!deleted) {
       return res.status(404).json({ error: "Fulfillment plan not found" });
     }
     res.status(204).send();

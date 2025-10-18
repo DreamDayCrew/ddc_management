@@ -371,15 +371,18 @@ export class MemStorage implements IStorage {
       planType: plan.planType,
       teamMemberId: plan.teamMemberId || null,
       teamRole: plan.teamRole || null,
-      payment: plan.payment || null,
+      payment: plan.payment !== undefined ? String(plan.payment) : '0',
       vendorId: plan.vendorId || null,
-      vendorAmount: plan.vendorAmount || null,
-      vendorPaymentStatus: plan.vendorPaymentStatus || null,
+      vendorCategory: plan.vendorCategory || null,
+      paymentStatus: plan.paymentStatus || null,
       assetId: plan.assetId || null,
+      assetCategory: plan.assetCategory || null,
       assetPurchaseStatus: plan.assetPurchaseStatus || null,
-      purchasedValue: plan.purchasedValue || null,
       planStatus: plan.planStatus || 'To Do',
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
+    console.log('Trying to insert:', JSON.stringify(newPlan, null, 2));
     this.fulfillmentPlans.set(newPlan.id, newPlan);
     return newPlan;
   }
@@ -387,7 +390,27 @@ export class MemStorage implements IStorage {
   async updateFulfillmentPlan(id: string, plan: Partial<InsertFulfillmentPlan>): Promise<FulfillmentPlan | undefined> {
     const existing = this.fulfillmentPlans.get(id);
     if (!existing) return undefined;
-    const updated = { ...existing, ...plan };
+    
+    // Create a new object with only the fields we want to update
+    const updated: FulfillmentPlan = { 
+      ...existing,
+      // Only spread the plan fields that are actually provided
+      ...(plan.requirementId !== undefined && { requirementId: plan.requirementId }),
+      ...(plan.planType !== undefined && { planType: plan.planType }),
+      ...(plan.teamMemberId !== undefined && { teamMemberId: plan.teamMemberId }),
+      ...(plan.teamRole !== undefined && { teamRole: plan.teamRole }),
+      ...(plan.paymentStatus !== undefined && { paymentStatus: plan.paymentStatus }),
+      ...(plan.vendorId !== undefined && { vendorId: plan.vendorId }),
+      ...(plan.vendorCategory !== undefined && { vendorCategory: plan.vendorCategory }),
+      ...(plan.assetId !== undefined && { assetId: plan.assetId }),
+      ...(plan.assetCategory !== undefined && { assetCategory: plan.assetCategory }),
+      ...(plan.assetPurchaseStatus !== undefined && { assetPurchaseStatus: plan.assetPurchaseStatus }),
+      ...(plan.planStatus !== undefined && { planStatus: plan.planStatus }),
+      // Handle payment separately to ensure it's always a string
+      payment: plan.payment !== undefined ? String(plan.payment) : existing.payment,
+      updatedAt: new Date()
+    };
+    
     this.fulfillmentPlans.set(id, updated);
     return updated;
   }

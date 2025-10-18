@@ -191,17 +191,25 @@ export default function PlansPage() {
                     {plan.planType === "Team" && (
                       <div className="text-sm space-y-1">
                         <div>
-                          <span className="text-muted-foreground">Team: </span>
+                          <span className="text-muted-foreground">Name: </span>
                           <span data-testid={`plan-team-${plan.id}`}>
                             {getTeamMemberName(plan.teamMemberId)} ({plan.teamRole})
                           </span>
                         </div>
                         {plan.payment && (
                           <div>
-                            <span className="text-muted-foreground">Payment: </span>
-                            <span data-testid={`plan-payment-${plan.id}`}>
-                              ₹{parseFloat(plan.payment).toFixed(2)}
-                            </span>
+                            <div>
+                              <span className="text-muted-foreground">Payment: </span>
+                              <span data-testid={`plan-payment-${plan.id}`}>
+                                ₹{parseFloat(plan.payment).toFixed(2)}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Payment: </span>
+                              <Badge variant="outline" data-testid={`plan-payment-${plan.id}`}>
+                                {plan.paymentStatus}
+                              </Badge>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -216,15 +224,15 @@ export default function PlansPage() {
                           </span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Amount: </span>
+                          <span className="text-muted-foreground">Payment: </span>
                           <span data-testid={`plan-amount-${plan.id}`}>
-                            ₹{parseFloat(plan.vendorAmount || "0").toFixed(2)}
+                            ₹{parseFloat(plan.payment || "0").toFixed(2)}
                           </span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Payment: </span>
+                          <span className="text-muted-foreground">Payment Status: </span>
                           <Badge variant="outline">
-                            {plan.vendorPaymentStatus}
+                            {plan.paymentStatus}
                           </Badge>
                         </div>
                       </div>
@@ -238,11 +246,11 @@ export default function PlansPage() {
                             {getAssetName(plan.assetId)} ({plan.assetPurchaseStatus})
                           </span>
                         </div>
-                        {plan.assetPurchaseStatus === "New" && plan.purchasedValue && (
+                        {plan.assetPurchaseStatus === "New" && plan.payment && (
                           <div>
                             <span className="text-muted-foreground">Purchased Value: </span>
                             <span data-testid={`plan-purchased-value-${plan.id}`}>
-                              ₹{parseFloat(plan.purchasedValue).toFixed(2)}
+                              ₹{parseFloat(plan.payment).toFixed(2)}
                             </span>
                           </div>
                         )}
