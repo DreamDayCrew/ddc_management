@@ -51,7 +51,7 @@ import { RequirementForm } from "@/components/forms/requirement-form";
 import { FulfillmentForm } from "@/components/forms/fulfillment-form";
 import { RequirementItem } from "@/components/requirement-item";
 import { InvoiceTemplate } from "@/components/invoice-template";
-import { RefreshCcwDot, ArrowLeft, FileDown, Upload, Calendar, MapPin, Link, User, IndianRupee, Plus, Edit } from "lucide-react";
+import { RefreshCcwDot, ArrowLeft, FileDown, Upload, Calendar, MapPin, Link, User, Plus, Edit, SquareUserRound, Mail, MapPinHouse, BadgeIndianRupee, ChartColumn, HeartHandshake, HeartCrack, Meh, Smile, SmilePlus } from "lucide-react";
 import { format } from "date-fns";
 
 
@@ -474,12 +474,51 @@ export default function EventDetails() {
               document={<InvoiceTemplate config={config} event={event} requirements={requirements} invoiceNumber={generateInvoiceNumber(event.id)} />}
               fileName={`Invoice_${event.eventName}_${format(new Date(), "yyyyMMdd")}.pdf`}
             >
-              {({ loading }) => (
-                <Button variant="outline" disabled={loading} data-testid="button-generate-invoice">
-                  <FileDown className="h-4 w-4 mr-2" />
-                  {loading ? "Generating..." : "Generate Invoice"}
-                </Button>
-              )}
+              {({ loading }) => {
+                const invoiceAmount = calculateInvoiceValue();
+                const ddcSpent = calculateDDCCost();
+                
+                // Calculate percentage difference using DDC Spent as base
+                let difference = 0;
+                if (invoiceAmount > 0) {
+                  difference = ((ddcSpent - invoiceAmount) / invoiceAmount) * 100;
+                }
+                
+                // Determine which icon to show based on conditions
+                let Icon = null;
+                let tooltip = '';
+                
+                if (ddcSpent === 0 || isNaN(ddcSpent)) {
+                  Icon = <HeartHandshake color="#0df83c" className="h-5 w-5" />;
+                  tooltip = 'Invoice fulfilled with no spending — excellent efficiency!';
+                } else if (difference >= 10) {
+                  Icon = <HeartCrack color="#e40c0c" className="h-5 w-5" />;
+                  tooltip = 'Spending greatly exceeds the invoice — significant overspend';
+                } else if (difference > 0) {
+                  Icon = <Meh color="#e44d0c" className="h-5 w-5" />;
+                  tooltip = 'Slightly over the invoice — mild overspend';
+                } else if (difference >= -10) {
+                  Icon = <Smile color="#e0e40c" className="h-5 w-5" />;
+                  tooltip = 'Close to invoice amount — within normal range';
+                } else {
+                  Icon = <SmilePlus color="#13d820" className="h-5 w-5" />;
+                  tooltip = 'Spending far below the invoice — possible loss or underbilling';
+                }
+                
+                return (
+                  <div className="flex items-center gap-2">
+                    {Icon && (
+                      <div title={tooltip} className="flex items-center mr-1" data-testid="budget-status-indicator">
+                        {Icon}
+                      </div>
+                    )}
+                    <Button variant="outline" disabled={loading} data-testid="button-generate-invoice">
+                      <FileDown className="h-4 w-4 mr-2" />
+                      {loading ? "Generating..." : "Generate Invoice"}
+                    </Button>
+                  </div>
+                );
+              }}
             </PDFDownloadLink>
           )}
           <Dialog open={editEventOpen} onOpenChange={setEditEventOpen}>
@@ -583,21 +622,21 @@ export default function EventDetails() {
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <User className="h-4 w-4" />
+                      <SquareUserRound className="h-4 w-4" />
                       <span>Contact Number</span>
                     </div>
                     <p className="font-medium" data-testid="client-phone">{event.clientPhone || "N/A"}</p>
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <User className="h-4 w-4" />
+                      <Mail className="h-4 w-4" />
                       <span>Email</span>
                     </div>
                     <p className="font-medium" data-testid="client-email">{event.clientEmail || "N/A"}</p>
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <User className="h-4 w-4" />
+                      <MapPinHouse className="h-4 w-4" />
                       <span>Address</span>
                     </div>
                     <p className="font-medium" data-testid="client-address">{event.clientAddress || "N/A"}</p>
@@ -615,7 +654,7 @@ export default function EventDetails() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <IndianRupee className="h-4 w-4" />
+                      <BadgeIndianRupee className="h-4 w-4" />
                       <span>Invoice Value</span>
                     </div>
                     <div className="flex items-center gap-1">
@@ -637,7 +676,7 @@ export default function EventDetails() {
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <IndianRupee className="h-4 w-4" />
+                      <BadgeIndianRupee className="h-4 w-4" />
                       <span>DDC Spent</span>
                     </div>
                     <div className="flex items-center gap-1">
@@ -672,12 +711,14 @@ export default function EventDetails() {
 
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <BadgeIndianRupee className="h-4 w-4" />
                       <span>Mode of Transaction</span>
                     </div>
                     <p className="font-medium" data-testid="payment-mode">{event.paymentMode || "N/A"}</p>
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <ChartColumn className="h-4 w-4" />
                       <span>Status</span>
                     </div>
                     <Badge variant="outline" data-testid="payment-status">{event.paymentStatus}</Badge>

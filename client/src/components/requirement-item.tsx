@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   type Requirement,
@@ -162,27 +162,76 @@ export function RequirementItem({
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Select
-              value={requirement.requirementStatus}
-              onValueChange={(value) => updateRequirementStatusMutation.mutate(value)}
-              disabled={updateRequirementStatusMutation.isPending}
-            >
-              <SelectTrigger className="w-[140px] h-8" data-testid={`select-requirement-status-${requirement.id}`}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {["To Do", "In Progress", "Completed"].map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {status}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              {(() => {
+                const invoiceAmount = parseFloat(requirement.order?.toString() || '0');
+                const ddcSpent = plans?.reduce((total, plan) => {
+                  return total + (parseFloat(plan.payment?.toString() || '0') || 0);
+                }, 0) || 0;
+                
+                const variance = invoiceAmount - ddcSpent;
+                const variancePercent = invoiceAmount > 0 ? (Math.abs(variance) / invoiceAmount) * 100 : 0;
+                
+                return (
+                  <div className="text-right min-w-[100px]">
+                    <p 
+                      className={`text-sm font-medium leading-4 ${
+                        variance >= 0
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400"
+                      }`}
+                      data-testid={`variance-amount-${requirement.id}`}
+                    >
+                      {variance >= 0 ? "+" : "-"}
+                      {new Intl.NumberFormat('en-IN', { 
+                        style: 'currency', 
+                        currency: 'INR',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                      }).format(Math.abs(variance))}
+                    </p>
+                    <p 
+                      className="text-xs text-muted-foreground leading-4"
+                      title={variance >= 0 ? `Saved ${variancePercent.toFixed(1)}%` : `Over by ${variancePercent.toFixed(1)}%`}
+                      data-testid={`variance-label-${requirement.id}`}
+                    >
+                      {variance >= 0 ? "saved" : "over"}
+                    </p>
+                  </div>
+                );
+              })()}
+            </div>
+            
+            <div className="w-[140px]">
+              <Select
+                value={requirement.requirementStatus}
+                onValueChange={(value) => updateRequirementStatusMutation.mutate(value)}
+                disabled={updateRequirementStatusMutation.isPending}
+              >
+                <SelectTrigger className="h-8" data-testid={`select-requirement-status-${requirement.id}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["To Do", "In Progress", "Completed"].map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
             {requirement.requirementOwner && (
-              <Badge variant="outline" data-testid={`requirement-owner-${requirement.id}`}>
-                {requirement.requirementOwner}
-              </Badge>
+              <div className="min-w-[80px]">
+                <Badge 
+                  variant="outline" 
+                  className="whitespace-nowrap"
+                  data-testid={`requirement-owner-${requirement.id}`}
+                >
+                  {requirement.requirementOwner}
+                </Badge>
+              </div>
             )}
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, User, ChevronRight, Link } from "lucide-react";
+import { Calendar, MapPin, User, ChevronRight, Link, DollarSign, FileCheck, HeartHandshake, HeartCrack, Meh, Smile, SmilePlus } from "lucide-react";
 import { format } from "date-fns";
 
 interface EventCardProps {
@@ -14,6 +14,8 @@ interface EventCardProps {
   providedService: string;
   requirementCount?: number;
   source?: string;
+  ddcCost?: number | null;
+  finalizedQuote?: boolean;
   onClick?: () => void;
 }
 
@@ -27,8 +29,19 @@ export function EventCard({
   providedService,
   requirementCount = 0,
   source = "",
+  ddcCost = null,
+  finalizedQuote = false,
   onClick,
 }: EventCardProps) {
+  // Debug logs
+  console.log('EventCard props:', {
+    id,
+    ddcCost,
+    finalizedQuote,
+    eventName,
+    eventStatus
+  });
+
   const statusColors: Record<string, string> = {
     Completed: "bg-chart-2 text-white",
     "In Progress": "bg-chart-3 text-white",
@@ -48,9 +61,65 @@ export function EventCard({
           </CardTitle>
           <p className="text-sm text-muted-foreground mt-1">{providedService}</p>
         </div>
-        <Badge className={statusColors[eventStatus] || "bg-muted"} data-testid={`event-status-${id}`}>
-          {eventStatus}
-        </Badge>
+        <div className="flex items-center gap-2">
+          {(() => {
+            console.log('Before calulation', {finalizedQuote, ddcCost})
+            // Parse string values to numbers, default to 0 if parsing fails
+            const parseNumber = (value: any) => {
+              if (typeof value === 'number') return value;
+              if (typeof value === 'string') {
+                const parsed = parseFloat(value.replace(/,/g, ''));
+                return isNaN(parsed) ? 0 : parsed;
+              }
+              return 0;
+            };
+            
+            const invoiceAmount = parseNumber(finalizedQuote);
+            const ddcAmount = parseNumber(ddcCost);
+            
+            let difference = 0;
+            if (invoiceAmount > 0) {
+              difference = ((ddcAmount - invoiceAmount) / invoiceAmount) * 100;
+            }
+            
+            // Determine which icon to show based on conditions
+            let Icon = null;
+            let tooltip = '';
+            
+            if (ddcAmount === 0 || isNaN(ddcAmount)) {
+              Icon = <HeartHandshake color="#0df83c" className="h-5 w-5" />;
+              tooltip = 'No DDC spending recorded yet';
+            } else if (invoiceAmount === 0) {
+              Icon = <DollarSign className="h-4 w-4 text-muted-foreground" />;
+              tooltip = `DDC Cost: $${ddcAmount.toLocaleString()}`;
+            } else if (difference >= 10) {
+              Icon = <HeartCrack color="#e40c0c" className="h-5 w-5" />;
+              tooltip = `Spending ${Math.abs(difference).toFixed(1)}% above quote — significant overspend`;
+            } else if (difference > 0) {
+              Icon = <Meh color="#e44d0c" className="h-5 w-5" />;
+              tooltip = `Spending ${difference.toFixed(1)}% above quote — mild overspend`;
+            } else if (difference >= -10) {
+              Icon = <Smile color="#e0e40c" className="h-5 w-5" />;
+              tooltip = `Within ${Math.abs(difference).toFixed(1)}% of quote — normal range`;
+            } else {
+              Icon = <SmilePlus color="#13d820" className="h-5 w-5" />;
+              tooltip = `Spending ${Math.abs(difference).toFixed(1)}% below quote — good efficiency`;
+            }
+            
+            return (
+              <>
+                {ddcCost !== null && Icon && (
+                  <div title={tooltip} className="flex items-center">
+                    {Icon}
+                  </div>
+                )}
+                <Badge className={statusColors[eventStatus] || "bg-muted"} data-testid={`event-status-${id}`}>
+                  {eventStatus}
+                </Badge>
+              </>
+            );
+          })()}
+        </div>
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="flex items-center gap-2 text-sm">

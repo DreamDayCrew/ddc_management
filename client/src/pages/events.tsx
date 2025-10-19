@@ -42,7 +42,7 @@ export default function Events() {
     return (
       event.eventName.toLowerCase().includes(query) ||
       event.venue.toLowerCase().includes(query) ||
-      event.clientInfo.toLowerCase().includes(query) ||
+      event.clientName.toLowerCase().includes(query) ||
       event.providedService.toLowerCase().includes(query)
     );
   });
