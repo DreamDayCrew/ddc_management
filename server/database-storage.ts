@@ -225,11 +225,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateRequirement(id: string, requirement: Partial<InsertRequirement>): Promise<Requirement | undefined> {
-    const result = await db.update(requirements)
-      .set(requirement)
-      .where(eq(requirements.id, id))
-      .returning();
-    return result[0];
+    console.log('Updating requirement with data:', { id, requirement });
+    try {
+      // Explicitly include all possible fields to ensure nothing is missed
+      const updateData = {
+        requirement: requirement.requirement,
+        description: requirement.description ?? '', // Ensure empty string if undefined
+        requirementOwner: requirement.requirementOwner,
+        requirementStatus: requirement.requirementStatus,
+        price: requirement.price,
+        quantity: requirement.quantity,
+        order: requirement.order,
+        // Don't update the eventId as it shouldn't change
+      };
+      
+      const result = await db.update(requirements)
+        .set(updateData)
+        .where(eq(requirements.id, id))
+        .returning();
+        
+      console.log('Update result:', result[0]);
+      return result[0];
+    } catch (error) {
+      console.error('Error updating requirement:', error);
+      throw error;
+    }
   }
 
   async deleteRequirement(id: string): Promise<boolean> {

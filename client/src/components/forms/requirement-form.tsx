@@ -7,6 +7,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Form,
   FormControl,
@@ -44,12 +45,22 @@ export function RequirementForm({ requirement, eventId, onSuccess }: Requirement
   const form = useForm<Omit<InsertRequirement, 'order'>>({
     resolver: zodResolver(insertRequirementSchema.omit({ order: true })),
     defaultValues: {
-      eventId: requirement?.eventId || eventId,
-      requirement: requirement?.requirement || "",
-      requirementOwner: requirement?.requirementOwner || "",
-      requirementStatus: requirement?.requirementStatus || "To Do",
-      price: requirement?.price || 0,
-      quantity: requirement?.quantity || 1,
+      eventId: eventId,
+      requirement: "",
+      description: "",
+      requirementOwner: "",
+      requirementStatus: "To Do",
+      price: 0,
+      quantity: 1,
+      ...(requirement ? {
+        eventId: requirement.eventId,
+        requirement: requirement.requirement || "",
+        description: requirement.description || "",
+        requirementOwner: requirement.requirementOwner || "",
+        requirementStatus: requirement.requirementStatus || "To Do",
+        price: requirement.price || 0,
+        quantity: requirement.quantity || 1,
+      } : {})
     },
   });
 
@@ -118,19 +129,25 @@ export function RequirementForm({ requirement, eventId, onSuccess }: Requirement
     // Calculate the order before submission
     const order = (Number(data.price) || 0) * (Number(data.quantity) || 1);
     
-    console.log("Submitting form data:", {
-      ...data,
-      order // Include order in the logged data
-    });
+    console.log("Form data before processing:", data);
     
-    // Include the calculated order in the submission
-    const submissionData = {
-      ...data,
+    // Create submission data with all required fields
+    const submissionData: InsertRequirement = {
+      eventId: data.eventId,
+      requirement: data.requirement,
+      description: data.description || '',
+      requirementOwner: data.requirementOwner || null,
+      requirementStatus: data.requirementStatus,
+      price: data.price,
+      quantity: data.quantity,
       order
     };
     
+    console.log("Submitting data to server:", submissionData);
+    
     if (isEditing && requirement?.id) {
-      updateMutation.mutate({ id: requirement.id, ...submissionData });
+      console.log("Updating existing requirement with ID:", requirement.id);
+      updateMutation.mutate(submissionData);
     } else {
       createMutation.mutate(submissionData);
     }
@@ -149,6 +166,25 @@ export function RequirementForm({ requirement, eventId, onSuccess }: Requirement
               <FormLabel>Requirement</FormLabel>
               <FormControl>
                 <Input {...field} placeholder="Enter requirement" data-testid="input-requirement" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea
+                  {...field}
+                  placeholder="Enter description (optional)"
+                  className="min-h-[100px]"
+                  data-testid="input-description"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

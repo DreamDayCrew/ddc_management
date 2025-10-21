@@ -378,12 +378,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/requirements/:id", async (req, res) => {
     try {
-      const requirement = await storage.updateRequirement(req.params.id, req.body);
+      // First, validate the request body against the schema
+      const validatedData = insertRequirementSchema.partial().parse(req.body);
+      
+      // Then update the requirement with validated data
+      const requirement = await storage.updateRequirement(req.params.id, validatedData);
+      
       if (!requirement) {
         return res.status(404).json({ error: "Requirement not found" });
       }
+      
       res.json(requirement);
     } catch (error: any) {
+      console.error("Error updating requirement:", error);
       res.status(400).json({ error: error.message });
     }
   });

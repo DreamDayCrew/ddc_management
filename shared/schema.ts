@@ -101,6 +101,7 @@ export const requirements = pgTable("requirements", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   eventId: varchar("event_id").notNull().references(() => events.id),
   requirement: text("requirement").notNull(),
+  description: text("description").notNull().default(''),
   requirementOwner: text("requirement_owner"),
   requirementStatus: text("requirement_status").notNull().default("To Do"),
   order: integer("order").notNull().default(0),
