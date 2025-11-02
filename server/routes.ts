@@ -214,46 +214,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Expense routes
   app.get("/api/expenses", async (_req, res) => {
-    const expenses = await storage.getExpenses();
-    res.json(expenses);
+    console.log('[API] GET /api/expenses - Fetching all expenses');
+    try {
+      const expenses = await storage.getExpenses();
+      console.log(`[API] Successfully fetched ${expenses.length} expenses`);
+      res.json(expenses);
+    } catch (error: any) {
+      console.error('[API] Error fetching expenses:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch expenses',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
   });
 
   app.get("/api/expenses/:id", async (req, res) => {
-    const expense = await storage.getExpense(req.params.id);
-    if (!expense) {
-      return res.status(404).json({ error: "Expense not found" });
+    const { id } = req.params;
+    console.log(`[API] GET /api/expenses/${id} - Fetching expense`);
+    try {
+      const expense = await storage.getExpense(id);
+      if (!expense) {
+        console.log(`[API] Expense ${id} not found`);
+        return res.status(404).json({ error: "Expense not found" });
+      }
+      console.log(`[API] Successfully fetched expense ${id}`);
+      res.json(expense);
+    } catch (error: any) {
+      console.error(`[API] Error fetching expense ${id}:`, error);
+      res.status(500).json({ 
+        error: `Failed to fetch expense ${id}`,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
-    res.json(expense);
   });
 
   app.post("/api/expenses", async (req, res) => {
+    console.log('[API] POST /api/expenses - Creating new expense');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
     try {
+      console.log('Validating expense data...');
       const validatedData = insertExpenseSchema.parse(req.body);
+      console.log('Validation successful, creating expense...');
+      
       const expense = await storage.createExpense(validatedData);
+      console.log(`[API] Successfully created expense ${expense.id}`);
+      
       res.status(201).json(expense);
     } catch (error: any) {
-      res.status(400).json({ error: error.message });
+      console.error('[API] Error creating expense:', error);
+      
+      if (error.name === 'ZodError') {
+        console.error('Validation errors:', error.errors);
+        return res.status(400).json({ 
+          error: 'Validation error',
+          details: error.errors,
+          message: error.message
+        });
+      }
+      
+      res.status(400).json({ 
+        error: 'Failed to create expense',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   });
 
   app.patch("/api/expenses/:id", async (req, res) => {
+    const { id } = req.params;
+    console.log(`[API] PATCH /api/expenses/${id} - Updating expense`);
+    console.log('Update data:', JSON.stringify(req.body, null, 2));
+    
     try {
-      const expense = await storage.updateExpense(req.params.id, req.body);
+      console.log('Validating update data...');
+      const validatedData = insertExpenseSchema.partial().parse(req.body);
+      console.log('Validation successful, updating expense...');
+      
+      const expense = await storage.updateExpense(id, validatedData);
       if (!expense) {
+        console.log(`[API] Expense ${id} not found for update`);
         return res.status(404).json({ error: "Expense not found" });
       }
+      
+      console.log(`[API] Successfully updated expense ${id}`);
       res.json(expense);
     } catch (error: any) {
-      res.status(400).json({ error: error.message });
+      console.error(`[API] Error updating expense ${id}:`, error);
+      
+      if (error.name === 'ZodError') {
+        console.error('Validation errors:', error.errors);
+        return res.status(400).json({ 
+          error: 'Validation error',
+          details: error.errors,
+          message: error.message
+        });
+      }
+      
+      res.status(400).json({ 
+        error: 'Failed to update expense',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   });
 
   app.delete("/api/expenses/:id", async (req, res) => {
-    const deleted = await storage.deleteExpense(req.params.id);
-    if (!deleted) {
-      return res.status(404).json({ error: "Expense not found" });
+    const { id } = req.params;
+    console.log(`[API] DELETE /api/expenses/${id} - Deleting expense`);
+    
+    try {
+      const deleted = await storage.deleteExpense(id);
+      if (!deleted) {
+        console.log(`[API] Expense ${id} not found for deletion`);
+        return res.status(404).json({ error: "Expense not found" });
+      }
+      
+      console.log(`[API] Successfully deleted expense ${id}`);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error(`[API] Error deleting expense ${id}:`, error);
+      res.status(500).json({ 
+        error: `Failed to delete expense ${id}`,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
-    res.status(204).send();
   });
 
   // Event routes

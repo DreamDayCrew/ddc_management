@@ -71,6 +71,9 @@ export const expenses = pgTable("expenses", {
   mode: text("mode"),
   date: date("date").notNull(),
   status: text("status").notNull().default("Pending"),
+  contributor: text("contributor").array(),
+  contribution: decimal("contribution", { precision: 10, scale: 2 }).array(),
+  contribution_status: text("contribution_status").array(),
 });
 
 // Events Schema
@@ -158,7 +161,13 @@ export const insertConfigurationSchema = createInsertSchema(configurations).omit
 export const insertAssetSchema = createInsertSchema(assets).omit({ id: true });
 export const insertVendorSchema = createInsertSchema(vendors).omit({ id: true });
 export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id: true });
-export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true });
+export const insertExpenseSchema = createInsertSchema(expenses)
+  .omit({ id: true })
+  .extend({
+    contributor: z.array(z.string()).optional().default([]),
+    contribution: z.array(z.number()).optional().default([]),
+    contribution_status: z.array(z.string()).optional().default([]),
+  });
 export const insertEventSchema = createInsertSchema(events)
   .omit({ id: true })
   .extend({

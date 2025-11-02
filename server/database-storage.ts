@@ -151,30 +151,100 @@ export class DatabaseStorage implements IStorage {
 
   // Expenses
   async getExpenses(): Promise<Expense[]> {
-    return await db.select().from(expenses);
+    console.log('[DB] Fetching all expenses');
+    try {
+      const result = await db.select().from(expenses);
+      console.log(`[DB] Successfully fetched ${result.length} expenses`);
+      return result;
+    } catch (error) {
+      console.error('[DB] Error fetching expenses:', error);
+      throw error;
+    }
   }
 
   async getExpense(id: string): Promise<Expense | undefined> {
-    const result = await db.select().from(expenses).where(eq(expenses.id, id));
-    return result[0];
+    console.log(`[DB] Fetching expense with ID: ${id}`);
+    try {
+      const result = await db.select().from(expenses).where(eq(expenses.id, id));
+      console.log(`[DB] Expense ${id} fetch result:`, result[0] ? 'Found' : 'Not found');
+      return result[0];
+    } catch (error) {
+      console.error(`[DB] Error fetching expense ${id}:`, error);
+      throw error;
+    }
   }
 
   async createExpense(expense: InsertExpense): Promise<Expense> {
-    const result = await db.insert(expenses).values(expense).returning();
-    return result[0];
+    console.log('[DB] Creating new expense with data:', JSON.stringify(expense, null, 2));
+    try {
+      // Ensure arrays are properly initialized and types are correct
+      const processedExpense = {
+        ...expense,
+        contributor: Array.isArray(expense.contributor) ? expense.contributor : [],
+        contribution: Array.isArray(expense.contribution) 
+          ? expense.contribution.map(c => c.toString()) 
+          : [],
+        contribution_status: Array.isArray(expense.contribution_status) 
+          ? expense.contribution_status 
+          : [],
+      };
+      
+      const result = await db.insert(expenses).values(processedExpense).returning();
+      console.log('[DB] Successfully created expense:', result[0]);
+      return result[0];
+    } catch (error) {
+      console.error('[DB] Error creating expense:', error);
+      throw error;
+    }
   }
 
   async updateExpense(id: string, expense: Partial<InsertExpense>): Promise<Expense | undefined> {
-    const result = await db.update(expenses)
-      .set(expense)
-      .where(eq(expenses.id, id))
-      .returning();
-    return result[0];
+    console.log(`[DB] Updating expense ${id} with data:`, JSON.stringify(expense, null, 2));
+    try {
+      // Prepare the update object with only defined values
+      const updateData: any = { ...expense };
+      
+      // Handle arrays properly, converting numbers to strings for the contribution field
+      if ('contributor' in expense) {
+        updateData.contributor = Array.isArray(expense.contributor) ? expense.contributor : [];
+      }
+      
+      if ('contribution' in expense) {
+        updateData.contribution = Array.isArray(expense.contribution) 
+          ? expense.contribution.map(c => c.toString())
+          : [];
+      }
+      
+      if ('contribution_status' in expense) {
+        updateData.contribution_status = Array.isArray(expense.contribution_status) 
+          ? expense.contribution_status 
+          : [];
+      }
+      
+      const result = await db.update(expenses)
+        .set(updateData)
+        .where(eq(expenses.id, id))
+        .returning();
+        
+      console.log(`[DB] Update result for expense ${id}:`, result[0] ? 'Success' : 'Not found');
+      return result[0];
+    } catch (error) {
+      console.error(`[DB] Error updating expense ${id}:`, error);
+      throw error;
+    }
   }
 
   async deleteExpense(id: string): Promise<boolean> {
-    const result = await db.delete(expenses).where(eq(expenses.id, id)).returning();
-    return result.length > 0;
+    console.log(`[DB] Deleting expense with ID: ${id}`);
+    try {
+      const result = await db.delete(expenses).where(eq(expenses.id, id)).returning();
+      const success = result.length > 0;
+      console.log(`[DB] Delete expense ${id} result:`, success ? 'Success' : 'Not found');
+      return success;
+    } catch (error) {
+      console.error(`[DB] Error deleting expense ${id}:`, error);
+      throw error;
+    }
   }
 
   // Events

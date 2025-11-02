@@ -268,13 +268,14 @@ export const InvoiceTemplate = ({ config, event, requirements, invoiceNumber = '
             // Show each requirement as a line item
             requirements.map((req, index) => {
               const amount = parseFloat(String(req.order) || "0");
+              const price = parseFloat(String(req.price) || "0");
               return (
                 <View key={index} style={styles.tableRow}>
                   <View style={styles.colDescription}>
                     <Text>{req.requirement}</Text>
                   </View>
-                  <Text style={styles.colQty}>1</Text>
-                  <Text style={styles.colPrice}>₹{amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
+                  <Text style={styles.colQty}>{req.quantity}</Text>
+                  <Text style={styles.colPrice}>₹{price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
                   <Text style={styles.colAmount}>₹{amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
                 </View>
               );

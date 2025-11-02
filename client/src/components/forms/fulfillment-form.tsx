@@ -84,6 +84,8 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
   const assetPurchaseStatus = form.watch("assetPurchaseStatus");
   const selectedVendorCategory = form.watch("vendorCategory");
   const selectedAssetCategory = form.watch("assetCategory");
+  const paymentAmount = form.watch("payment") as string;
+  const showPaymentStatus = paymentAmount ? parseFloat(paymentAmount) > 0 : false;
 
   // Filter vendors based on selected category
   const filteredVendors = selectedVendorCategory 
@@ -344,33 +346,35 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="paymentStatus"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Payment Status</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    value={field.value || ""}
-                  >
-                    <FormControl>
-                      <SelectTrigger data-testid="select-payment-status">
-                        <SelectValue placeholder="Select payment status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {config?.paymentStatuses?.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {showPaymentStatus && (
+              <FormField
+                control={form.control}
+                name="paymentStatus"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Status</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value || "Pending"}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-payment-status">
+                          <SelectValue placeholder="Select payment status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {config?.paymentStatuses?.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
           </>
         )}
 
@@ -462,33 +466,35 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="paymentStatus"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Payment Status</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    value={field.value || ""}
-                  >
-                    <FormControl>
-                      <SelectTrigger data-testid="select-payment-status">
-                        <SelectValue placeholder="Select payment status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {config?.paymentStatuses?.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {showPaymentStatus && (
+              <FormField
+                control={form.control}
+                name="paymentStatus"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Status</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value || "Pending"}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-payment-status">
+                          <SelectValue placeholder="Select payment status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {config?.paymentStatuses?.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
           </>
         )}
 

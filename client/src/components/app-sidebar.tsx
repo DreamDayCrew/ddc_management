@@ -65,12 +65,6 @@ const menuItems = [
     testId: "nav-expenses",
   },
   {
-    title: "Reports",
-    url: "/reports",
-    icon: FileText,
-    testId: "nav-reports",
-  },
-  {
     title: "Configuration",
     url: "/configuration",
     icon: Settings,

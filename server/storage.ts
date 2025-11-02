@@ -238,6 +238,11 @@ export class MemStorage implements IStorage {
   }
 
   async createExpense(expense: InsertExpense): Promise<Expense> {
+    // Convert contribution numbers to strings to match the schema
+    const contributionAsStrings = expense.contribution 
+      ? expense.contribution.map(num => num.toString())
+      : [];
+      
     const newExpense: Expense = { 
       id: randomUUID(),
       type: expense.type,
@@ -247,6 +252,9 @@ export class MemStorage implements IStorage {
       mode: expense.mode || null,
       date: expense.date,
       status: expense.status || 'Pending',
+      contributor: expense.contributor || [],
+      contribution: contributionAsStrings,
+      contribution_status: expense.contribution_status || [],
     };
     this.expenses.set(newExpense.id, newExpense);
     return newExpense;
@@ -255,7 +263,22 @@ export class MemStorage implements IStorage {
   async updateExpense(id: string, expense: Partial<InsertExpense>): Promise<Expense | undefined> {
     const existing = this.expenses.get(id);
     if (!existing) return undefined;
-    const updated = { ...existing, ...expense };
+    
+    // Convert contribution numbers to strings if they are provided
+    let contributionUpdate = existing.contribution;
+    if (expense.contribution !== undefined) {
+      contributionUpdate = expense.contribution.map(num => num.toString());
+    }
+    
+    const updated = { 
+      ...existing, 
+      ...expense,
+      // Only update the arrays if they are provided in the update
+      contributor: expense.contributor !== undefined ? expense.contributor : existing.contributor,
+      contribution: contributionUpdate,
+      contribution_status: expense.contribution_status !== undefined ? 
+        expense.contribution_status : existing.contribution_status,
+    };
     this.expenses.set(id, updated);
     return updated;
   }
