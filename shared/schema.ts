@@ -65,6 +65,7 @@ export const teamMembers = pgTable("team_members", {
 export const expenses = pgTable("expenses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   type: text("type").notNull(),
+  paid_by: text("paid_by").notNull(),
   description: text("description").notNull(),
   category: text("category"),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
@@ -74,6 +75,7 @@ export const expenses = pgTable("expenses", {
   contributor: text("contributor").array(),
   contribution: decimal("contribution", { precision: 10, scale: 2 }).array(),
   contribution_status: text("contribution_status").array(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Events Schema
@@ -185,8 +187,7 @@ export const insertFulfillmentPlanSchema = createInsertSchema(fulfillmentPlans, 
   // Handle payment as string for form input
   payment: z.union([z.string(), z.number()])
     .transform(val => val === "" ? undefined : val)
-    .pipe(z.coerce.number().nullable().optional())
-    .default(undefined),
+    .pipe(z.coerce.number().nullable().optional()),
 }).omit({ id: true });
 
 // Types

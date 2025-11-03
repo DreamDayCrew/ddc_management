@@ -21,9 +21,20 @@ export default function Expenses() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | undefined>();
 
-  const { data: expenses = [], isLoading } = useQuery<Expense[]>({
+  const { data: expensesData = [], isLoading } = useQuery<Expense[]>({
     queryKey: ["/api/expenses"],
+    select: (data) => {
+      // Create a new array to avoid mutating the original data
+      const sortedData = [...data];
+      // Sort by created_at in descending order (newest first)
+      return sortedData.sort((a, b) => 
+        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      );
+    },
   });
+  
+  // Use the sorted data
+  const expenses = expensesData;
 
   interface AppConfig {
     expenseCategories: string[];
@@ -57,21 +68,71 @@ export default function Expenses() {
     },
   });
 
-  const { totalIncome, totalExpense, netProfit } = useMemo(() => {
-    const income = expenses
-      .filter((e) => e.type === "Credit")
-      .reduce((sum, e) => sum + Number(e.amount), 0);
-    
-    const expense = expenses
-      .filter((e) => e.type === "Debit")
-      .reduce((sum, e) => sum + Number(e.amount), 0);
-    
+  const { totalIncome, totalExpense, netProfit, ddcBalance } = useMemo((): { 
+    totalIncome: number; 
+    totalExpense: number; 
+    netProfit: number; 
+    ddcBalance: number 
+  } => {
+    let income = 0;
+    let expense = 0;
+    let ddcBalance = 0;
+
+    expenses?.forEach((t) => {
+      const amount = Number(t.amount) || 0;
+
+      const isDdcInvolvedInPaidBy = t.paid_by === "DDC Fund";
+      const contributors = Array.isArray(t.contributor) ? t.contributor : [];
+      const isDdcInvolvedInContribution = contributors.some((c: string) => c === "DDC Fund");
+
+      let ddcContribution = 0;
+      if (isDdcInvolvedInContribution) {
+        const ddcFundIndex = contributors.findIndex((c: string) => c === "DDC Fund");
+        if (ddcFundIndex !== -1 && Array.isArray(t.contribution)) {
+          ddcContribution = Number(t.contribution[ddcFundIndex]) || 0;
+        }
+      }
+
+      switch (t.type) {
+        case "Credit":
+          income += amount;
+          if (isDdcInvolvedInPaidBy) {
+            ddcBalance += amount;
+          } else if (isDdcInvolvedInContribution) {
+            ddcBalance += ddcContribution;
+          }
+          break;
+
+        case "Debit":
+          expense += amount;
+          if (isDdcInvolvedInPaidBy) {
+            ddcBalance -= amount;
+          } else if (isDdcInvolvedInContribution) {
+            ddcBalance -= ddcContribution;
+          }
+          break;
+
+        case "Transfer":
+          if (isDdcInvolvedInPaidBy) {
+            ddcBalance -= amount;
+          } else if (isDdcInvolvedInContribution) {
+            ddcBalance += ddcContribution;
+          }
+          break;
+
+        default:
+          break;
+      }
+    });
+
     return {
-      totalIncome: income.toLocaleString('en-IN'),
-      totalExpense: expense.toLocaleString('en-IN'),
-      netProfit: (income - expense).toLocaleString('en-IN'),
+      totalIncome: income,
+      totalExpense: expense,
+      ddcBalance: ddcBalance,
+      netProfit: income - expense,
     };
   }, [expenses]);
+
 
   const filteredExpenses = useMemo(() => {
     return expenses.filter((expense) => {
@@ -127,7 +188,7 @@ export default function Expenses() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Income</CardTitle>
@@ -137,7 +198,7 @@ export default function Expenses() {
             <div className="text-2xl font-bold text-chart-2" data-testid="total-income">
               ₹{totalIncome}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">This month</p>
+            <p className="text-xs text-muted-foreground mt-1">All credit transactions</p>
           </CardContent>
         </Card>
 
@@ -150,20 +211,33 @@ export default function Expenses() {
             <div className="text-2xl font-bold text-chart-4" data-testid="total-expense">
               ₹{totalExpense}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">This month</p>
+            <p className="text-xs text-muted-foreground mt-1">All debit transactions</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Account Balance</CardTitle>
+            <TrendingUp className="h-4 w-4 text-chart-2" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="net-profit">
+              ₹{ddcBalance}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Current Balance</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
-            <TrendingUp className="h-4 w-4 text-chart-2" />
+            <TrendingUp className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="net-profit">
+            <div className="text-2xl font-bold" data-testid="ddc-balance">
               ₹{netProfit}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">This month</p>
+            <p className="text-xs text-muted-foreground mt-1">All credit and debit transactions</p>
           </CardContent>
         </Card>
       </div>
@@ -328,7 +402,19 @@ export default function Expenses() {
               {editingExpense ? "Edit Transaction" : "Add New Transaction"}
             </DialogTitle>
           </DialogHeader>
-          <ExpenseForm expense={editingExpense} onSuccess={handleFormSuccess} />
+          <ExpenseForm 
+            expense={editingExpense ? {
+              ...editingExpense,
+              paidBy: editingExpense.paid_by,
+              splitEnabled: false, // or true based on your business logic
+              contributor: editingExpense.contributor || [],
+              contribution: editingExpense.contribution 
+                ? editingExpense.contribution.map(Number) 
+                : [],
+              contribution_status: editingExpense.contribution_status || []
+            } : undefined} 
+            onSuccess={handleFormSuccess} 
+          />
         </DialogContent>
       </Dialog>
     </div>

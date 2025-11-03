@@ -1,5 +1,6 @@
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
+import { desc } from 'drizzle-orm';
 import {
   configurations,
   assets,
@@ -153,7 +154,7 @@ export class DatabaseStorage implements IStorage {
   async getExpenses(): Promise<Expense[]> {
     console.log('[DB] Fetching all expenses');
     try {
-      const result = await db.select().from(expenses);
+      const result = await db.select().from(expenses).orderBy(desc(expenses.created_at));
       console.log(`[DB] Successfully fetched ${result.length} expenses`);
       return result;
     } catch (error) {
@@ -258,13 +259,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createEvent(event: InsertEvent): Promise<Event> {
-    const result = await db.insert(events).values(event).returning();
+    // Ensure registeredOn is properly formatted as YYYY-MM-DD string
+    const eventData = {
+      ...event,
+      registeredOn: event.registeredOn ? new Date(event.registeredOn).toISOString().split('T')[0] : undefined
+    };
+    const result = await db.insert(events).values(eventData).returning();
     return result[0];
   }
 
   async updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event | undefined> {
+    // Create a new object to hold the update data
+    const updateData: Partial<InsertEvent> = { ...event };
+    
+    // Convert registeredOn to Date object if it's being updated
+    if (event.registeredOn !== undefined) {
+      updateData.registeredOn = event.registeredOn instanceof Date 
+        ? event.registeredOn 
+        : new Date(event.registeredOn);
+    }
+      
     const result = await db.update(events)
-      .set(event)
+      .set(updateData as any) // Type assertion needed due to drizzle-orm type complexity
       .where(eq(events.id, id))
       .returning();
     return result[0];
@@ -378,14 +394,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateFulfillmentPlan(id: string, plan: Partial<InsertFulfillmentPlan>): Promise<FulfillmentPlan | undefined> {
-    // Convert numeric values to strings if needed
-    const sanitizedPlan = {
-      ...plan,
-      ...(plan.payment !== undefined && { payment: plan.payment?.toString() }),
-    };
+    // Create a sanitized plan with proper type handling
+    const updateData: Record<string, any> = { ...plan };
+    
+    // Handle payment field conversion
+    if (plan.payment !== undefined) {
+      updateData.payment = plan.payment !== null ? Number(plan.payment) : null;
+    }
+    
+    // Remove undefined values to avoid overriding with null in the database
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    });
 
     const result = await db.update(fulfillmentPlans)
-      .set(sanitizedPlan)
+      .set(updateData)
       .where(eq(fulfillmentPlans.id, id))
       .returning();
     return result[0];

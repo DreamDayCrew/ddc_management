@@ -282,24 +282,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/expenses/:id", async (req, res) => {
     const { id } = req.params;
-    console.log(`[API] PATCH /api/expenses/${id} - Updating expense`);
-    console.log('Update data:', JSON.stringify(req.body, null, 2));
     
     try {
-      console.log('Validating update data...');
       const validatedData = insertExpenseSchema.partial().parse(req.body);
-      console.log('Validation successful, updating expense...');
       
       const expense = await storage.updateExpense(id, validatedData);
       if (!expense) {
-        console.log(`[API] Expense ${id} not found for update`);
         return res.status(404).json({ error: "Expense not found" });
       }
       
-      console.log(`[API] Successfully updated expense ${id}`);
       res.json(expense);
     } catch (error: any) {
-      console.error(`[API] Error updating expense ${id}:`, error);
       
       if (error.name === 'ZodError') {
         console.error('Validation errors:', error.errors);
@@ -393,14 +386,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Prepare update object with only the fields that were provided
-      const updateData: { finalizedQuote?: number; ddcCost?: number } = {};
+      const updateData: { finalizedQuote?: string; ddcCost?: string } = {};
       
       if (finalizedQuote !== undefined) {
         const quote = Number(finalizedQuote);
         if (isNaN(quote) || quote < 0) {
           return res.status(400).json({ error: "finalizedQuote must be a positive number" });
         }
-        updateData.finalizedQuote = quote;
+        updateData.finalizedQuote = quote.toString();
       }
       
       if (ddcCost !== undefined) {
@@ -408,7 +401,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (isNaN(cost) || cost < 0) {
           return res.status(400).json({ error: "ddcCost must be a positive number" });
         }
-        updateData.ddcCost = cost;
+        updateData.ddcCost = cost.toString();
       }
       
       const updatedEvent = await storage.updateEvent(req.params.id, updateData);
@@ -645,9 +638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Sum all costs from plans
               const actualSpent = plans.reduce((sum: number, plan) => {
                 const payment = Number(plan.payment || 0);
-                const vendorAmount = Number(plan.vendorAmount || 0);
-                const purchasedValue = Number(plan.purchasedValue || 0);
-                return sum + payment + vendorAmount + purchasedValue;
+                return sum + payment;
               }, 0);
 
               const invoiceValue = Number(req.order || 0);

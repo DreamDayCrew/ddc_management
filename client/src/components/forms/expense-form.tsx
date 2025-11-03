@@ -18,6 +18,7 @@ import { Plus, X } from "lucide-react";
 const expenseFormSchema = z.object({
   date: z.string(),
   type: z.string(),
+  paidBy: z.string(),
   description: z.string(),
   amount: z.union([z.string(), z.number()]),
   contributor: z.array(z.string()),
@@ -30,6 +31,11 @@ const expenseFormSchema = z.object({
 });
 
 type ExpenseFormData = z.infer<typeof expenseFormSchema>;
+
+// Type for the API payload that matches the server's expectations
+type ExpenseApiPayload = Omit<ExpenseFormData, 'splitEnabled' | 'paidBy'> & {
+  paid_by: string;
+};
 
 interface ExpenseFormProps {
   expense?: ExpenseFormData & { id?: string };
@@ -52,6 +58,8 @@ interface Configuration {
 export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const isEditing = !!expense;
 
   const { data: config } = useQuery<Configuration>({
@@ -103,6 +111,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       mode: expense?.mode || null,
       date: expense?.date || format(new Date(), "yyyy-MM-dd"),
       status: expense?.status || "Pending",
+      paidBy: expense?.paidBy || "",
       contributor: expense?.contributor || [],
       contribution: expense?.contribution || [],
       contribution_status: expense?.contribution_status || [],
@@ -436,7 +445,19 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     console.log('Form data before processing:', JSON.stringify(data, null, 2));
     console.log('Contributors from ref:', JSON.stringify(contributorsRef.current, null, 2));
     
-    const { splitEnabled, ...expenseData } = data;
+    // Destructure and transform field names to match server expectations
+    const { splitEnabled, paidBy, ...expenseData } = data;
+    
+    // Create a new object with the correct types for the API
+    const apiPayload: ExpenseApiPayload = {
+      ...expenseData,
+      paid_by: paidBy,  // Convert paidBy to paid_by
+    };
+    
+    // Convert amount to string if it's a number
+    if (typeof apiPayload.amount === 'number') {
+      apiPayload.amount = apiPayload.amount.toString();
+    }
 
     // Check if we have contributors regardless of splitEnabled
     const hasContributors = contributorsRef.current.length > 0;
@@ -450,22 +471,22 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
     if (shouldProcessContributors && hasContributors) {
       console.log('Processing expense with contributors');
-      expenseData.contributor = contributorsRef.current.map((c) => c.teamMember);
-      expenseData.contribution = contributorsRef.current.map((c) => parseFloat(c.amount) || 0);
-      expenseData.contribution_status = contributorsRef.current.map((c) => c.status);
+      apiPayload.contributor = contributorsRef.current.map((c) => c.teamMember);
+      apiPayload.contribution = contributorsRef.current.map((c) => parseFloat(c.amount) || 0);
+      apiPayload.contribution_status = contributorsRef.current.map((c) => c.status);
       
       console.log('Mapped contributor data:', {
-        contributor: expenseData.contributor,
-        contribution: expenseData.contribution,
-        contribution_status: expenseData.contribution_status
+        contributor: apiPayload.contributor,
+        contribution: apiPayload.contribution,
+        contribution_status: apiPayload.contribution_status
       });
     } else {
       console.log('No contributors, resetting contributor fields');
-      expenseData.contributor = [];
-      expenseData.contribution = [];
-      expenseData.contribution_status = [];
+      apiPayload.contributor = [];
+      apiPayload.contribution = [];
+      apiPayload.contribution_status = [];
     }
-    console.log('Final payload being sent to API:', JSON.stringify(expenseData, null, 2));
+    console.log('Final payload being sent to API:', JSON.stringify(apiPayload, null, 2));
 
     const mutationOptions = {
       onError: (error: any) => {
@@ -483,10 +504,12 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
     if (isEditing) {
       console.log('Initiating update mutation...');
-      updateMutation.mutate(expenseData, mutationOptions);
+      // @ts-ignore - The mutation types expect paidBy but we're sending paid_by
+      updateMutation.mutate(apiPayload, mutationOptions);
     } else {
       console.log('Initiating create mutation...');
-      createMutation.mutate(expenseData, mutationOptions);
+      // @ts-ignore - The mutation types expect paidBy but we're sending paid_by
+      createMutation.mutate(apiPayload, mutationOptions);
     }
   };
 
@@ -495,81 +518,170 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   // -------------------- UI --------------------
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        {/* Transaction Type */}
-        <FormField
-          control={form.control}
-          name="type"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Transaction Type</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* Row 1: Transaction Type | Category */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Transaction Type */}
+          <FormField
+            control={form.control}
+            name="type"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Transaction Type</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="Credit">Credit</SelectItem>
+                    <SelectItem value="Debit">Debit</SelectItem>
+                    <SelectItem value="Transfer">Transfer</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Category */}
+          <FormField
+            control={form.control}
+            name="category"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Category</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value || ""}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {config?.expenseCategories?.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Row 2: From | Description */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* From (previously PaidBy) */}
+          <FormField
+            control={form.control}
+            name="paidBy"
+            render={({ field }) => {
+              const teamMembersWithFund = [
+                ...(teamMembers || []),
+                { id: 'ddc-fund', name: 'DDC Fund' }
+              ];
+              
+              const isCustomValue = field.value && !teamMembersWithFund.some(member => member.name === field.value);
+              
+              // Use a separate effect to handle input focus
+              useEffect(() => {
+                if (showCustomInput && inputRef.current) {
+                  inputRef.current.focus();
+                }
+              }, [showCustomInput, field.value]); // Add field.value to dependencies
+              
+              return (
+                <FormItem>
+                  <FormLabel>From</FormLabel>
+                  {!showCustomInput && !isCustomValue ? (
+                    <div className="flex gap-2">
+                      <Select
+                        value={field.value}
+                        onValueChange={(value) => {
+                          if (value === 'custom') {
+                            setShowCustomInput(true);
+                            field.onChange('');
+                          } else {
+                            field.onChange(value);
+                          }
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select source" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {teamMembersWithFund.map((member) => (
+                            <SelectItem key={member.id} value={member.name}>
+                              {member.name}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="custom">+ Add custom name</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Input
+                        ref={inputRef}
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        placeholder="Enter name"
+                        className="w-full"
+                        onBlur={() => {
+                          if (!field.value) {
+                            setShowCustomInput(false);
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        onClick={() => {
+                          field.onChange('');
+                          setShowCustomInput(false);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
+          />
+
+          {/* Description */}
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Description</FormLabel>
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
+                  <Input {...field} placeholder="Enter description" />
                 </FormControl>
-                <SelectContent>
-                  <SelectItem value="Credit">Credit</SelectItem>
-                  <SelectItem value="Debit">Debit</SelectItem>
-                  <SelectItem value="Transfer">Transfer</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
-        {/* Description */}
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Textarea {...field} placeholder="Enter description" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* Category */}
-        <FormField
-          control={form.control}
-          name="category"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Category</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value || ""}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {config?.expenseCategories?.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* Split Section */}
-        <Accordion
-          type="single"
-          collapsible
-          value={isAccordionOpen ? "split-expense" : undefined}
-          onValueChange={(v) => setIsAccordionOpen(v === "split-expense")}
-        >
+        {/* Row 3: Split Section */}
+        <div className="pt-2">
+          <Accordion
+            type="single"
+            collapsible
+            value={isAccordionOpen ? "split-expense" : undefined}
+            onValueChange={(v) => setIsAccordionOpen(v === "split-expense")}
+          >
           <AccordionItem value="split-expense">
-            <AccordionTrigger>Want to split amount?</AccordionTrigger>
+            <AccordionTrigger>To</AccordionTrigger>
             <AccordionContent className="space-y-4 pt-4">
               {contributorsRef.current.map((contributor) => (
                 <div key={contributor.id} className="grid grid-cols-12 gap-2 items-end">
@@ -583,7 +695,10 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                         <SelectValue placeholder="Select member" />
                       </SelectTrigger>
                       <SelectContent>
-                        {teamMembers?.map((m) => (
+                        {[
+                          ...(teamMembers || []),
+                          { id: 'ddc-fund', name: 'DDC Fund' }
+                        ].map((m) => (
                           <SelectItem key={m.id} value={m.name}>
                             {m.name}
                           </SelectItem>
@@ -643,101 +758,108 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
               </Button>
             </AccordionContent>
           </AccordionItem>
-        </Accordion>
+          </Accordion>
+        </div>
 
-        {/* Amount */}
-        <FormField
-          control={form.control}
-          name="amount"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Amount</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  placeholder="Enter amount"
-                  disabled={contributorsRef.current.length > 0}
-                />
-              </FormControl>
-              {contributorsRef.current.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Amount is auto-calculated from contributions
-                </p>
-              )}
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* Mode */}
-        <FormField
-          control={form.control}
-          name="mode"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Payment Mode</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+        {/* Row 4: Amount | Payment Mode */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Amount */}
+          <FormField
+            control={form.control}
+            name="amount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Amount</FormLabel>
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment mode" />
-                  </SelectTrigger>
+                  <Input
+                    {...field}
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder="Enter amount"
+                    disabled={contributorsRef.current.length > 0}
+                  />
                 </FormControl>
-                <SelectContent>
-                  {config?.paymentModes?.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {m}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                {contributorsRef.current.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Amount is auto-calculated from contributions
+                  </p>
+                )}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        {/* Date */}
-        <FormField
-          control={form.control}
-          name="date"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Date</FormLabel>
-              <FormControl>
-                <Input {...field} type="date" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          {/* Payment Mode */}
+          <FormField
+            control={form.control}
+            name="mode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Payment Mode</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value || ""}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select payment mode" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {config?.paymentModes?.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
-        {/* Status */}
-        <FormField
-          control={form.control}
-          name="status"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Status</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+        {/* Row 5: Date | Status */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Date */}
+          <FormField
+            control={form.control}
+            name="date"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Date</FormLabel>
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
+                  <Input {...field} type="date" />
                 </FormControl>
-                <SelectContent>
-                  {config?.paymentStatuses?.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Status */}
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Status</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {config?.paymentStatuses?.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <div className="flex justify-end gap-3">
           <Button type="submit" disabled={isPending}>
