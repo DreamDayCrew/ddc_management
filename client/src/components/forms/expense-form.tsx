@@ -1,3 +1,6 @@
+// @ts-ignore - Console is a global object in browsers
+declare const console: Console;
+
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -6,7 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -18,24 +20,79 @@ import { Plus, X } from "lucide-react";
 const expenseFormSchema = z.object({
   date: z.string(),
   type: z.string(),
-  paidBy: z.string(),
-  description: z.string(),
+  fromAccount: z.string(),
+  description: z.union([z.string(), z.null()]).optional(),
   amount: z.union([z.string(), z.number()]),
   contributor: z.array(z.string()),
   contribution: z.array(z.number()),
-  contribution_status: z.array(z.string()),
+  contributionStatus: z.array(z.string()),
   category: z.union([z.string(), z.null()]).optional(),
-  mode: z.union([z.string(), z.null()]).optional(),
+  toAccount: z.union([z.string(), z.null()]).optional(),
   status: z.string().optional(),
   splitEnabled: z.boolean(),
+  splitType: z.enum(['from', 'to', 'both']).optional(),
+}).refine(data => {
+  // If split is enabled, splitType must be selected
+  if (data.splitEnabled && !data.splitType) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Please select a split option',
+  path: ['splitType']
+}).refine(data => {
+  // If split is enabled, contribution details are required
+  if (data.splitEnabled && data.splitType) {
+    const totalContribution = data.contribution.reduce((sum, amount) => sum + amount, 0);
+    const amount = typeof data.amount === 'string' ? parseFloat(data.amount) || 0 : data.amount;
+    
+    // Check if we have contributors and the total matches the amount
+    if (data.contributor.length === 0 || data.contribution.length === 0) {
+      return false;
+    }
+    
+    // For 'both' split type, we need to check if the total is exactly the amount
+    // For 'from' or 'to', the total should not exceed the amount
+    if (data.splitType === 'both') {
+      return Math.abs(totalContribution - amount) < 0.01; // Allow for floating point precision
+    }
+    
+    return totalContribution <= amount + 0.01; // Allow for floating point precision
+  }
+  return true;
+}, {
+  message: 'Please add at least one contributor with a valid contribution amount',
+  path: ['contributor']
 });
 
 type ExpenseFormData = z.infer<typeof expenseFormSchema>;
 
 // Type for the API payload that matches the server's expectations
-type ExpenseApiPayload = Omit<ExpenseFormData, 'splitEnabled' | 'paidBy'> & {
-  paid_by: string;
-};
+interface ExpenseApiPayload {
+  // Frontend fields (camelCase)
+  type: string;
+  date: string;
+  fromAccount: string;
+  toAccount: string | null;
+  description?: string | null;
+  amount: string | number;
+  category?: string | null;
+  status?: string;
+  splitTo?: string;
+  contributor?: string[];
+  contribution?: number[];
+  contributionStatus?: string[];
+  splitType?: 'from' | 'to' | 'both' | null;
+  splitEnabled?: boolean;
+  
+  // Backend fields (snake_case, for API compatibility)
+  from_account?: string;
+  to_account?: string | null;
+  contribution_status?: string[];
+  split_to?: string;
+  split_type?: 'from' | 'to' | 'both' | null;
+  split_enabled?: boolean;
+}
 
 interface ExpenseFormProps {
   expense?: ExpenseFormData & { id?: string };
@@ -50,7 +107,6 @@ interface TeamMember {
 interface Configuration {
   id: string;
   expenseCategories: string[];
-  paymentModes: string[];
   paymentStatuses: string[];
 }
 
@@ -59,7 +115,11 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [showToAccountCustomInput, setShowToAccountCustomInput] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [isAccordionOpen, setIsAccordionOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const toAccountInputRef = useRef<HTMLInputElement>(null);
   const isEditing = !!expense;
 
   const { data: config } = useQuery<Configuration>({
@@ -75,12 +135,10 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const { data: teamMembers = [], isLoading: isLoadingTeamMembers } = useQuery<TeamMember[]>({
     queryKey: ["team-members"],
     queryFn: async () => {
-      console.log('Fetching team members...');
       try {
         const res = await apiRequest("GET", "/api/team");
         if (!res.ok) throw new Error('Failed to fetch team members');
         const data = await res.json();
-        console.log('Team members fetched:', data);
         return data;
       } catch (error) {
         console.error('Error fetching team members:', error);
@@ -98,32 +156,179 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   >([]);
 
   const [_, forceUpdate] = useState({});
-  const [isAccordionOpen, setIsAccordionOpen] = useState(false);
+
+  // Initialize accordion state when expense changes
+  useEffect(() => {
+    if (expense?.splitEnabled) {
+      setIsAccordionOpen(true);
+      // Initialize contributors from expense data if it exists
+      if (expense.contributor && expense.contribution && expense.contributionStatus) {
+        contributorsRef.current = expense.contributor.map((contributor, index) => ({
+          id: `contributor-${index}`,
+          teamMember: contributor,
+          amount: String(expense.contribution?.[index] || ''),
+          status: expense.contributionStatus?.[index] || 'pending'
+        }));
+      }
+    }
+  }, [expense]);
 
   // -------------------- Form --------------------
-  const form = useForm<ExpenseFormData>({
-    resolver: zodResolver(expenseFormSchema),
-    defaultValues: {
-      type: expense?.type || "Debit",
-      description: expense?.description || "",
-      category: expense?.category || null,
-      amount: expense?.amount || "",
-      mode: expense?.mode || null,
-      date: expense?.date || format(new Date(), "yyyy-MM-dd"),
-      status: expense?.status || "Pending",
-      paidBy: expense?.paidBy || "",
-      contributor: expense?.contributor || [],
-      contribution: expense?.contribution || [],
-      contribution_status: expense?.contribution_status || [],
+  // Define the form type based on the schema
+  type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
+  
+  // Helper function to get value with fallback between camelCase and snake_case
+  const getValue = <T,>(obj: any, key: string, defaultValue: T): T => {
+    if (!obj) return defaultValue;
+    const camelKey = key;
+    const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+    return obj[camelKey] !== undefined ? obj[camelKey] : 
+           obj[snakeKey] !== undefined ? obj[snakeKey] : 
+           defaultValue;
+  };
+
+  // Memoize formValues to prevent unnecessary recalculations
+  const formValues = useMemo(() => {
+    const defaultValues = {
+      type: 'Expense',
+      date: new Date().toISOString().split('T')[0],
+      amount: '',
+      category: '',
+      description: '',
+      status: 'Unpaid',
+      fromAccount: 'DDC Fund',
+      toAccount: null as string | null,
       splitEnabled: false,
-    },
+      splitType: undefined as 'from' | 'to' | 'both' | undefined,
+      contributor: [] as string[],
+      contribution: [] as number[],
+      contributionStatus: [] as string[],
+    };
+
+    if (!expense) return defaultValues;
+
+    // Create form values with proper fallbacks
+    const values = {
+      type: getValue(expense, 'type', defaultValues.type),
+      date: getValue(expense, 'date', defaultValues.date),
+      amount: getValue(expense, 'amount', defaultValues.amount),
+      category: getValue(expense, 'category', defaultValues.category),
+      description: getValue(expense, 'description', defaultValues.description),
+      status: getValue(expense, 'status', defaultValues.status),
+      fromAccount: getValue(expense, 'fromAccount', defaultValues.fromAccount),
+      toAccount: getValue(expense, 'toAccount', defaultValues.toAccount),
+      splitEnabled: getValue(expense, 'splitEnabled', defaultValues.splitEnabled),
+      splitType: getValue(expense, 'splitType', undefined),
+      contributor: Array.isArray(expense.contributor) ? expense.contributor : [],
+      contribution: Array.isArray(expense.contribution) 
+        ? expense.contribution.map(c => typeof c === 'string' ? parseFloat(c) : c)
+        : [],
+      contributionStatus: getValue(expense, 'contributionStatus', []),
+    };
+    
+    console.log('Computed form values:', values);
+    return values;
+  }, [expense]);
+
+  // Set up form with proper error handling
+  const form = useForm<z.infer<typeof expenseFormSchema>>({
+    resolver: zodResolver(expenseFormSchema),
+    defaultValues: formValues,
+    mode: 'onChange',
   });
+
+  // Track previous form state for debugging
+  const prevFormState = useRef(form.formState);
+  useEffect(() => {
+    if (form.formState !== prevFormState.current) {
+      console.log('Form state changed:', {
+        values: form.getValues(),
+        errors: form.formState.errors,
+        isDirty: form.formState.isDirty,
+        isValid: form.formState.isValid,
+      });
+      prevFormState.current = form.formState;
+    }
+  });
+
+  // Watch for changes and reset form when expense changes
+  useEffect(() => {
+    const subscription = form.watch((value, { name, type }) => {
+      // Optional: Add any side effects you want to trigger on form value changes
+    });
+    
+    // Reset form when expense changes
+    if (expense) {
+      console.log('Resetting form with expense data');
+      form.reset(formValues);
+    }
+    
+    return () => subscription.unsubscribe();
+  }, [expense, form, formValues]);
+
+  // Initialize showToAccountCustomInput based on the initial toAccount value
+  useEffect(() => {
+    const toAccount = form.getValues('toAccount');
+    if (toAccount && toAccount !== 'DDC Fund' && !teamMembers?.some(m => m.name === toAccount)) {
+      setShowToAccountCustomInput(true);
+    }
+  }, [form, teamMembers]);
 
   const watchSplitEnabled = useWatch({
     control: form.control,
     name: "splitEnabled",
-    defaultValue: false,
   });
+
+  const watchType = useWatch({
+    control: form.control,
+    name: 'type',
+    defaultValue: form.getValues('type') || ''
+  });
+
+  const watchSplitType = useWatch({
+    control: form.control,
+    name: 'splitType',
+  });
+
+  // Reset dependent fields when type changes
+  useEffect(() => {
+    if (watchType === 'Transfer') {
+      if (!form.getValues('toAccount')) {
+        form.setValue('toAccount', 'DDC Fund');
+      }
+    } else if (form.getValues('toAccount') === 'DDC Fund') {
+      form.setValue('toAccount', '');
+    }
+  }, [watchType, form]);
+
+  // Reset and manage account fields when split type changes
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === 'splitType' || name === 'splitEnabled') {
+        if (!value.splitEnabled) {
+          // If split is disabled, enable both fields
+          form.trigger('fromAccount');
+          form.trigger('toAccount');
+        } else if (value.splitType === 'from') {
+          // If splitting from account, disable fromAccount and enable toAccount
+          form.setValue('fromAccount', '');
+          form.trigger('fromAccount');
+          form.trigger('toAccount');
+        } else if (value.splitType === 'to') {
+          // If splitting to account, disable toAccount and enable fromAccount
+          form.setValue('toAccount', '');
+          form.trigger('fromAccount');
+          form.trigger('toAccount');
+        } else if (value.splitType === 'both') {
+          // If splitting both, enable both fields
+          form.trigger('fromAccount');
+          form.trigger('toAccount');
+        }
+      }
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   // -------------------- Contributors Logic --------------------
   const setContributors = useCallback(
@@ -143,7 +348,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         form.setValue("amount", total > 0 ? total.toFixed(2) : "");
         form.setValue("contributor", contributorsRef.current.map((c) => c.teamMember));
         form.setValue("contribution", contributorsRef.current.map((c) => parseFloat(c.amount) || 0));
-        form.setValue("contribution_status", contributorsRef.current.map((c) => c.status));
+        form.setValue("contributionStatus", contributorsRef.current.map((c) => c.status));
       }
 
       if (JSON.stringify(prevContributors) !== JSON.stringify(contributorsRef.current)) {
@@ -187,61 +392,48 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     
     // If team members are still loading, wait for them
     if (isLoadingTeamMembers || !teamMembers?.length) {
-      console.log('Waiting for team members to load...');
       return;
     }
     
     if (expense) {
-      console.log('Team members data:', JSON.stringify(teamMembers, null, 2));
-      
       console.log('Processing expense data for form:', {
         hasContributors: !!expense.contributor?.length,
         contributorCount: expense.contributor?.length || 0,
         contributors: expense.contributor,
         contributions: expense.contribution,
-        contributionStatuses: expense.contribution_status,
+        contributionStatuses: expense.contributionStatus,
         expenseId: expense.id,
         expenseType: expense.type,
         expenseAmount: expense.amount,
-        expenseDate: expense.date
+        expenseDate: expense.date,
+        fromAccount: expense.fromAccount,
+        toAccount: expense.toAccount,
+        description: expense.description,
+        category: expense.category,
+        splitEnabled: expense.splitEnabled,
+        splitType: expense.splitType,
+        contributor: expense.contributor,
+        contribution: expense.contribution,
+        contributionStatus: expense.contributionStatus,
       });
-      
-      // Log the raw arrays for comparison
-      console.log('Raw contributor array:', expense.contributor);
-      console.log('Raw contribution array:', expense.contribution);
-      console.log('Raw contribution_status array:', expense.contribution_status);
 
       if (expense.contributor?.length) {
-        console.log('Found contributors in expense data, initializing form...');
         
         // Get all team members to map IDs to names
         const teamMembersMap = new Map(
           teamMembers?.map(member => [member.id, member.name]) || []
         );
         
-        console.log('Team members map:', Object.fromEntries(teamMembersMap));
-        
         // Create a map of team member names to their objects for easier lookup
         const teamMemberMap = new Map(teamMembers?.map(m => [m.name, m]));
-        console.log('Team member map:', Object.fromEntries(teamMemberMap));
         
-        const initialContributors = expense.contributor.map((memberId, i) => {
-          console.log(`\nProcessing contributor at index ${i}:`);
-          console.log('- Member ID/Name:', memberId);
-          console.log('- Available team members:', teamMembers);
-          
+        const initialContributors = expense.contributor.map((memberId, i) => {          
           // Try to find the team member by ID first, then by name as fallback
           const teamMember = teamMembers?.find(m => m.id === memberId || m.name === memberId);
           const memberName = teamMember?.name || memberId;
           
           const contributionAmount = expense.contribution?.[i];
-          const contributionStatus = expense.contribution_status?.[i] || "Pending";
-          
-          console.log(`- Found team member:`, teamMember);
-          console.log(`- Using name: ${memberName}`);
-          console.log(`- Contribution amount: ${contributionAmount}`);
-          console.log(`- Contribution status: ${contributionStatus}`);
-          
+          const contributionStatus = expense.contributionStatus?.[i] || "Pending";
           const contributor = {
             id: `contributor-${i}-${Date.now()}`,
             teamMember: memberName,
@@ -249,27 +441,14 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
             status: contributionStatus,
           };
           
-          console.log(`- Created contributor object:`, contributor);
           return contributor;
         });
-
-        console.log('\n=== SETTING UP CONTRIBUTORS ===');
-        console.log('Initial contributors data:', JSON.stringify(initialContributors, null, 2));
-        
         // Log the values that will be set in the form
         const contributorValues = initialContributors.map((c) => c.teamMember);
         const contributionValues = initialContributors.map((c) => parseFloat(c.amount) || 0);
         const statusValues = initialContributors.map((c) => c.status);
         
-        console.log('Will set form values:', {
-          splitEnabled: true,
-          contributor: contributorValues,
-          contribution: contributionValues,
-          contribution_status: statusValues
-        });
-        
         // Update the ref first
-        console.log('Updating contributorsRef with:', initialContributors);
         contributorsRef.current = initialContributors;
         
         // Then update the form values
@@ -277,13 +456,13 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         form.setValue("splitEnabled", true);
         form.setValue("contributor", contributorValues);
         form.setValue("contribution", contributionValues);
-        form.setValue("contribution_status", statusValues);
+        form.setValue("contributionStatus", statusValues);
         
         // Verify the values were set correctly
         console.log('Form values after setting:', {
           contributor: form.getValues('contributor'),
           contribution: form.getValues('contribution'),
-          contribution_status: form.getValues('contribution_status')
+          contributionStatus: form.getValues('contributionStatus')
         });
         
         const total = initialContributors.reduce(
@@ -296,7 +475,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         console.log('Form values after setting contributors:', {
           contributor: form.getValues('contributor'),
           contribution: form.getValues('contribution'),
-          contribution_status: form.getValues('contribution_status'),
+          contributionStatus: form.getValues('contributionStatus'),
           amount: form.getValues('amount')
         });
         
@@ -314,12 +493,50 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     }
   }, [expense]);
 
+  // ---------- 🔥 FIXED useEffect block ----------
+  useEffect(() => {
+    if (expense) {
+      console.log("Computed form values:", form.getValues());
+      console.log("Resetting form with expense data");
+
+      console.log("=== EXPENSE FORM DATA LOADING STARTED ===");
+      console.log("Expense data received in form:", expense);
+      console.log("Team members loading state:", {
+        isLoadingTeamMembers: !teamMembers,
+        teamMembersCount: teamMembers?.length || 0,
+      });
+
+      const normalizedExpense = {
+        ...expense,
+        fromAccount: expense.fromAccount || expense.fromAccount || "",
+        toAccount: expense.toAccount || expense.toAccount || "",
+        contributionStatus:
+          expense.contributionStatus || expense.contributionStatus || [],
+      };
+
+      console.log("Processing expense data for form:", {
+        hasContributors: normalizedExpense.contributor?.length > 0,
+        contributorCount: normalizedExpense.contributor?.length || 0,
+        contributors: normalizedExpense.contributor || [],
+        contributions: normalizedExpense.contribution || [],
+        contributionStatuses: normalizedExpense.contributionStatus || [],
+      });
+
+      form.reset(normalizedExpense);
+
+      if (!normalizedExpense.contributor?.length) {
+        console.log("No contributors found in expense data");
+      }
+    }
+  }, [expense, teamMembers]);
+  // ---------- 🔥 FIX END ----------
+
   useEffect(() => {
     if (!watchSplitEnabled) {
       contributorsRef.current = [];
       form.setValue("contributor", []);
       form.setValue("contribution", []);
-      form.setValue("contribution_status", []);
+      form.setValue("contributionStatus", []);
       forceUpdate({});
     } else if (contributorsRef.current.length === 0) {
       addContributor();
@@ -328,17 +545,14 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
   // Memoize the team members and log any changes
   const availableTeamMembers = useMemo(() => {
-    console.log('Available team members updated:', teamMembers);
     // Ensure we always return an array
     const members = Array.isArray(teamMembers) ? teamMembers : [];
-    console.log('Team members count:', members.length);
     return members;
   }, [teamMembers]);
 
   // Effect to handle team members updates
   useEffect(() => {
     if (availableTeamMembers.length > 0 && expense?.contributor?.length) {
-      console.log('Team members loaded, updating form with contributors...');
       
       // Process contributors with the now-available team members
       const initialContributors = expense.contributor.map((memberId, i) => {
@@ -347,18 +561,16 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           id: `contributor-${i}-${Date.now()}`,
           teamMember: memberId,
           amount: expense.contribution?.[i]?.toString() || "0",
-          status: expense.contribution_status?.[i] || "Pending",
+          status: expense.contributionStatus?.[i] || "Pending",
         };
       });
-
-      console.log('Setting contributorsRef with:', initialContributors);
       contributorsRef.current = initialContributors;
       
       // Update form values
       form.setValue("splitEnabled", true);
       form.setValue("contributor", initialContributors.map(c => c.teamMember));
       form.setValue("contribution", initialContributors.map(c => parseFloat(c.amount) || 0));
-      form.setValue("contribution_status", initialContributors.map(c => c.status));
+      form.setValue("contributionStatus", initialContributors.map(c => c.status));
       
       // Force a re-render
       forceUpdate({});
@@ -367,23 +579,19 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
   // -------------------- Mutations --------------------
   const createMutation = useMutation({
-    mutationFn: async (data: Omit<ExpenseFormData, "splitEnabled">) => {
-      console.log('Sending POST request to /api/expenses with data:', JSON.stringify(data, null, 2));
+    mutationFn: async (data: ExpenseApiPayload) => {
       try {
         const res = await apiRequest("POST", "/api/expenses", data);
         const responseData = await res.json();
-        console.log('Received response from /api/expenses:', responseData);
         if (!res.ok) {
           throw new Error(responseData.error || 'Failed to create expense');
         }
         return responseData;
       } catch (error) {
-        console.error('Error in create mutation:', error);
         throw error;
       }
     },
     onSuccess: (data) => {
-      console.log('Expense created successfully:', data);
       queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
       toast({ title: "Success", description: "Expense created successfully" });
       onSuccess?.();
@@ -403,24 +611,20 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: Omit<ExpenseFormData, "splitEnabled">) => {
+    mutationFn: async (data: ExpenseApiPayload) => {
       if (!expense?.id) throw new Error("Expense ID is required");
-      console.log(`Sending PATCH request to /api/expenses/${expense.id} with data:`, JSON.stringify(data, null, 2));
       try {
         const res = await apiRequest("PATCH", `/api/expenses/${expense.id}`, data);
         const responseData = await res.json();
-        console.log('Received response from /api/expenses:', responseData);
         if (!res.ok) {
           throw new Error(responseData.error || 'Failed to update expense');
         }
         return responseData;
       } catch (error) {
-        console.error('Error in update mutation:', error);
         throw error;
       }
     },
     onSuccess: (data) => {
-      console.log('Expense updated successfully:', data);
       queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
       toast({ title: "Success", description: "Expense updated successfully" });
       onSuccess?.();
@@ -439,81 +643,241 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     },
   });
 
-  // -------------------- Corrected onSubmit --------------------
-  const onSubmit = (data: ExpenseFormData) => {
-    console.log('=== STARTING FORM SUBMISSION ===');
-    console.log('Form data before processing:', JSON.stringify(data, null, 2));
-    console.log('Contributors from ref:', JSON.stringify(contributorsRef.current, null, 2));
-    
-    // Destructure and transform field names to match server expectations
-    const { splitEnabled, paidBy, ...expenseData } = data;
-    
-    // Create a new object with the correct types for the API
-    const apiPayload: ExpenseApiPayload = {
-      ...expenseData,
-      paid_by: paidBy,  // Convert paidBy to paid_by
-    };
-    
-    // Convert amount to string if it's a number
-    if (typeof apiPayload.amount === 'number') {
-      apiPayload.amount = apiPayload.amount.toString();
-    }
-
-    // Check if we have contributors regardless of splitEnabled
-    const hasContributors = contributorsRef.current.length > 0;
-    const shouldProcessContributors = splitEnabled || hasContributors;
-    
-    console.log('Processing contributors:', { 
-      splitEnabled, 
-      hasContributors, 
-      shouldProcessContributors 
-    });
-
-    if (shouldProcessContributors && hasContributors) {
-      console.log('Processing expense with contributors');
-      apiPayload.contributor = contributorsRef.current.map((c) => c.teamMember);
-      apiPayload.contribution = contributorsRef.current.map((c) => parseFloat(c.amount) || 0);
-      apiPayload.contribution_status = contributorsRef.current.map((c) => c.status);
+  // Prepare API payload with correct field names
+  const prepareApiPayload = (data: ExpenseFormData): ExpenseApiPayload => {
+    // Create the payload with both camelCase and snake_case fields
+    const payload: ExpenseApiPayload = {
+      // Frontend fields (camelCase)
+      type: data.type,
+      date: data.date,
+      fromAccount: data.fromAccount,
+      toAccount: data.toAccount || null,
+      // Ensure amount is sent as a string to match server expectations
+      amount: typeof data.amount === 'number' ? data.amount.toString() : data.amount || '0',
+      category: data.category || null,
+      description: data.description || null,
+      status: data.status || "Unpaid",
+      splitType: data.splitEnabled ? data.splitType || null : null,
+      splitEnabled: data.splitEnabled || false,
+      contributor: data.splitEnabled ? data.contributor || [] : [],
+      contribution: data.splitEnabled ? data.contribution?.map(Number) || [] : [],
+      contributionStatus: data.splitEnabled ? (data.contributionStatus || []) : [],
       
-      console.log('Mapped contributor data:', {
-        contributor: apiPayload.contributor,
-        contribution: apiPayload.contribution,
-        contribution_status: apiPayload.contribution_status
-      });
-    } else {
-      console.log('No contributors, resetting contributor fields');
-      apiPayload.contributor = [];
-      apiPayload.contribution = [];
-      apiPayload.contribution_status = [];
-    }
-    console.log('Final payload being sent to API:', JSON.stringify(apiPayload, null, 2));
-
-    const mutationOptions = {
-      onError: (error: any) => {
-        console.error('Mutation error:', error);
-        console.error('Error details:', {
-          message: error.message,
-          response: error.response,
-          request: error.request
-        });
-      },
-      onSuccess: (data: any) => {
-        console.log('Mutation successful, response data:', data);
-      }
+      // Backend fields (snake_case)
+      from_account: data.fromAccount,
+      to_account: data.toAccount || null,
+      contribution_status: data.splitEnabled ? (data.contributionStatus || []) : [],
+      split_type: data.splitEnabled ? data.splitType || null : null,
+      split_enabled: data.splitEnabled || false,
     };
 
-    if (isEditing) {
-      console.log('Initiating update mutation...');
-      // @ts-ignore - The mutation types expect paidBy but we're sending paid_by
-      updateMutation.mutate(apiPayload, mutationOptions);
-    } else {
-      console.log('Initiating create mutation...');
-      // @ts-ignore - The mutation types expect paidBy but we're sending paid_by
-      createMutation.mutate(apiPayload, mutationOptions);
-    }
+    return payload;
   };
 
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  // -------------------- onSubmit --------------------
+  const validateFormBeforeSubmit = (data: ExpenseFormData): { valid: boolean; message?: string } => {
+    // Check account fields based on split type
+    if (data.splitEnabled && data.splitType) {
+      if (data.splitType === 'from' && !data.toAccount) {
+        return { valid: false, message: 'Please select a valid "To Account" for this split type' };
+      }
+      
+      if (data.splitType === 'to' && !data.fromAccount) {
+        return { valid: false, message: 'Please select a valid "From Account" for this split type' };
+      }
+      
+      if (data.splitType === 'both' && (!data.fromAccount || !data.toAccount)) {
+        return { valid: false, message: 'Please select both "From Account" and "To Account" for this split type' };
+      }
+    }
+    
+    return { valid: true };
+  };
+
+  const onSubmit = async (formData: ExpenseFormData) => {
+    // Prevent multiple submissions
+    if (isPending) return;
+    
+    // Set pending state
+    setIsPending(true);
+    
+    // Validate form state before submission
+    const validation = validateFormBeforeSubmit(formData);
+    if (!validation.valid) {
+      toast({
+        title: 'Validation Error',
+        description: validation.message || 'Please check your form inputs',
+        variant: 'destructive',
+      });
+      setIsPending(false);
+      return;
+    }
+    
+    try {
+      // Additional validation for split amounts
+      if (formData.splitEnabled && formData.splitType) {
+        const hasContributors = contributorsRef.current.length > 0;
+        const totalContribution = hasContributors 
+          ? contributorsRef.current.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0)
+          : 0;
+          
+        const amount = typeof formData.amount === 'string' ? parseFloat(formData.amount) || 0 : formData.amount;
+        
+        // Validate contributors exist for split
+        if (!hasContributors) {
+          toast({
+            title: 'Invalid Split',
+            description: 'Please add at least one contributor for the split',
+            variant: 'destructive',
+          });
+          return;
+        }
+        
+        // Validate contribution amounts
+        if (totalContribution <= 0) {
+          toast({
+            title: 'Invalid Split',
+            description: 'Total contribution amount must be greater than zero',
+            variant: 'destructive',
+          });
+          return;
+        }
+        
+        // For 'both' split type, total must exactly match the amount
+        // For 'from' or 'to', total should not exceed the amount
+        if (formData.splitType === 'both' && Math.abs(totalContribution - amount) > 0.01) {
+          toast({
+            title: 'Invalid Split',
+            description: 'Total contribution amount must exactly match the transaction amount for this split type',
+            variant: 'destructive',
+          });
+          return;
+        } else if (formData.splitType !== 'both' && totalContribution > amount + 0.01) {
+          toast({
+            title: 'Invalid Split',
+            description: 'Total contribution amount cannot exceed the transaction amount',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+      
+      // Process contributors if split is enabled
+      const hasContributors = contributorsRef.current.length > 0;
+      const totalContribution = hasContributors 
+        ? contributorsRef.current.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0)
+        : 0;
+      const amount = typeof formData.amount === 'string' ? parseFloat(formData.amount) || 0 : formData.amount;
+      
+      // Double-check account fields based on split type
+      if (formData.splitEnabled && formData.splitType) {
+        if (formData.splitType === 'from' && !formData.toAccount) {
+          throw new Error('To Account is required for this split type');
+        }
+        if (formData.splitType === 'to' && !formData.fromAccount) {
+          throw new Error('From Account is required for this split type');
+        }
+        if (formData.splitType === 'both' && (!formData.fromAccount || !formData.toAccount)) {
+          throw new Error('Both accounts are required for this split type');
+        }
+      }
+      
+      // Process contributors if split is enabled
+      const shouldProcessContributors = formData.splitEnabled && formData.splitType && hasContributors;
+          
+      // Prepare the API payload
+      const apiPayload = prepareApiPayload(formData);
+      
+      // Process contributors if needed
+      if (shouldProcessContributors) {
+        apiPayload.contributor = contributorsRef.current.map((c) => c.teamMember);
+        apiPayload.contribution = contributorsRef.current.map((c) => parseFloat(c.amount) || 0);
+        apiPayload.contribution_status = contributorsRef.current.map((c) => c.status);
+        
+        // Set the split_to field based on splitType
+        if (formData.splitType === 'to') {
+          apiPayload.split_to = formData.toAccount || '';
+        } else if (formData.splitType === 'from') {
+          apiPayload.split_to = formData.fromAccount || '';
+        }
+      } else {
+        // Clear contributor data if not splitting
+        apiPayload.contributor = [];
+        apiPayload.contribution = [];
+        apiPayload.contribution_status = [];
+        apiPayload.split_to = '';
+      }
+      
+      // Validate contribution amounts if split is enabled
+      if (formData.splitEnabled && formData.splitType) {
+        if (totalContribution <= 0) {
+          toast({
+            title: 'Invalid Split',
+            description: 'Total contribution amount must be greater than zero',
+            variant: 'destructive',
+          });
+          return;
+        }
+        
+        // For 'both' split type, total must exactly match the amount
+        // For 'from' or 'to', total should not exceed the amount
+        if (formData.splitType === 'both' && Math.abs(totalContribution - amount) > 0.01) {
+          toast({
+            title: 'Invalid Split',
+            description: 'Total contribution amount must exactly match the transaction amount for this split type',
+            variant: 'destructive',
+          });
+          return;
+        } else if (formData.splitType !== 'both' && totalContribution > amount + 0.01) {
+          toast({
+            title: 'Invalid Split',
+            description: 'Total contribution amount cannot exceed the transaction amount',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+
+      // Call the appropriate mutation based on whether we're creating or updating
+      try {
+        if (expense?.id) {
+          await updateMutation.mutateAsync(apiPayload);
+          toast({
+            title: 'Success',
+            description: 'Expense updated successfully',
+          });
+        } else {
+          await createMutation.mutateAsync(apiPayload);
+          toast({
+            title: 'Success',
+            description: 'Expense created successfully',
+          });
+        }
+
+        // Call the onSuccess callback if provided
+        if (onSuccess) {
+          onSuccess();
+        }
+
+        // Invalidate the expenses query to refresh the list
+        queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+      } catch (error) {
+        console.error('Error saving expense:', error);
+        throw error; // This will be caught by the outer try-catch
+      }
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to submit the form. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      // Reset pending state
+      setIsPending(false);
+    }
+};
+
 
   // -------------------- UI --------------------
   return (
@@ -572,116 +936,251 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           />
         </div>
 
-        {/* Row 2: From | Description */}
+        {/* Row 2: From | To Account */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* From (previously PaidBy) */}
+          {/* From Account */}
           <FormField
             control={form.control}
-            name="paidBy"
-            render={({ field }) => {
-              const teamMembersWithFund = [
-                ...(teamMembers || []),
-                { id: 'ddc-fund', name: 'DDC Fund' }
-              ];
+            name="fromAccount"
+              render={({ field }) => {
+                const teamMembersWithFund = [
+                  ...(teamMembers || []),
+                  { id: 'ddc-fund', name: 'DDC Fund' }
+                ];
+                
+                const isCustomValue = field.value && !teamMembersWithFund.some(member => member.name === field.value);
+                
+                useEffect(() => {
+                  if (showCustomInput && inputRef.current) {
+                    inputRef.current.focus();
+                  }
+                }, [showCustomInput, field.value]);
               
-              const isCustomValue = field.value && !teamMembersWithFund.some(member => member.name === field.value);
-              
-              // Use a separate effect to handle input focus
-              useEffect(() => {
-                if (showCustomInput && inputRef.current) {
-                  inputRef.current.focus();
-                }
-              }, [showCustomInput, field.value]); // Add field.value to dependencies
-              
-              return (
-                <FormItem>
-                  <FormLabel>From</FormLabel>
-                  {!showCustomInput && !isCustomValue ? (
-                    <div className="flex gap-2">
-                      <Select
-                        value={field.value}
-                        onValueChange={(value) => {
-                          if (value === 'custom') {
-                            setShowCustomInput(true);
+                return (
+                  <FormItem>
+                    <FormLabel>From Account</FormLabel>
+                    {!showCustomInput && !isCustomValue ? (
+                      <div className="flex gap-2">
+                        <Select
+                          value={field.value}
+                          onValueChange={(value) => {
+                            if (value === 'custom') {
+                              setShowCustomInput(true);
+                              field.onChange('DDC Fund');
+                            } else {
+                              field.onChange(value);
+                            }
+                          }}
+                          disabled={watchSplitType === 'from'}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select source" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {teamMembersWithFund.map((member) => (
+                              <SelectItem key={member.id} value={member.name}>
+                                {member.name}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="custom">+ Add custom name</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <Input
+                          ref={inputRef}
+                          value={field.value}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          placeholder="Enter name"
+                          className="w-full"
+                          onBlur={() => {
+                            if (!field.value) {
+                              setShowCustomInput(false);
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          onClick={() => {
                             field.onChange('');
-                          } else {
-                            field.onChange(value);
-                          }
-                        }}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select source" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {teamMembersWithFund.map((member) => (
-                            <SelectItem key={member.id} value={member.name}>
-                              {member.name}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="custom">+ Add custom name</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <Input
-                        ref={inputRef}
-                        value={field.value}
-                        onChange={(e) => field.onChange(e.target.value)}
-                        placeholder="Enter name"
-                        className="w-full"
-                        onBlur={() => {
-                          if (!field.value) {
                             setShowCustomInput(false);
-                          }
-                        }}
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        onClick={() => {
-                          field.onChange('');
-                          setShowCustomInput(false);
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )}
-                  <FormMessage />
-                </FormItem>
-              );
-            }}
-          />
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
+            />
 
-          {/* Description */}
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Description</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="Enter description" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            {/* To Account */}
+            <FormField
+              control={form.control}
+              name="toAccount"
+              render={({ field }) => {
+                const teamMembersWithFund = [
+                  ...(teamMembers || []),
+                  { id: 'ddc-fund', name: 'DDC Fund' }
+                ];
+                
+                const isCustomValue = field.value && !teamMembersWithFund.some(member => member.name === field.value);
+                
+                useEffect(() => {
+                  if (showToAccountCustomInput && toAccountInputRef.current) {
+                    toAccountInputRef.current.focus();
+                    console.log('To Account field value:', field.value);
+                  }
+                }, [showToAccountCustomInput, field.value]);
+                
+                return (
+                  <FormItem>
+                    <FormLabel>To Account</FormLabel>
+                    {!showToAccountCustomInput && !isCustomValue ? (
+                      <div className="flex gap-2">
+                        <Select
+                          value={field.value || ''}
+                          onValueChange={(value) => {
+                            if (value === 'custom') {
+                              setShowToAccountCustomInput(true);
+                              field.onChange('DDC Fund');
+                            } else {
+                              field.onChange(value || null);
+                            }
+                          }}
+                          disabled={watchSplitType === 'to'}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select destination" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {teamMembersWithFund.map((member) => (
+                              <SelectItem key={member.id} value={member.name}>
+                                {member.name}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="custom">+ Add custom name</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <Input
+                          ref={toAccountInputRef}
+                          value={field.value || ''}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          placeholder="Enter name"
+                          className="w-full"
+                          onBlur={() => {
+                            if (!field.value) {
+                              setShowToAccountCustomInput(false);
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            field.onChange('');
+                            setShowToAccountCustomInput(false);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
+            />
         </div>
 
-        {/* Row 3: Split Section */}
+        {/* Row 4: Split Section */}
         <div className="pt-2">
           <Accordion
             type="single"
             collapsible
             value={isAccordionOpen ? "split-expense" : undefined}
-            onValueChange={(v) => setIsAccordionOpen(v === "split-expense")}
+            onValueChange={(v) => {
+              setIsAccordionOpen(v === "split-expense");
+              if (v !== "split-expense") {
+                form.setValue('splitEnabled', false);
+                form.setValue('splitType', undefined);
+                form.setValue('contributor', []);
+                form.setValue('contribution', []);
+                form.setValue('contributionStatus', []);
+              } else {
+                form.setValue('splitEnabled', true);
+              }
+            }}
           >
           <AccordionItem value="split-expense">
-            <AccordionTrigger>To</AccordionTrigger>
+            <div className="flex items-center justify-between">
+              <AccordionTrigger>Want to split amount?</AccordionTrigger>
+              <div className="flex-1 max-w-xs ml-4">
+                <FormField
+                  control={form.control}
+                  name="splitType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Select
+                        onValueChange={(value) => {
+                          if (value === 'both') {
+                            // Clear all split-related data
+                            form.setValue('splitEnabled', false);
+                            form.setValue('splitType', undefined);
+                            form.setValue('contributor', []);
+                            form.setValue('contribution', []);
+                            form.setValue('contributionStatus', []);
+                            setIsAccordionOpen(false);
+                          } else {
+                            // For 'from' or 'to', update the split type and enable split
+                            form.setValue('splitEnabled', true);
+                            field.onChange(value);
+                            
+                            // Clear the corresponding account field
+                            if (value === 'from') {
+                              form.setValue('fromAccount', '');
+                            } else if (value === 'to') {
+                              form.setValue('toAccount', '');
+                            }
+                            
+                            // Reset contributions when split type changes
+                            form.setValue('contributor', []);
+                            form.setValue('contribution', []);
+                            form.setValue('contributionStatus', []);
+                            // Ensure accordion is open when selecting a split type
+                            setIsAccordionOpen(true);
+                          }
+                        }}
+                        value={field.value || undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select split option" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="from">From Account</SelectItem>
+                          <SelectItem value="to">To Account</SelectItem>
+                          <SelectItem value="both">Clear</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
             <AccordionContent className="space-y-4 pt-4">
               {contributorsRef.current.map((contributor) => (
                 <div key={contributor.id} className="grid grid-cols-12 gap-2 items-end">
@@ -747,21 +1246,29 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                 </div>
               ))}
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addContributor}
-                disabled={availableTeamMembers.length === 0 || !isAccordionOpen}
-              >
-                <Plus className="mr-2 h-4 w-4" /> Add Contributor
-              </Button>
+              <div className="flex justify-between items-center mt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newId = Date.now().toString();
+                    setContributors((prev) => [
+                      ...prev,
+                      { id: newId, teamMember: "", amount: "", status: "pending" },
+                    ]);
+                  }}
+                  disabled={!form.watch('splitEnabled') || !form.watch('splitType')}
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Add Contributor
+                </Button>
+              </div>
             </AccordionContent>
           </AccordionItem>
           </Accordion>
         </div>
 
-        {/* Row 4: Amount | Payment Mode */}
+        {/* Row 4: Amount | Description */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Amount */}
           <FormField
@@ -789,28 +1296,20 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
               </FormItem>
             )}
           />
-
-          {/* Payment Mode */}
+          
           <FormField
             control={form.control}
-            name="mode"
+            name="description"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Payment Mode</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value || ""}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select payment mode" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {config?.paymentModes?.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormLabel>Description</FormLabel>
+                <FormControl>
+                  <Input 
+                    {...field} 
+                    value={field.value || ''}
+                    placeholder="Enter description" 
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -827,7 +1326,11 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
               <FormItem>
                 <FormLabel>Date</FormLabel>
                 <FormControl>
-                  <Input {...field} type="date" />
+                  <Input 
+                    {...field} 
+                    type="date" 
+                    className="dark:text-white dark:[color-scheme:dark]"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

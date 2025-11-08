@@ -65,17 +65,19 @@ export const teamMembers = pgTable("team_members", {
 export const expenses = pgTable("expenses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   type: text("type").notNull(),
-  paid_by: text("paid_by").notNull(),
-  description: text("description").notNull(),
-  category: text("category"),
+  category: text("category").notNull().default('Event'),
+  from_account: text("from_account").notNull().default('DDC Fund'),
+  to_account: text("to_account"),
+  description: text("description"),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  mode: text("mode"),
   date: date("date").notNull(),
   status: text("status").notNull().default("Pending"),
-  contributor: text("contributor").array(),
-  contribution: decimal("contribution", { precision: 10, scale: 2 }).array(),
-  contribution_status: text("contribution_status").array(),
+  split_type: text("split_type"),
+  contributor: text("contributor").array().notNull().default(sql`ARRAY[]::text[]`),
+  contribution: decimal("contribution", { precision: 10, scale: 2 }).array().notNull().default(sql`ARRAY[]::numeric[]`),
+  contribution_status: text("contribution_status").array().notNull().default(sql`ARRAY[]::text[]`),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Events Schema
@@ -164,11 +166,16 @@ export const insertAssetSchema = createInsertSchema(assets).omit({ id: true });
 export const insertVendorSchema = createInsertSchema(vendors).omit({ id: true });
 export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id: true });
 export const insertExpenseSchema = createInsertSchema(expenses)
-  .omit({ id: true })
+  .omit({ id: true, created_at: true, updated_at: true })
   .extend({
     contributor: z.array(z.string()).optional().default([]),
     contribution: z.array(z.number()).optional().default([]),
     contribution_status: z.array(z.string()).optional().default([]),
+    date: z.union([z.string(), z.date()])
+      .transform((val) => val instanceof Date ? val : new Date(val))
+      .refine((date) => !isNaN(date.getTime()), {
+        message: 'Invalid date',
+      }),
   });
 export const insertEventSchema = createInsertSchema(events)
   .omit({ id: true })

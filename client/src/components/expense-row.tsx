@@ -6,7 +6,7 @@ import { format } from "date-fns";
 interface ExpenseRowProps {
   id: string;
   type: "Credit" | "Debit" | "Transfer";
-  description: string;
+  description?: string | null;
   amount: string;
   category?: string | null;
   mode?: string | null;

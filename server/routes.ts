@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { seedDatabase } from "./seed";
+import { z } from 'zod';
 import {
   insertConfigurationSchema,
   insertAssetSchema,
@@ -310,6 +311,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update an existing expense
+  app.put("/api/expenses/:id", async (req, res) => {
+    const { id } = req.params;
+    console.log(`[API] PUT /api/expenses/${id} - Updating expense`);
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
+    try {
+      // Validate request body against the schema
+      const expenseData = insertExpenseSchema.parse(req.body);
+      
+      // Update the expense in the database
+      const updatedExpense = await storage.updateExpense(id, expenseData);
+      
+      if (!updatedExpense) {
+        console.error(`[API] Error: Expense with ID ${id} not found`);
+        return res.status(404).json({ error: 'Expense not found' });
+      }
+      
+      console.log(`[API] Successfully updated expense ${id}`);
+      res.status(200).json(updatedExpense);
+    } catch (error) {
+      console.error(`[API] Error updating expense ${id}:`, error);
+      console.error('[API] Error type:', typeof error);
+      console.error('[API] Error constructor name:', error?.constructor?.name);
+      console.error('[API] Error is ZodError:', error instanceof z.ZodError);
+      
+      if (error && typeof error === 'object' && 'name' in error && error.name === 'ZodError') {
+        console.error('[API] ZodError details:', JSON.stringify(error, null, 2));
+        return res.status(400).json({
+          error: 'Validation error',
+          details: (error as any).errors,
+        });
+      }
+      
+      console.error('[API] Error properties:', Object.getOwnPropertyNames(error));
+      res.status(500).json({ 
+        error: 'Failed to update expense',
+        errorType: error?.constructor?.name || typeof error
+      });
+    }
+  });
+
+  // Delete an expense
   app.delete("/api/expenses/:id", async (req, res) => {
     const { id } = req.params;
     console.log(`[API] DELETE /api/expenses/${id} - Deleting expense`);

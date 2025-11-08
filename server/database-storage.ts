@@ -177,24 +177,52 @@ export class DatabaseStorage implements IStorage {
 
   async createExpense(expense: InsertExpense): Promise<Expense> {
     console.log('[DB] Creating new expense with data:', JSON.stringify(expense, null, 2));
+    
     try {
-      // Ensure arrays are properly initialized and types are correct
+      // Ensure required fields are present
+      if (!expense.type || !expense.amount || !expense.date) {
+        throw new Error('Missing required expense fields');
+      }
+
+      // Process the expense data for database insertion
       const processedExpense = {
         ...expense,
+        // Ensure amount is a string for the database
+        amount: (typeof expense.amount === 'number' 
+          ? expense.amount 
+          : expense.amount) as string,
+        // Ensure date is in the correct format
+        date: new Date(expense.date).toISOString().split('T')[0], // Format as YYYY-MM-DD
+        // Handle array fields with proper type conversion
         contributor: Array.isArray(expense.contributor) ? expense.contributor : [],
-        contribution: Array.isArray(expense.contribution) 
-          ? expense.contribution.map(c => c.toString()) 
-          : [],
-        contribution_status: Array.isArray(expense.contribution_status) 
+        contribution: (Array.isArray(expense.contribution) 
+          ? expense.contribution.map(c => 
+              typeof c === 'number' ? c.toString() : c
+            ) 
+          : []) as string[],
+        contribution_status: (Array.isArray(expense.contribution_status) 
           ? expense.contribution_status 
-          : [],
+          : []) as string[],
+        // Ensure split_type is a string or null
+        split_type: expense.split_type || null,
+        // Set timestamps - using Date objects as expected by the database
+        created_at: new Date(),
+        updated_at: new Date(),
       };
       
-      const result = await db.insert(expenses).values(processedExpense).returning();
+      console.log('[DB] Processed expense data:', JSON.stringify(processedExpense, null, 2));
+      
+      const result = await db.insert(expenses)
+        .values(processedExpense)
+        .returning();
+        
       console.log('[DB] Successfully created expense:', result[0]);
       return result[0];
     } catch (error) {
       console.error('[DB] Error creating expense:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message, error.stack);
+      }
       throw error;
     }
   }
