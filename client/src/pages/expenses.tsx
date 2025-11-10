@@ -908,7 +908,7 @@ export default function Expenses() {
       <div className="flex-1 space-y-6">
         <Tabs defaultValue="all" className="space-y-4">
           <div className="flex justify-between items-center">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-auto grid-cols-4 gap-1">
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="credit">Income</TabsTrigger>
               <TabsTrigger value="debit">Expenses</TabsTrigger>

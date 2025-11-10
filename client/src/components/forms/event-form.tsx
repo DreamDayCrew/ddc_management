@@ -1,4 +1,4 @@
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { insertEventSchema, type Event, type InsertEvent, type Configuration } from "@shared/schema";
@@ -43,6 +43,11 @@ const eventFormSchema = insertEventSchema.extend({
   ddcCost: z.string().optional(),
   initialQuote: z.string().optional(),
   source: z.string().optional(),
+  profitLoss: z.string().optional(),
+  registeredOn: z.string().optional(),
+  eventStatus: z.string().optional(),
+  paymentMode: z.string().optional(),
+  paymentStatus: z.string().optional(),
 });
 
 type EventFormData = z.infer<typeof eventFormSchema>;
@@ -55,7 +60,7 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
     queryKey: ["/api/configuration"],
   });
 
-  const form = useForm<EventFormData>({
+  const form: UseFormReturn<EventFormData> = useForm<EventFormData>({
     resolver: zodResolver(eventFormSchema),
     defaultValues: {
       providedService: event?.providedService || "",
@@ -72,6 +77,9 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
       paymentMode: event?.paymentMode || "",
       paymentStatus: event?.paymentStatus || "Pending",
       finalizedQuote: invoiceAmount?.toString() || "",
+      ddcCost: event?.ddcCost?.toString() || "",
+      profitLoss: event?.profitLoss?.toString() || "",
+      initialQuote: event?.initialQuote?.toString() || "",
     },
   });
 
@@ -200,7 +208,12 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
                       <FormItem>
                         <FormLabel>Registered On</FormLabel>
                         <FormControl>
-                          <Input {...field} type="date" data-testid="input-registered-on" />
+                          <Input 
+                            {...field} 
+                            type="date" 
+                            data-testid="input-registered-on"
+                            className="dark:text-white dark:[color-scheme:dark]"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -214,7 +227,12 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
                       <FormItem>
                         <FormLabel>Event Date</FormLabel>
                         <FormControl>
-                          <Input {...field} type="date" data-testid="input-event-date" />
+                          <Input 
+                            {...field} 
+                            type="date" 
+                            data-testid="input-event-date"
+                            className="dark:text-white dark:[color-scheme:dark]"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

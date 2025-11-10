@@ -190,13 +190,13 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   // Memoize formValues to prevent unnecessary recalculations
   const formValues = useMemo(() => {
     const defaultValues = {
-      type: 'Expense',
+      type: '',
       date: new Date().toISOString().split('T')[0],
       amount: '',
       category: '',
       description: '',
-      status: 'Unpaid',
-      fromAccount: 'DDC Fund',
+      status: '',
+      fromAccount: '',
       toAccount: null as string | null,
       splitEnabled: false,
       splitType: undefined as 'from' | 'to' | 'both' | undefined,
@@ -1104,7 +1104,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
             />
         </div>
 
-        {/* Row 4: Split Section */}
+        {/* Row 4: Split Section 
         <div className="pt-2">
           <Accordion
             type="single"
@@ -1266,7 +1266,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
             </AccordionContent>
           </AccordionItem>
           </Accordion>
-        </div>
+        </div>*/}
 
         {/* Row 4: Amount | Description */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
