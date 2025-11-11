@@ -350,11 +350,23 @@ export class DatabaseStorage implements IStorage {
 
   // Requirements
   async getRequirements(eventId: string): Promise<Requirement[]> {
-    return await db.select().from(requirements).where(eq(requirements.eventId, eventId));
+    try {
+      const result = await db.select().from(requirements).where(eq(requirements.eventId, eventId));
+      return result || [];
+    } catch (error) {
+      console.error(`[DB] Error fetching requirements for event ${eventId}, returning empty array:`, error);
+      return [];
+    }
   }
 
   async getAllRequirements(): Promise<Requirement[]> {
-    return await db.select().from(requirements);
+    try {
+      const result = await db.select().from(requirements);
+      return result || [];
+    } catch (error) {
+      console.error('[DB] Error fetching all requirements, returning empty array:', error);
+      return [];
+    }
   }
 
   async getRequirement(id: string): Promise<Requirement | undefined> {
