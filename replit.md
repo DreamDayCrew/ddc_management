@@ -18,13 +18,23 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### November 11, 2025 - Mobile App UI/UX Enhancement
-- **Added Professional Icons**: Replaced text-based navigation icons with Ionicons (calendar, wallet, people, cube, analytics)
-- **Create Functionality**: Implemented 4 modal forms for creating events, expenses, assets, and team members with full validation
-- **Floating Action Buttons**: Added maroon-themed FAB buttons on all screens for quick creation
-- **Enhanced Dashboard**: Updated with icon-based stats cards, overview grid showing total counts, and improved visual hierarchy
+### November 11, 2025 - Mobile App Complete CRUD & Enhanced UX
+- **Native Date Pickers**: Created reusable DatePicker component using @react-native-community/datetimepicker with iOS (spinner) and Android (calendar) support, integrated into Event, Expense, and Asset modals
+- **Configuration Dropdowns**: Created reusable Picker component with configuration-driven dropdowns for:
+  - Service types in Event modal
+  - Expense categories, from/to accounts, and payment status
+  - Asset categories
+  - All dropdowns fetch from backend configuration API
+- **Edit Functionality**: Added tap-to-edit on all 4 screens (Events, Expenses, Assets, Team) with proper form pre-filling via useEffect hooks for state synchronization
+- **Enhanced Expenses Screen**: Rebuilt with 4 scrollable KPI cards showing:
+  - Total Income (green) - sum of all Credit transactions
+  - Total Expense (red) - sum of all Debit transactions
+  - Account Balance (maroon) - DDC Fund net balance
+  - Pending Repayment (amber) - outstanding transfers from DDC Fund to team members
+- **API Enhancements**: Added update mutations (useUpdateEvent, useUpdateExpense, useUpdateAsset, useUpdateTeamMember) with proper cache invalidation
+- **Professional Icons**: Ionicons throughout navigation (calendar, wallet, people, cube, analytics)
+- **Floating Action Buttons**: Maroon-themed FAB buttons on all screens for quick creation
 - **Brand Theme**: Applied maroon (#800020) color scheme throughout navigation, buttons, and headers
-- **API Integration**: All modals use existing API client with React Query for cache invalidation and optimistic updates
 
 ## System Architecture
 
