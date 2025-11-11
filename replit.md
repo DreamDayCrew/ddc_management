@@ -16,6 +16,16 @@ Dream Day Crew is a comprehensive full-stack event management system built for m
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### November 11, 2025 - Mobile App UI/UX Enhancement
+- **Added Professional Icons**: Replaced text-based navigation icons with Ionicons (calendar, wallet, people, cube, analytics)
+- **Create Functionality**: Implemented 4 modal forms for creating events, expenses, assets, and team members with full validation
+- **Floating Action Buttons**: Added maroon-themed FAB buttons on all screens for quick creation
+- **Enhanced Dashboard**: Updated with icon-based stats cards, overview grid showing total counts, and improved visual hierarchy
+- **Brand Theme**: Applied maroon (#800020) color scheme throughout navigation, buttons, and headers
+- **API Integration**: All modals use existing API client with React Query for cache invalidation and optimistic updates
+
 ## System Architecture
 
 ### Frontend Architecture
