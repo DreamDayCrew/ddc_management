@@ -23,7 +23,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   headerDivider: {
-    borderBottom: '3 solid #3498db',
+    borderBottom: '3 solid #800020',
     marginBottom: 20,
   },
   
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#3498db',
+    backgroundColor: '#800020',
     padding: 10,
     borderRadius: 3,
     marginBottom: 5,
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 8,
     paddingTop: 10,
-    borderTop: '2 solid #3498db',
+    borderTop: '2 solid #800020',
   },
   grandTotalLabel: {
     fontSize: 13,
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   grandTotalValue: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#3498db',
+    color: '#800020',
   },
   
   // Payment Information
@@ -312,7 +312,14 @@ const styles = StyleSheet.create({
 
 // Utility functions
 const formatCurrency = (amount: number): string => {
-  return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // Format number manually to avoid PDF rendering issues with toLocaleString
+  const fixedAmount = amount.toFixed(2);
+  const [integerPart, decimalPart] = fixedAmount.split('.');
+  
+  // Add thousand separators manually
+  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  
+  return `₹${formattedInteger}.${decimalPart}`;
 };
 
 const formatDate = (date: Date | string): string => {
