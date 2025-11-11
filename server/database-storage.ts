@@ -37,8 +37,8 @@ const db = drizzle(sql);
 export class DatabaseStorage implements IStorage {
   async testConnection(): Promise<boolean> {
     try {
-      // Simple query to test connection
-      const result = await db.select().from(vendors).limit(1);
+      // Simple query to test connection - use a query that works even on empty tables
+      await sql`SELECT 1`;
       console.log('Database connection test successful with HTTP');
       return true;
     } catch (error) {
@@ -49,8 +49,13 @@ export class DatabaseStorage implements IStorage {
 
   // Configuration
   async getConfiguration(): Promise<Configuration | undefined> {
-    const result = await db.select().from(configurations).limit(1);
-    return result[0];
+    try {
+      const result = await db.select().from(configurations).limit(1);
+      return result ? result[0] : undefined;
+    } catch (error) {
+      console.error('[DB] Error fetching configuration, returning undefined:', error);
+      return undefined;
+    }
   }
 
   async createConfiguration(config: InsertConfiguration): Promise<Configuration> {
@@ -68,7 +73,13 @@ export class DatabaseStorage implements IStorage {
 
   // Assets
   async getAssets(): Promise<Asset[]> {
-    return await db.select().from(assets);
+    try {
+      const result = await db.select().from(assets);
+      return result || [];
+    } catch (error) {
+      console.error('[DB] Error fetching assets, returning empty array:', error);
+      return [];
+    }
   }
 
   async getAsset(id: string): Promise<Asset | undefined> {
@@ -96,7 +107,13 @@ export class DatabaseStorage implements IStorage {
 
   // Vendors
   async getVendors(): Promise<Vendor[]> {
-    return await db.select().from(vendors);
+    try {
+      const result = await db.select().from(vendors);
+      return result || [];
+    } catch (error) {
+      console.error('[DB] Error fetching vendors, returning empty array:', error);
+      return [];
+    }
   }
 
   async getVendor(id: string): Promise<Vendor | undefined> {
@@ -124,7 +141,13 @@ export class DatabaseStorage implements IStorage {
 
   // Team Members
   async getTeamMembers(): Promise<TeamMember[]> {
-    return await db.select().from(teamMembers);
+    try {
+      const result = await db.select().from(teamMembers);
+      return result || [];
+    } catch (error) {
+      console.error('[DB] Error fetching team members, returning empty array:', error);
+      return [];
+    }
   }
 
   async getTeamMember(id: string): Promise<TeamMember | undefined> {
@@ -155,11 +178,11 @@ export class DatabaseStorage implements IStorage {
     console.log('[DB] Fetching all expenses');
     try {
       const result = await db.select().from(expenses).orderBy(desc(expenses.created_at));
-      console.log(`[DB] Successfully fetched ${result.length} expenses`);
-      return result;
+      console.log(`[DB] Successfully fetched ${result ? result.length : 0} expenses`);
+      return result || [];
     } catch (error) {
-      console.error('[DB] Error fetching expenses:', error);
-      throw error;
+      console.error('[DB] Error fetching expenses, returning empty array:', error);
+      return [];
     }
   }
 
@@ -278,7 +301,13 @@ export class DatabaseStorage implements IStorage {
 
   // Events
   async getEvents(): Promise<Event[]> {
-    return await db.select().from(events);
+    try {
+      const result = await db.select().from(events);
+      return result || [];
+    } catch (error) {
+      console.error('[DB] Error fetching events, returning empty array:', error);
+      return [];
+    }
   }
 
   async getEvent(id: string): Promise<Event | undefined> {
