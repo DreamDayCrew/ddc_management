@@ -3,7 +3,7 @@
 
 // Get the Replit deployment URL from environment or use placeholder
 // To get your URL: Deploy your app on Replit and copy the deployment URL
-const PRODUCTION_API_URL = process.env.EXPO_PUBLIC_API_URL || 'REPLACE_WITH_YOUR_REPLIT_URL';
+const PRODUCTION_API_URL = 'https://ddc-management.onrender.com';
 
 export const config = {
   // API URL based on environment
