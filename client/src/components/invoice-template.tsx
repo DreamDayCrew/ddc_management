@@ -1,171 +1,328 @@
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
 import { type Configuration, type Event, type Requirement } from '@shared/schema';
 
-// Define styles matching the uploaded template
+// Professional styles matching the reference PDF
 const styles = StyleSheet.create({
   page: {
-    padding: 50,
+    padding: 40,
     fontSize: 10,
     fontFamily: 'Helvetica',
-    color: '#000',
+    color: '#1a1a1a',
   },
-  invoiceTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'right',
-    marginBottom: 20,
-    textTransform: 'uppercase',
-  },
-  businessInfo: {
+  
+  // Header Section
+  header: {
     marginBottom: 30,
   },
-  businessName: {
-    fontSize: 14,
+  invoiceTitle: {
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 5,
+    textAlign: 'right',
+    marginBottom: 15,
+    color: '#2c3e50',
+    letterSpacing: 2,
   },
-  businessText: {
-    fontSize: 10,
-    lineHeight: 1.4,
+  headerDivider: {
+    borderBottom: '3 solid #3498db',
+    marginBottom: 20,
   },
+  
+  // Business Info Section
+  businessSection: {
+    marginBottom: 25,
+  },
+  logoContainer: {
+    marginBottom: 10,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    objectFit: 'contain',
+  },
+  businessName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 6,
+    color: '#2c3e50',
+  },
+  businessDetails: {
+    fontSize: 9,
+    lineHeight: 1.5,
+    color: '#555',
+  },
+  
+  // Two Column Layout
   twoColumns: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 30,
+    paddingBottom: 20,
+    borderBottom: '1 solid #e0e0e0',
   },
+  
+  // Bill To Section
   billToSection: {
     flex: 1,
-    marginRight: 20,
-  },
-  invoiceDetailsSection: {
-    width: 200,
+    marginRight: 30,
   },
   sectionTitle: {
     fontSize: 11,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 8,
+    color: '#2c3e50',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  clientText: {
+  clientInfo: {
     fontSize: 10,
-    lineHeight: 1.3,
-    marginBottom: 3,
+    lineHeight: 1.4,
+    color: '#333',
+  },
+  
+  // Invoice Details Section
+  invoiceDetailsSection: {
+    width: 180,
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 4,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 5,
+    marginBottom: 6,
   },
   detailLabel: {
     fontSize: 10,
     fontWeight: 'bold',
+    color: '#555',
   },
   detailValue: {
     fontSize: 10,
+    color: '#2c3e50',
+    fontWeight: 'bold',
   },
+  
+  // Items Table
   table: {
-    marginTop: 20,
+    marginTop: 10,
     marginBottom: 20,
   },
   tableHeader: {
     flexDirection: 'row',
-    borderBottom: '2 solid #000',
-    paddingBottom: 8,
-    marginBottom: 8,
+    backgroundColor: '#3498db',
+    padding: 10,
+    borderRadius: 3,
+    marginBottom: 5,
+  },
+  tableHeaderText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#fff',
+    textTransform: 'uppercase',
   },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 8,
-    borderBottom: '1 solid #ddd',
+    paddingVertical: 10,
+    paddingHorizontal: 5,
+    borderBottom: '1 solid #e8e8e8',
   },
+  tableRowAlt: {
+    backgroundColor: '#f9f9f9',
+  },
+  
+  // Table Columns
   colDescription: {
-    width: '45%',
+    width: '48%',
+    paddingRight: 10,
   },
   colQty: {
-    width: '15%',
+    width: '12%',
     textAlign: 'center',
   },
   colPrice: {
     width: '20%',
     textAlign: 'right',
+    paddingRight: 5,
   },
   colAmount: {
     width: '20%',
     textAlign: 'right',
   },
-  headerText: {
+  
+  // Description Styling
+  itemName: {
     fontSize: 10,
     fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 2,
   },
-  totalSection: {
+  itemDescription: {
+    fontSize: 8,
+    color: '#666',
+    fontStyle: 'italic',
+    lineHeight: 1.3,
+  },
+  
+  // Totals Section
+  totalsContainer: {
     marginTop: 20,
     alignItems: 'flex-end',
+  },
+  totalsBox: {
+    width: 250,
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    borderRadius: 4,
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: 200,
     marginBottom: 8,
+    paddingBottom: 8,
+  },
+  totalRowWithBorder: {
+    borderBottom: '1 solid #ddd',
   },
   totalLabel: {
-    fontSize: 11,
+    fontSize: 10,
+    color: '#555',
   },
   totalValue: {
-    fontSize: 11,
-  },
-  grandTotal: {
-    fontSize: 13,
+    fontSize: 10,
+    color: '#2c3e50',
     fontWeight: 'bold',
   },
-  divider: {
-    borderTop: '1 solid #000',
-    marginVertical: 8,
+  gstRow: {
+    fontSize: 9,
+    color: '#666',
+    marginBottom: 4,
   },
-  signatureSection: {
-    marginTop: 40,
+  grandTotalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 10,
+    borderTop: '2 solid #3498db',
   },
-  signatureBox: {
-    width: '40%',
+  grandTotalLabel: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#2c3e50',
   },
-  signatureLabel: {
-    fontSize: 10,
-    marginBottom: 40,
+  grandTotalValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#3498db',
   },
-  signatureLine: {
-    borderTop: '1 solid #000',
-    paddingTop: 5,
-  },
-  signatureText: {
-    fontSize: 9,
-    textAlign: 'center',
-  },
-  signatureImage: {
-    width: 100,
-    height: 50,
-    marginBottom: 5,
-  },
-  termsSection: {
+  
+  // Payment Information
+  paymentSection: {
     marginTop: 30,
     padding: 15,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#fff9e6',
+    borderLeft: '4 solid #f39c12',
+    borderRadius: 3,
+  },
+  paymentTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#2c3e50',
+  },
+  paymentDetails: {
+    fontSize: 9,
+    lineHeight: 1.5,
+    color: '#555',
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  paymentLabel: {
+    width: 100,
+    fontWeight: 'bold',
+    color: '#666',
+  },
+  paymentValue: {
+    flex: 1,
+    color: '#333',
+  },
+  
+  // Terms & Conditions
+  termsSection: {
+    marginTop: 25,
+    padding: 15,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 4,
   },
   termsTitle: {
     fontSize: 11,
     fontWeight: 'bold',
     marginBottom: 8,
+    color: '#2c3e50',
   },
   termsText: {
-    fontSize: 9,
-    lineHeight: 1.5,
+    fontSize: 8,
+    lineHeight: 1.6,
+    color: '#555',
   },
-  logo: {
-    width: 60,
-    height: 60,
-    marginBottom: 10,
+  
+  // Signature Section
+  signatureContainer: {
+    marginTop: 40,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  signatureBox: {
+    width: '45%',
+  },
+  signatureLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginBottom: 35,
+    color: '#555',
+  },
+  signatureLine: {
+    borderTop: '1 solid #333',
+    paddingTop: 5,
+  },
+  signatureText: {
+    fontSize: 9,
+    textAlign: 'center',
+    color: '#666',
+  },
+  signatureImage: {
+    width: 100,
+    height: 40,
+    marginBottom: 5,
+  },
+  
+  // Footer
+  footer: {
+    marginTop: 30,
+    paddingTop: 15,
+    borderTop: '1 solid #ddd',
+    textAlign: 'center',
+  },
+  footerText: {
+    fontSize: 8,
+    color: '#999',
   },
 });
+
+// Utility functions
+const formatCurrency = (amount: number): string => {
+  return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+const formatDate = (date: Date | string): string => {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleDateString('en-IN', { 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit' 
+  });
+};
 
 interface InvoiceTemplateProps {
   config: Configuration;
@@ -174,159 +331,231 @@ interface InvoiceTemplateProps {
   invoiceNumber?: string;
 }
 
-export const InvoiceTemplate = ({ config, event, requirements, invoiceNumber = 'INV00001' }: InvoiceTemplateProps) => {
-  const invoiceDate = new Date().toLocaleDateString('en-IN', { year: 'numeric', month: '2-digit', day: '2-digit' });
-  const eventDate = new Date(event.eventDate).toLocaleDateString('en-IN', { year: 'numeric', month: '2-digit', day: '2-digit' });
-  
-  // Calculate due date (7 days from invoice date)
+export const InvoiceTemplate = ({ 
+  config, 
+  event, 
+  requirements, 
+  invoiceNumber = 'INV00001' 
+}: InvoiceTemplateProps) => {
+  // Date calculations
+  const invoiceDate = new Date();
   const dueDate = new Date();
-  dueDate.setDate(dueDate.getDate() + 7);
-  const dueDateStr = dueDate.toLocaleDateString('en-IN', { year: 'numeric', month: '2-digit', day: '2-digit' });
-
-  // Get client info from separate fields or fallback to clientInfo
-  const clientName = event.clientName || '';
+  dueDate.setDate(dueDate.getDate() + 7); // 7 days payment term
+  
+  // Client information
+  const clientName = event.clientName || 'Customer';
   const clientPhone = event.clientPhone || '';
   const clientAddress = event.clientAddress || '';
   const clientEmail = event.clientEmail || '';
-
-  // Calculate totals
-  const subtotal = parseFloat(event.finalizedQuote || event.initialQuote || "0");
-  const includeGst = config.includeGst === "true";
+  
+  // Calculate totals from requirements
+  let subtotal = 0;
+  
+  if (requirements && requirements.length > 0) {
+    // Sum up all requirement amounts (price × quantity)
+    subtotal = requirements.reduce((sum, req) => {
+      const price = Number(req.price ?? 0);
+      const quantity = Number(req.quantity ?? 1);
+      // Guard against NaN
+      const validPrice = isNaN(price) ? 0 : price;
+      const validQuantity = isNaN(quantity) ? 1 : quantity;
+      return sum + (validPrice * validQuantity);
+    }, 0);
+  } else {
+    // If no requirements, use the finalized or initial quote
+    const fallbackQuote = Number(event.finalizedQuote ?? event.initialQuote ?? 0);
+    subtotal = isNaN(fallbackQuote) ? 0 : fallbackQuote;
+  }
+  
+  // GST calculations - includeGst is stored as text in database
+  const includeGst = config.includeGst === 'true';
   const gstRate = 0.18; // 18% GST
   const gstAmount = includeGst ? subtotal * gstRate : 0;
-  const total = subtotal + gstAmount;
-
+  const grandTotal = subtotal + gstAmount;
+  
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Invoice Title */}
-        <Text style={styles.invoiceTitle}>INVOICE</Text>
-
-        {/* Business Info */}
-        <View style={styles.businessInfo}>
+        {/* Header with Invoice Title */}
+        <View style={styles.header}>
+          <Text style={styles.invoiceTitle}>INVOICE</Text>
+          <View style={styles.headerDivider} />
+        </View>
+        
+        {/* Business Information */}
+        <View style={styles.businessSection}>
           {config.logo && (
-            <Image style={styles.logo} src={config.logo} />
+            <View style={styles.logoContainer}>
+              <Image style={styles.logo} src={config.logo} />
+            </View>
           )}
           <Text style={styles.businessName}>{config.businessName}</Text>
-          <Text style={styles.businessText}>
+          <Text style={styles.businessDetails}>
             {config.address && `${config.address}\n`}
-            {config.phone && `${config.phone}\n`}
-            {config.email && `${config.email}\n`}
-            {config.website && `${config.website}`}
+            {config.phone && `Phone: ${config.phone}\n`}
+            {config.email && `Email: ${config.email}\n`}
+            {config.website && `Website: ${config.website}`}
           </Text>
         </View>
-
+        
         {/* Bill To and Invoice Details */}
         <View style={styles.twoColumns}>
-          {/* Bill To */}
+          {/* Bill To Section */}
           <View style={styles.billToSection}>
-            <Text style={styles.sectionTitle}>BILL TO</Text>
-            {clientName && <Text style={styles.clientText}>{clientName}</Text>}
-            {clientAddress && <Text style={styles.clientText}>{clientAddress}</Text>}
-            {clientPhone && <Text style={styles.clientText}>{clientPhone}</Text>}
-            {clientEmail && <Text style={styles.clientText}>{clientEmail}</Text>}
+            <Text style={styles.sectionTitle}>Bill To</Text>
+            <Text style={styles.clientInfo}>
+              {clientName && `${clientName}\n`}
+              {clientAddress && `${clientAddress}\n`}
+              {clientPhone && `${clientPhone}\n`}
+              {clientEmail && clientEmail}
+            </Text>
           </View>
-
+          
           {/* Invoice Details */}
           <View style={styles.invoiceDetailsSection}>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>INVOICE #</Text>
+              <Text style={styles.detailLabel}>Invoice #:</Text>
               <Text style={styles.detailValue}>{invoiceNumber}</Text>
             </View>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>DATE</Text>
-              <Text style={styles.detailValue}>{invoiceDate}</Text>
+              <Text style={styles.detailLabel}>Date:</Text>
+              <Text style={styles.detailValue}>{formatDate(invoiceDate)}</Text>
             </View>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>DUE DATE</Text>
-              <Text style={styles.detailValue}>{dueDateStr}</Text>
+              <Text style={styles.detailLabel}>Due Date:</Text>
+              <Text style={styles.detailValue}>{formatDate(dueDate)}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Event Date:</Text>
+              <Text style={styles.detailValue}>{formatDate(event.eventDate)}</Text>
             </View>
           </View>
         </View>
-
+        
         {/* Items Table */}
         <View style={styles.table}>
+          {/* Table Header */}
           <View style={styles.tableHeader}>
-            <Text style={[styles.colDescription, styles.headerText]}>Description</Text>
-            <Text style={[styles.colQty, styles.headerText]}>QTY</Text>
-            <Text style={[styles.colPrice, styles.headerText]}>Price</Text>
-            <Text style={[styles.colAmount, styles.headerText]}>Amount</Text>
+            <Text style={[styles.colDescription, styles.tableHeaderText]}>Description</Text>
+            <Text style={[styles.colQty, styles.tableHeaderText]}>Qty</Text>
+            <Text style={[styles.colPrice, styles.tableHeaderText]}>Unit Price</Text>
+            <Text style={[styles.colAmount, styles.tableHeaderText]}>Amount</Text>
           </View>
-
-          {/* If no requirements, show the event as a single line */}
-          {requirements.length === 0 ? (
-            <View style={styles.tableRow}>
-              <View style={styles.colDescription}>
-                <Text style={{ fontWeight: 'bold' }}>{event.eventName}</Text>
-                <Text style={{ fontSize: 9, marginTop: 2 }}>{event.providedService}</Text>
-              </View>
-              <Text style={styles.colQty}>1</Text>
-              <Text style={styles.colPrice}>₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
-              <Text style={styles.colAmount}>₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
-            </View>
-          ) : (
-            // Show each requirement as a line item
+          
+          {/* Table Rows */}
+          {requirements && requirements.length > 0 ? (
             requirements.map((req, index) => {
-              const amount = parseFloat(String(req.order) || "0");
-              const price = parseFloat(String(req.price) || "0");
+              const price = Number(req.price ?? 0);
+              const quantity = Number(req.quantity ?? 1);
+              // Guard against NaN
+              const validPrice = isNaN(price) ? 0 : price;
+              const validQuantity = isNaN(quantity) ? 1 : quantity;
+              const amount = validPrice * validQuantity;
+              
               return (
-                <View key={index} style={styles.tableRow}>
+                <View 
+                  key={req.id || index} 
+                  style={[
+                    styles.tableRow, 
+                    ...(index % 2 === 1 ? [styles.tableRowAlt] : [])
+                  ]}
+                >
                   <View style={styles.colDescription}>
-                    <Text>{req.requirement}</Text>
+                    <Text style={styles.itemName}>{req.requirement}</Text>
+                    {req.description && (
+                      <Text style={styles.itemDescription}>{req.description}</Text>
+                    )}
                   </View>
-                  <Text style={styles.colQty}>{req.quantity}</Text>
-                  <Text style={styles.colPrice}>₹{price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
-                  <Text style={styles.colAmount}>₹{amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
+                  <Text style={styles.colQty}>{validQuantity}</Text>
+                  <Text style={styles.colPrice}>{formatCurrency(validPrice)}</Text>
+                  <Text style={styles.colAmount}>{formatCurrency(amount)}</Text>
                 </View>
               );
             })
+          ) : (
+            // Fallback: Show event as single line item
+            <View style={styles.tableRow}>
+              <View style={styles.colDescription}>
+                <Text style={styles.itemName}>{event.eventName}</Text>
+                <Text style={styles.itemDescription}>{event.providedService}</Text>
+              </View>
+              <Text style={styles.colQty}>1</Text>
+              <Text style={styles.colPrice}>{formatCurrency(subtotal)}</Text>
+              <Text style={styles.colAmount}>{formatCurrency(subtotal)}</Text>
+            </View>
           )}
         </View>
-
-        {/* Total Section */}
-        <View style={styles.totalSection}>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Subtotal:</Text>
-            <Text style={styles.totalValue}>₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
-          </View>
-          
-          {includeGst && config.gstNumber && (
-            <>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>GST (18%):</Text>
-                <Text style={styles.totalValue}>₹{gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
-              </View>
-              <View style={styles.totalRow}>
-                <Text style={{ fontSize: 9 }}>GST No: {config.gstNumber}</Text>
-              </View>
-            </>
-          )}
-
-          <View style={styles.divider} />
-          
-          <View style={styles.totalRow}>
-            <Text style={styles.grandTotal}>Total:</Text>
-            <Text style={styles.grandTotal}>₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
+        
+        {/* Totals Section */}
+        <View style={styles.totalsContainer}>
+          <View style={styles.totalsBox}>
+            <View style={[styles.totalRow, styles.totalRowWithBorder]}>
+              <Text style={styles.totalLabel}>Subtotal:</Text>
+              <Text style={styles.totalValue}>{formatCurrency(subtotal)}</Text>
+            </View>
+            
+            {includeGst && (
+              <>
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>GST (18%):</Text>
+                  <Text style={styles.totalValue}>{formatCurrency(gstAmount)}</Text>
+                </View>
+                {config.gstNumber && (
+                  <Text style={styles.gstRow}>GST No: {config.gstNumber}</Text>
+                )}
+              </>
+            )}
+            
+            <View style={styles.grandTotalRow}>
+              <Text style={styles.grandTotalLabel}>Grand Total:</Text>
+              <Text style={styles.grandTotalValue}>{formatCurrency(grandTotal)}</Text>
+            </View>
           </View>
         </View>
-
-        {/* Terms and Conditions */}
+        
+        {/* Payment Information */}
+        <View style={styles.paymentSection}>
+          <Text style={styles.paymentTitle}>Payment Information</Text>
+          <View style={styles.paymentDetails}>
+            <View style={styles.paymentRow}>
+              <Text style={styles.paymentLabel}>Payment Mode:</Text>
+              <Text style={styles.paymentValue}>
+                {event.paymentMode || 'Bank Transfer / UPI / Cash'}
+              </Text>
+            </View>
+            {config.phone && (
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentLabel}>UPI ID:</Text>
+                <Text style={styles.paymentValue}>{config.phone}@paytm</Text>
+              </View>
+            )}
+            <View style={styles.paymentRow}>
+              <Text style={styles.paymentLabel}>Payment Terms:</Text>
+              <Text style={styles.paymentValue}>Payment due within 7 days</Text>
+            </View>
+            <Text style={{ fontSize: 8, marginTop: 8, color: '#e67e22', fontWeight: 'bold' }}>
+              Please make payment by {formatDate(dueDate)}
+            </Text>
+          </View>
+        </View>
+        
+        {/* Terms & Conditions */}
         {config.termsAndConditions && (
           <View style={styles.termsSection}>
             <Text style={styles.termsTitle}>Terms & Conditions</Text>
             <Text style={styles.termsText}>{config.termsAndConditions}</Text>
           </View>
         )}
-
+        
         {/* Signature Section */}
-        <View style={styles.signatureSection}>
+        <View style={styles.signatureContainer}>
           <View style={styles.signatureBox}>
             <Text style={styles.signatureLabel}>Customer Signature</Text>
             <View style={styles.signatureLine}>
-              <Text style={styles.signatureText}>Date: _______________</Text>
+              <Text style={styles.signatureText}>Signature & Date</Text>
             </View>
           </View>
-
+          
           <View style={styles.signatureBox}>
             <Text style={styles.signatureLabel}>Authorized Signature</Text>
             {config.signatureImage && (
@@ -336,6 +565,13 @@ export const InvoiceTemplate = ({ config, event, requirements, invoiceNumber = '
               <Text style={styles.signatureText}>{config.businessName}</Text>
             </View>
           </View>
+        </View>
+        
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            Thank you for your business! | {config.businessName}
+          </Text>
         </View>
       </Page>
     </Document>
