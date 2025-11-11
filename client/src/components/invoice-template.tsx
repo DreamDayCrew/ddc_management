@@ -8,17 +8,26 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: 'Helvetica',
     color: '#1a1a1a',
+    backgroundColor: '#F5F5DC', // Pale beige background
   },
   
   // Header Section
   header: {
-    marginBottom: 30,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  logoSection: {
+    flex: 1,
+  },
+  invoiceTitleSection: {
+    flex: 1,
+    alignItems: 'flex-end',
   },
   invoiceTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    textAlign: 'right',
-    marginBottom: 15,
     color: '#2c3e50',
     letterSpacing: 2,
   },
@@ -217,7 +226,7 @@ const styles = StyleSheet.create({
   
   // Payment Information
   paymentSection: {
-    marginTop: 30,
+    marginTop: 20,
     padding: 15,
     backgroundColor: '#fff9e6',
     borderLeft: '4 solid #f39c12',
@@ -383,19 +392,25 @@ export const InvoiceTemplate = ({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Header with Invoice Title */}
+        {/* Header with Logo on Left and Invoice Title on Right */}
         <View style={styles.header}>
-          <Text style={styles.invoiceTitle}>INVOICE</Text>
-          <View style={styles.headerDivider} />
+          {/* Logo Section - Left */}
+          <View style={styles.logoSection}>
+            {config.logo && (
+              <Image style={styles.logo} src={config.logo} />
+            )}
+          </View>
+          
+          {/* Invoice Title - Right */}
+          <View style={styles.invoiceTitleSection}>
+            <Text style={styles.invoiceTitle}>INVOICE</Text>
+          </View>
         </View>
+        
+        <View style={styles.headerDivider} />
         
         {/* Business Information */}
         <View style={styles.businessSection}>
-          {config.logo && (
-            <View style={styles.logoContainer}>
-              <Image style={styles.logo} src={config.logo} />
-            </View>
-          )}
           <Text style={styles.businessName}>{config.businessName}</Text>
           <Text style={styles.businessDetails}>
             {config.address && `${config.address}\n`}
@@ -520,8 +535,8 @@ export const InvoiceTemplate = ({
           </View>
         </View>
         
-        {/* Payment Information */}
-        <View style={styles.paymentSection}>
+        {/* Payment Information - Keep on same page */}
+        <View style={styles.paymentSection} wrap={false}>
           <Text style={styles.paymentTitle}>Payment Information</Text>
           <View style={styles.paymentDetails}>
             <View style={styles.paymentRow}>
@@ -548,14 +563,14 @@ export const InvoiceTemplate = ({
         
         {/* Terms & Conditions */}
         {config.termsAndConditions && (
-          <View style={styles.termsSection}>
+          <View style={styles.termsSection} wrap={false}>
             <Text style={styles.termsTitle}>Terms & Conditions</Text>
             <Text style={styles.termsText}>{config.termsAndConditions}</Text>
           </View>
         )}
         
         {/* Signature Section */}
-        <View style={styles.signatureContainer}>
+        <View style={styles.signatureContainer} wrap={false}>
           <View style={styles.signatureBox}>
             <Text style={styles.signatureLabel}>Customer Signature</Text>
             <View style={styles.signatureLine}>
