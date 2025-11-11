@@ -425,7 +425,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllFulfillmentPlans(): Promise<FulfillmentPlan[]> {
-    return await db.select().from(fulfillmentPlans);
+    try {
+      const result = await db.select().from(fulfillmentPlans);
+      return result || [];
+    } catch (error) {
+      console.error('[DB] Error fetching all fulfillment plans, returning empty array:', error);
+      return [];
+    }
   }
 
   async getFulfillmentPlan(id: string): Promise<FulfillmentPlan | undefined> {
