@@ -1,9 +1,16 @@
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { useEvents } from '../hooks/useApi';
+import { Ionicons } from '@expo/vector-icons';
+import { useEvents, useExpenses, useAssets, useTeamMembers } from '../hooks/useApi';
 import type { Event } from '../types';
+
+const BRAND_MAROON = '#800020';
+const BRAND_MAROON_DARK = '#600018';
 
 export default function DashboardScreen() {
   const { data: events, isLoading, error } = useEvents();
+  const { data: expenses } = useExpenses();
+  const { data: assets } = useAssets();
+  const { data: team } = useTeamMembers();
 
   if (isLoading) {
     return (
@@ -24,34 +31,71 @@ export default function DashboardScreen() {
   const totalEvents = events?.length || 0;
   const inProgressEvents = events?.filter(e => e.eventStatus === 'In Progress').length || 0;
   const completedEvents = events?.filter(e => e.eventStatus === 'Completed').length || 0;
-  const draftEvents = events?.filter(e => e.eventStatus === 'Draft').length || 0;
+  const draftEvents = events?.filter(e => e.eventStatus === 'Draft' || e.eventStatus === 'Inquired').length || 0;
+  
+  const totalExpenses = expenses?.length || 0;
+  const totalAssets = assets?.length || 0;
+  const totalTeam = team?.length || 0;
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Dream Day Crew</Text>
-        <Text style={styles.subtitle}>Event Management Dashboard</Text>
+        <View>
+          <Text style={styles.title}>Dream Day Crew</Text>
+          <Text style={styles.subtitle}>Event Management System</Text>
+        </View>
+        <Ionicons name="sparkles" size={32} color="#fff" />
       </View>
 
       <View style={styles.statsGrid}>
-        <View style={[styles.statCard, styles.primaryCard]}>
+        <View style={[styles.statCard, { backgroundColor: BRAND_MAROON }]}>
+          <Ionicons name="calendar" size={32} color="#fff" style={{ marginBottom: 8 }} />
           <Text style={styles.statNumber}>{totalEvents}</Text>
           <Text style={styles.statLabel}>Total Events</Text>
         </View>
 
-        <View style={[styles.statCard, styles.warningCard]}>
+        <View style={[styles.statCard, { backgroundColor: '#f59e0b' }]}>
+          <Ionicons name="time" size={32} color="#fff" style={{ marginBottom: 8 }} />
           <Text style={styles.statNumber}>{inProgressEvents}</Text>
           <Text style={styles.statLabel}>In Progress</Text>
         </View>
 
-        <View style={[styles.statCard, styles.successCard]}>
+        <View style={[styles.statCard, { backgroundColor: '#10b981' }]}>
+          <Ionicons name="checkmark-circle" size={32} color="#fff" style={{ marginBottom: 8 }} />
           <Text style={styles.statNumber}>{completedEvents}</Text>
           <Text style={styles.statLabel}>Completed</Text>
         </View>
 
-        <View style={[styles.statCard, styles.neutralCard]}>
+        <View style={[styles.statCard, { backgroundColor: '#6b7280' }]}>
+          <Ionicons name="document-text" size={32} color="#fff" style={{ marginBottom: 8 }} />
           <Text style={styles.statNumber}>{draftEvents}</Text>
-          <Text style={styles.statLabel}>Drafts</Text>
+          <Text style={styles.statLabel}>Inquired</Text>
+        </View>
+      </View>
+
+      <View style={styles.overviewGrid}>
+        <View style={styles.overviewCard}>
+          <Ionicons name="wallet" size={24} color={BRAND_MAROON} />
+          <View style={styles.overviewInfo}>
+            <Text style={styles.overviewNumber}>{totalExpenses}</Text>
+            <Text style={styles.overviewLabel}>Expenses</Text>
+          </View>
+        </View>
+
+        <View style={styles.overviewCard}>
+          <Ionicons name="cube" size={24} color={BRAND_MAROON} />
+          <View style={styles.overviewInfo}>
+            <Text style={styles.overviewNumber}>{totalAssets}</Text>
+            <Text style={styles.overviewLabel}>Assets</Text>
+          </View>
+        </View>
+
+        <View style={styles.overviewCard}>
+          <Ionicons name="people" size={24} color={BRAND_MAROON} />
+          <View style={styles.overviewInfo}>
+            <Text style={styles.overviewNumber}>{totalTeam}</Text>
+            <Text style={styles.overviewLabel}>Team</Text>
+          </View>
         </View>
       </View>
 
@@ -84,9 +128,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#2563eb',
-    padding: 20,
+    backgroundColor: BRAND_MAROON,
+    padding: 24,
     paddingTop: 40,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   title: {
     fontSize: 24,
@@ -96,7 +143,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: '#e0e7ff',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   statsGrid: {
     flexDirection: 'row',
@@ -108,20 +155,46 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: '45%',
     padding: 20,
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
-  primaryCard: {
-    backgroundColor: '#2563eb',
+  overviewGrid: {
+    flexDirection: 'row',
+    padding: 16,
+    paddingTop: 0,
+    gap: 12,
   },
-  warningCard: {
-    backgroundColor: '#f59e0b',
+  overviewCard: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
-  successCard: {
-    backgroundColor: '#10b981',
+  overviewInfo: {
+    flex: 1,
   },
-  neutralCard: {
-    backgroundColor: '#6b7280',
+  overviewNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  overviewLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    textTransform: 'uppercase',
   },
   statNumber: {
     fontSize: 32,
@@ -173,14 +246,14 @@ const styles = StyleSheet.create({
   statusBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
-    backgroundColor: '#dbeafe',
+    backgroundColor: BRAND_MAROON,
   },
   statusText: {
     fontSize: 12,
-    color: '#2563eb',
-    fontWeight: '500',
+    color: '#fff',
+    fontWeight: '600',
   },
   errorText: {
     fontSize: 16,

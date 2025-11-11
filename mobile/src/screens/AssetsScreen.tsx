@@ -1,9 +1,15 @@
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAssets } from '../hooks/useApi';
 import type { Asset } from '../types';
+import AddAssetModal from '../components/AddAssetModal';
+
+const BRAND_MAROON = '#800020';
 
 export default function AssetsScreen() {
   const { data: assets, isLoading, error } = useAssets();
+  const [modalVisible, setModalVisible] = useState(false);
 
   const renderAssetItem = ({ item }: { item: Asset }) => (
     <View style={styles.assetCard}>
@@ -85,6 +91,19 @@ export default function AssetsScreen() {
             <Text style={styles.emptyText}>No assets found</Text>
           </View>
         }
+      />
+
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
+
+      <AddAssetModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
       />
     </View>
   );
@@ -225,5 +244,21 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 16,
     color: '#ef4444',
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: BRAND_MAROON,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
 });

@@ -1,9 +1,15 @@
+import { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useEvents } from '../hooks/useApi';
 import type { Event } from '../types';
+import AddEventModal from '../components/AddEventModal';
+
+const BRAND_MAROON = '#800020';
 
 export default function EventsScreen() {
   const { data: events, isLoading, error } = useEvents();
+  const [modalVisible, setModalVisible] = useState(false);
 
   const renderEventItem = ({ item }: { item: Event }) => (
     <TouchableOpacity style={styles.eventCard}>
@@ -59,6 +65,19 @@ export default function EventsScreen() {
             <Text style={styles.emptyText}>No events found</Text>
           </View>
         }
+      />
+      
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
+
+      <AddEventModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
       />
     </View>
   );
@@ -176,5 +195,21 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 16,
     color: '#ef4444',
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: BRAND_MAROON,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
 });

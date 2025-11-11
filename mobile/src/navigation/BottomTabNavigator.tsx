@@ -1,5 +1,5 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import DashboardScreen from '../screens/DashboardScreen';
 import EventsScreen from '../screens/EventsScreen';
 import ExpensesScreen from '../screens/ExpensesScreen';
@@ -8,59 +8,57 @@ import AssetsScreen from '../screens/AssetsScreen';
 
 const Tab = createBottomTabNavigator();
 
-// Simple text-based tab labels (icon library can be added later if desired)
-const TabIcon = ({ name, focused }: { name: string; focused: boolean }) => {
-  const getInitial = (tabName: string) => {
-    const initials: Record<string, string> = {
-      Dashboard: 'D',
-      Events: 'E',
-      Expenses: 'X',
-      Team: 'T',
-      Assets: 'A',
-    };
-    return initials[tabName] || tabName[0];
-  };
-
-  return (
-    <View style={{ alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 14, backgroundColor: focused ? '#2563eb' : 'transparent' }}>
-      <Text style={{ fontSize: 14, fontWeight: 'bold', color: focused ? '#ffffff' : '#9ca3af' }}>
-        {getInitial(name)}
-      </Text>
-    </View>
-  );
-};
+const BRAND_MAROON = '#800020';
+const BRAND_MAROON_LIGHT = '#a0203a';
 
 export default function BottomTabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused }) => <TabIcon name={route.name} focused={focused} />,
-        tabBarActiveTintColor: '#2563eb',
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName: keyof typeof Ionicons.glyphMap = 'home';
+
+          if (route.name === 'Dashboard') {
+            iconName = focused ? 'analytics' : 'analytics-outline';
+          } else if (route.name === 'Events') {
+            iconName = focused ? 'calendar' : 'calendar-outline';
+          } else if (route.name === 'Expenses') {
+            iconName = focused ? 'wallet' : 'wallet-outline';
+          } else if (route.name === 'Team') {
+            iconName = focused ? 'people' : 'people-outline';
+          } else if (route.name === 'Assets') {
+            iconName = focused ? 'cube' : 'cube-outline';
+          }
+
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: BRAND_MAROON,
         tabBarInactiveTintColor: '#9ca3af',
         tabBarStyle: {
           backgroundColor: '#ffffff',
           borderTopWidth: 1,
           borderTopColor: '#e5e7eb',
-          paddingBottom: 5,
-          paddingTop: 5,
-          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 65,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '500',
+          fontSize: 12,
+          fontWeight: '600',
         },
         headerStyle: {
-          backgroundColor: '#ffffff',
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: '#e5e7eb',
+          backgroundColor: BRAND_MAROON,
+          elevation: 4,
+          shadowOpacity: 0.3,
+          shadowOffset: { width: 0, height: 2 },
+          shadowRadius: 4,
         },
         headerTitleStyle: {
           fontWeight: 'bold',
-          fontSize: 18,
-          color: '#1f2937',
+          fontSize: 20,
+          color: '#ffffff',
         },
+        headerTintColor: '#ffffff',
       })}
     >
       <Tab.Screen 
