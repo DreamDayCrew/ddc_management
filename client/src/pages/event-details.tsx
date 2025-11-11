@@ -148,7 +148,7 @@ export default function EventDetails() {
       const cost = parseFloat(plan.payment || '0');
       return total + (isNaN(cost) ? 0 : cost);
     }, 0);
-  }, [allPlans, requirements, refreshKey]);
+  }, [allPlans, requirements]);
 
   // Calculate invoice value based on requirements
   const calculateInvoiceValue = useCallback(() => {
