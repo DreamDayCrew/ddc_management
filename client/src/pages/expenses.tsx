@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { type Expense } from "@shared/schema";
@@ -23,9 +23,9 @@ export default function Expenses() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | undefined>();
   const [selectedMembers, setSelectedMembers] = useState<Record<string, { checked: boolean; amount: number }>>({});
-  const [selectedSources, setSelectedSources] = useState<string[]>([]);
   type CardId = 'income' | 'expense' | 'balance' | 'profit' | 'repayment';
   const [expandedCard, setExpandedCard] = useState<CardId | null>(null);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [cardStatus, setCardStatus] = useState<Record<CardId, string>>({
     income: '',
     expense: '',
@@ -187,20 +187,8 @@ export default function Expenses() {
         }
       }
 
-      const splitType = t.split_type;
-      const contributors = Array.isArray(t.contributor) ? t.contributor : [];
-
       const isDdcInvolvedInFromAccount = t.from_account === "DDC Fund";
       const isDdcInvolvedInToAccount = t.to_account === "DDC Fund";
-      const isDdcInvolvedInContribution = contributors.some(c => c === "DDC Fund");
-
-      let ddcContribution = 0;
-      if (isDdcInvolvedInContribution && Array.isArray(t.contribution)) {
-        const idx = contributors.findIndex((c) => c === "DDC Fund");
-        if (idx !== -1) {
-          ddcContribution = Number(t.contribution[idx]) || 0;
-        }
-      }
 
       // ---------- CREDIT ----------
       if (t.type === "Credit") {
@@ -209,13 +197,6 @@ export default function Expenses() {
         if (isDdcInvolvedInToAccount) {
           ddcBalance += amount;
           balanceByStatus[status] = (balanceByStatus[status] || 0) + amount;
-        }
-        if (splitType === "to" && isDdcInvolvedInContribution) {
-          const contrib = ddcContribution;
-          income += contrib;
-          ddcBalance += contrib;
-          incomeByStatus[status] = (incomeByStatus[status] || 0) + contrib;
-          balanceByStatus[status] = (balanceByStatus[status] || 0) + contrib;
         }
       }
 
@@ -227,13 +208,6 @@ export default function Expenses() {
           ddcBalance -= amount;
           balanceByStatus[status] = (balanceByStatus[status] || 0) - amount;
         }
-        if (splitType === "from" && isDdcInvolvedInContribution) {
-          const contrib = ddcContribution;
-          expense += contrib;
-          ddcBalance -= contrib;
-          expenseByStatus[status] = (expenseByStatus[status] || 0) + contrib;
-          balanceByStatus[status] = (balanceByStatus[status] || 0) - contrib;
-        }
       }
 
       // ---------- TRANSFER ----------
@@ -241,28 +215,16 @@ export default function Expenses() {
         if (isDdcInvolvedInFromAccount) {
           ddcBalance -= amount;
           ddcToOut += amount;
+          expense += amount;
           balanceByStatus[status] = (balanceByStatus[status] || 0) - amount;
           repayments[toAcc] = (repayments[toAcc] || 0) - amount;
         }
         if (isDdcInvolvedInToAccount) {
           ddcBalance += amount;
           outToDdc += amount;
+          income += amount;
           balanceByStatus[status] = (balanceByStatus[status] || 0) + amount;
           repayments[fromAcc] = (repayments[fromAcc] || 0) + amount;
-        }
-        if (splitType === "to" && isDdcInvolvedInContribution) {
-          const contrib = ddcContribution;
-          ddcBalance += contrib;
-          ddcToOut += contrib;
-          balanceByStatus[status] = (balanceByStatus[status] || 0) + contrib;
-          repayments[toAcc] = (repayments[toAcc] || 0) - ddcContribution;
-        }
-        if (splitType === "from" && isDdcInvolvedInContribution) {
-          const contrib = ddcContribution;
-          ddcBalance -= contrib;
-          outToDdc += contrib;
-          balanceByStatus[status] = (balanceByStatus[status] || 0) - contrib;
-          repayments[fromAcc] = (repayments[fromAcc] || 0) + ddcContribution;
         }
       }
     });
@@ -564,8 +526,32 @@ export default function Expenses() {
     // For example, you might want to update calculations based on the selected status
   };
 
-  const handleCardHover = (cardId: CardId): void => {
-    setExpandedCard(cardId);
+  const handleCardHover = (cardId: CardId) => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+
+    hoverTimeoutRef.current = setTimeout(() => {
+      setExpandedCard((prev) => (prev !== cardId ? cardId : prev));
+    }, 120); // slight delay to prevent overlap
+  };
+
+  const handleCardLeave = (cardId: CardId, e: React.MouseEvent) => {
+    const relatedTarget = e.relatedTarget as HTMLElement;
+    const currentTarget = e.currentTarget as HTMLElement;
+
+    // If moving to a child element within the same card, don't collapse
+    if (relatedTarget && currentTarget.contains(relatedTarget)) {
+      return;
+    }
+
+    // If moving to another card, let the other card's onMouseEnter handle the expansion
+    if (relatedTarget?.closest('[data-card-type]') === currentTarget) {
+      return;
+    }
+
+    // Collapse the current card if mouse leaves to outside any card
+    setExpandedCard((prev) => (prev === cardId ? null : prev));
   };
 
   if (isLoading) {
@@ -608,9 +594,13 @@ export default function Expenses() {
         <div 
           className="relative"
           onMouseEnter={() => handleCardHover('income')}
-          onMouseLeave={() => setExpandedCard(null)}
+          onMouseLeave={(e) => handleCardLeave('income', e)}
         >
-          <Card className={`transition-all duration-200 ${expandedCard === 'income' ? 'shadow-lg border-primary/50' : 'hover:shadow-md hover:border-primary/20'}`}>
+          <Card
+            className={`transition-all duration-300 ${
+              expandedCard === "income" ? "scale-105 shadow-lg" : "scale-100"
+            }`}
+          >
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Income</CardTitle>
               <TrendingUp className="h-4 w-4 text-chart-2" />
@@ -650,9 +640,13 @@ export default function Expenses() {
         <div 
           className="relative"
           onMouseEnter={() => handleCardHover('expense')}
-          onMouseLeave={() => setExpandedCard(null)}
+          onMouseLeave={(e) => handleCardLeave('expense', e)}
         >
-          <Card className={`transition-all duration-200 ${expandedCard === 'expense' ? 'shadow-lg border-primary/50' : 'hover:shadow-md hover:border-primary/20'}`}>
+          <Card
+            className={`transition-all duration-300 ${
+              expandedCard === "expense" ? "scale-105 shadow-lg" : "scale-100"
+            }`}
+          >
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Expense</CardTitle>
               <TrendingDown className="h-4 w-4 text-chart-4" />
@@ -692,9 +686,13 @@ export default function Expenses() {
         <div 
           className="relative"
           onMouseEnter={() => handleCardHover('balance')}
-          onMouseLeave={() => setExpandedCard(null)}
+          onMouseLeave={(e) => handleCardLeave('balance', e)}
         >
-          <Card className={`transition-all duration-200 ${expandedCard === 'balance' ? 'shadow-lg border-primary/50' : 'hover:shadow-md hover:border-primary/20'}`}>
+          <Card
+            className={`transition-all duration-300 ${
+              expandedCard === "balance" ? "scale-105 shadow-lg" : "scale-100"
+            }`}
+          >
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Account Balance</CardTitle>
               <ReceiptIndianRupee className="h-4 w-4 text-chart-2" />
@@ -728,75 +726,17 @@ export default function Expenses() {
           </Card>
         </div>
 
-        {/* Net Profit Card */}
-        <div 
-          className="relative"
-          onMouseEnter={() => handleCardHover('profit')}
-          onMouseLeave={() => setExpandedCard(null)}
-        >
-          <Card className={`transition-all duration-200 ${expandedCard === 'profit' ? 'shadow-lg border-primary/50' : 'hover:shadow-md hover:border-primary/20'}`}>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
-              <TrendingUp className="h-4 w-4 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold" data-testid="ddc-balance">
-                ₹{netProfit}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">All credit and debit transactions</p>
-              {expandedCard === 'profit' && byStatus?.income?.byStatus && byStatus?.expense?.byStatus && (
-                <div className="mt-3 pt-3 border-t">
-                  <div className="space-y-2">
-                    {Array.from(
-                      new Set([
-                        ...Object.keys(byStatus.income.byStatus || {}),
-                        ...Object.keys(byStatus.expense.byStatus || {})
-                      ])
-                    )
-                    .filter(status => status) // Filter out any empty statuses
-                    .map((status) => {
-                      const income = status ? (byStatus.income.byStatus[status] || 0) : 0;
-                      const expense = status ? (byStatus.expense.byStatus[status] || 0) : 0;
-                      const profit = income - expense;
-                      const isChecked = !cardStatus['profit'] || cardStatus['profit'].split(',').includes(status);
-                      
-                      return (
-                        <div key={status} className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => handleStatusChange('profit', status)}
-                              className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
-                            />
-                            <span className={`text-sm font-medium ${isChecked ? 'text-foreground' : 'text-muted-foreground'}`}>
-                              {status ? status.toLowerCase() : 'No Status'}
-                            </span>
-                          </div>
-                          <span 
-                            className={`text-sm font-medium ${
-                              profit > 0 ? 'text-green-500' : profit < 0 ? 'text-red-500' : 'text-foreground'
-                            }`}
-                          >
-                            {profit > 0 ? '+' : ''}₹{Math.abs(profit).toLocaleString('en-IN')}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Pending Repayments Card */}
         <div 
           className="relative"
           onMouseEnter={() => handleCardHover('repayment')}
-          onMouseLeave={() => setExpandedCard(null)}
+          onMouseLeave={(e) => handleCardLeave('repayment', e)}
         >
-          <Card className={`h-full transition-all duration-200 ${expandedCard === 'repayment' ? 'shadow-lg border-primary/50' : 'hover:shadow-md hover:border-primary/20'}`}>
+          <Card
+            className={`h-full transition-all duration-300 ${
+              expandedCard === "repayment" ? "scale-105 shadow-lg" : "scale-100"
+            }`}
+          >
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pending Repayments</CardTitle>
               <RotateCcw className="h-4 w-4 text-chart-1" />
