@@ -1,12 +1,9 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import type { ApiError, Event, Expense, TeamMember, Asset, Requirement, Configuration } from '../types';
+import type { ApiError, Event, Expense, TeamMember, Asset, Requirement, Configuration, InsertEvent, InsertExpense, InsertTeamMember, InsertAsset, InsertRequirement } from '../types';
+import { config } from '../config/environment';
 
-// API Configuration
-// For development with Expo, you'll need to use your computer's local IP address
-// or the Replit deployment URL
-const API_BASE_URL = __DEV__ 
-  ? 'http://10.0.2.2:5000' // Android emulator localhost
-  : 'https://your-replit-app-url.repl.co'; // Replace with actual Replit URL
+// API Configuration from environment
+const API_BASE_URL = config.API_URL;
 
 class ApiClient {
   private client: AxiosInstance;
@@ -77,16 +74,16 @@ export const api = {
   // Events
   getEvents: () => apiClient.get<Event[]>('/api/events'),
   getEvent: (id: string) => apiClient.get<Event>(`/api/events/${id}`),
-  createEvent: (data: any) => apiClient.post<Event>('/api/events', data),
-  updateEvent: (id: string, data: any) => apiClient.patch<Event>(`/api/events/${id}`, data),
+  createEvent: (data: InsertEvent) => apiClient.post<Event>('/api/events', data),
+  updateEvent: (id: string, data: Partial<InsertEvent>) => apiClient.patch<Event>(`/api/events/${id}`, data),
   deleteEvent: (id: string) => apiClient.delete<void>(`/api/events/${id}`),
   
   // Requirements
   getEventRequirements: (eventId: string) => 
     apiClient.get<Requirement[]>(`/api/events/${eventId}/requirements`),
-  createRequirement: (eventId: string, data: any) => 
+  createRequirement: (eventId: string, data: InsertRequirement) => 
     apiClient.post<Requirement>(`/api/events/${eventId}/requirements`, data),
-  updateRequirement: (eventId: string, id: string, data: any) => 
+  updateRequirement: (eventId: string, id: string, data: Partial<InsertRequirement>) => 
     apiClient.patch<Requirement>(`/api/events/${eventId}/requirements/${id}`, data),
   deleteRequirement: (eventId: string, id: string) => 
     apiClient.delete<void>(`/api/events/${eventId}/requirements/${id}`),
@@ -94,27 +91,27 @@ export const api = {
   // Expenses
   getExpenses: () => apiClient.get<Expense[]>('/api/expenses'),
   getExpense: (id: string) => apiClient.get<Expense>(`/api/expenses/${id}`),
-  createExpense: (data: any) => apiClient.post<Expense>('/api/expenses', data),
-  updateExpense: (id: string, data: any) => apiClient.patch<Expense>(`/api/expenses/${id}`, data),
+  createExpense: (data: InsertExpense) => apiClient.post<Expense>('/api/expenses', data),
+  updateExpense: (id: string, data: Partial<InsertExpense>) => apiClient.patch<Expense>(`/api/expenses/${id}`, data),
   deleteExpense: (id: string) => apiClient.delete<void>(`/api/expenses/${id}`),
   
   // Team Members
   getTeamMembers: () => apiClient.get<TeamMember[]>('/api/team'),
   getTeamMember: (id: string) => apiClient.get<TeamMember>(`/api/team/${id}`),
-  createTeamMember: (data: any) => apiClient.post<TeamMember>('/api/team', data),
-  updateTeamMember: (id: string, data: any) => apiClient.patch<TeamMember>(`/api/team/${id}`, data),
+  createTeamMember: (data: InsertTeamMember) => apiClient.post<TeamMember>('/api/team', data),
+  updateTeamMember: (id: string, data: Partial<InsertTeamMember>) => apiClient.patch<TeamMember>(`/api/team/${id}`, data),
   deleteTeamMember: (id: string) => apiClient.delete<void>(`/api/team/${id}`),
   
   // Assets
   getAssets: () => apiClient.get<Asset[]>('/api/assets'),
   getAsset: (id: string) => apiClient.get<Asset>(`/api/assets/${id}`),
-  createAsset: (data: any) => apiClient.post<Asset>('/api/assets', data),
-  updateAsset: (id: string, data: any) => apiClient.patch<Asset>(`/api/assets/${id}`, data),
+  createAsset: (data: InsertAsset) => apiClient.post<Asset>('/api/assets', data),
+  updateAsset: (id: string, data: Partial<InsertAsset>) => apiClient.patch<Asset>(`/api/assets/${id}`, data),
   deleteAsset: (id: string) => apiClient.delete<void>(`/api/assets/${id}`),
   
   // Configuration
   getConfiguration: () => apiClient.get<Configuration>('/api/configuration'),
-  updateConfiguration: (data: any) => apiClient.post<Configuration>('/api/configuration', data),
+  updateConfiguration: (data: Partial<Configuration>) => apiClient.post<Configuration>('/api/configuration', data),
 };
 
 export default apiClient;

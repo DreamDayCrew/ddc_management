@@ -8,19 +8,24 @@ import AssetsScreen from '../screens/AssetsScreen';
 
 const Tab = createBottomTabNavigator();
 
-// Simple icon component (you can replace with icon library later)
+// Simple text-based tab labels (icon library can be added later if desired)
 const TabIcon = ({ name, focused }: { name: string; focused: boolean }) => {
-  const icons: Record<string, string> = {
-    Dashboard: '📊',
-    Events: '📅',
-    Expenses: '💰',
-    Team: '👥',
-    Assets: '📦',
+  const getInitial = (tabName: string) => {
+    const initials: Record<string, string> = {
+      Dashboard: 'D',
+      Events: 'E',
+      Expenses: 'X',
+      Team: 'T',
+      Assets: 'A',
+    };
+    return initials[tabName] || tabName[0];
   };
 
   return (
-    <View style={{ alignItems: 'center' }}>
-      <Text style={{ fontSize: 20 }}>{icons[name]}</Text>
+    <View style={{ alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 14, backgroundColor: focused ? '#2563eb' : 'transparent' }}>
+      <Text style={{ fontSize: 14, fontWeight: 'bold', color: focused ? '#ffffff' : '#9ca3af' }}>
+        {getInitial(name)}
+      </Text>
     </View>
   );
 };

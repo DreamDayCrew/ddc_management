@@ -31,7 +31,7 @@ export function useCreateEvent() {
 export function useUpdateEvent() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => api.updateEvent(id, data),
+    mutationFn: ({ id, data }: { id: string; data: Partial<import('../types').InsertEvent> }) => api.updateEvent(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/events'] });
     },
@@ -78,7 +78,7 @@ export function useCreateExpense() {
 export function useUpdateExpense() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => api.updateExpense(id, data),
+    mutationFn: ({ id, data }: { id: string; data: Partial<import('../types').InsertExpense> }) => api.updateExpense(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
     },

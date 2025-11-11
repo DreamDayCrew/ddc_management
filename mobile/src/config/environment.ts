@@ -1,15 +1,17 @@
 // Environment configuration for mobile app
-// When testing with Expo Go, you'll need to update the API_URL to point to your development server
+// IMPORTANT: Update the PRODUCTION_API_URL before building APK for distribution
+
+// Get the Replit deployment URL from environment or use placeholder
+// To get your URL: Deploy your app on Replit and copy the deployment URL
+const PRODUCTION_API_URL = process.env.EXPO_PUBLIC_API_URL || 'REPLACE_WITH_YOUR_REPLIT_URL';
 
 export const config = {
-  // Update this with your actual backend URL
-  // For Android emulator: http://10.0.2.2:5000
-  // For iOS simulator: http://localhost:5000
-  // For physical device: http://<YOUR_COMPUTER_IP>:5000
-  // For Replit deployment: https://your-app-name.repl.co
+  // API URL based on environment
+  // Development: Uses Android emulator localhost or your local IP
+  // Production: Uses your Replit deployment URL
   API_URL: __DEV__ 
-    ? 'http://10.0.2.2:5000'  // Default for Android emulator
-    : 'https://your-replit-app-url.repl.co',  // Update with production URL
+    ? 'http://10.0.2.2:5000'  // Android emulator (use your computer's IP for physical device)
+    : PRODUCTION_API_URL,      // REPLACE_WITH_YOUR_REPLIT_URL before building APK!
   
   API_TIMEOUT: 10000,
   
@@ -17,5 +19,14 @@ export const config = {
   APP_NAME: 'Dream Day Crew',
   APP_VERSION: '1.0.0',
 };
+
+// Validation helper - warn if production URL not configured
+if (!__DEV__ && config.API_URL === 'REPLACE_WITH_YOUR_REPLIT_URL') {
+  console.error(
+    '⚠️ PRODUCTION API URL NOT CONFIGURED!\n' +
+    'Update PRODUCTION_API_URL in mobile/src/config/environment.ts\n' +
+    'before building APK for distribution.'
+  );
+}
 
 export default config;
