@@ -120,3 +120,31 @@ export function useCreateAsset() {
     },
   });
 }
+
+export function useUpdateAsset() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<import('../types').InsertAsset> }) => api.updateAsset(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/assets'] });
+    },
+  });
+}
+
+export function useUpdateTeamMember() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<import('../types').InsertTeamMember> }) => api.updateTeamMember(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/team'] });
+    },
+  });
+}
+
+// Configuration hook
+export function useConfiguration() {
+  return useQuery({
+    queryKey: ['/api/configuration'],
+    queryFn: api.getConfiguration,
+  });
+}
