@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -12,35 +12,59 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { useConfiguration } from '../hooks/useApi';
+import { DatePicker } from './DatePicker';
+import { Picker } from './Picker';
 
 interface AddEventModalProps {
   visible: boolean;
   onClose: () => void;
+  event?: any;
 }
 
 const BRAND_MAROON = '#800020';
 
-export default function AddEventModal({ visible, onClose }: AddEventModalProps) {
+export default function AddEventModal({ visible, onClose, event }: AddEventModalProps) {
   const queryClient = useQueryClient();
+  const { data: config } = useConfiguration();
+  
+  const [eventDate, setEventDate] = useState<Date>(new Date());
   const [formData, setFormData] = useState({
     eventName: '',
     providedService: '',
     venue: '',
-    eventDate: '',
     clientName: '',
     clientPhone: '',
     clientAddress: '',
     clientEmail: '',
-    initialQuote: '',
     eventStatus: 'Inquired',
   });
 
+  // Sync form data when event prop changes
+  useEffect(() => {
+    if (event && visible) {
+      setFormData({
+        eventName: event.eventName || '',
+        providedService: event.providedService || '',
+        venue: event.venue || '',
+        clientName: event.clientName || '',
+        clientPhone: event.clientPhone || '',
+        clientAddress: event.clientAddress || '',
+        clientEmail: event.clientEmail || '',
+        eventStatus: event.eventStatus || 'Inquired',
+      });
+      setEventDate(event.eventDate ? new Date(event.eventDate) : new Date());
+    } else if (!visible) {
+      resetForm();
+    }
+  }, [event, visible]);
+
   const createMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      return await api.createEvent({
-        ...data,
-        initialQuote: data.initialQuote ? parseFloat(data.initialQuote) : null,
-      } as any);
+    mutationFn: async (data: typeof formData & { eventDate: string }) => {
+      if (event) {
+        return await api.updateEvent(event.id, data as any);
+      }
+      return await api.createEvent(data as any);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/events'] });
@@ -54,23 +78,30 @@ export default function AddEventModal({ visible, onClose }: AddEventModalProps) 
       eventName: '',
       providedService: '',
       venue: '',
-      eventDate: '',
       clientName: '',
       clientPhone: '',
       clientAddress: '',
       clientEmail: '',
-      initialQuote: '',
       eventStatus: 'Inquired',
     });
+    setEventDate(new Date());
   };
 
   const handleSubmit = () => {
-    if (!formData.eventName || !formData.eventDate || !formData.venue) {
-      alert('Please fill in Event Name, Date, and Venue');
+    if (!formData.eventName || !formData.venue || !formData.providedService) {
+      alert('Please fill in Event Name, Service, and Venue');
       return;
     }
-    createMutation.mutate(formData);
+    
+    const submitData = {
+      ...formData,
+      eventDate: eventDate.toISOString().split('T')[0],
+    };
+    
+    createMutation.mutate(submitData);
   };
+
+  const services = config?.servicesProvided || ['Corporate Event', 'Wedding', 'Birthday', 'Other'];
 
   return (
     <Modal
@@ -82,7 +113,7 @@ export default function AddEventModal({ visible, onClose }: AddEventModalProps) 
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Add New Event</Text>
+            <Text style={styles.modalTitle}>{event ? 'Edit Event' : 'Add New Event'}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color="#666" />
             </TouchableOpacity>
@@ -100,16 +131,13 @@ export default function AddEventModal({ visible, onClose }: AddEventModalProps) 
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Service Provided</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.providedService}
-                onChangeText={(text) => setFormData({ ...formData, providedService: text })}
-                placeholder="e.g., Corporate Events, Wedding"
-                placeholderTextColor="#999"
-              />
-            </View>
+            <Picker
+              label="Service Provided *"
+              value={formData.providedService}
+              onChange={(value) => setFormData({ ...formData, providedService: value })}
+              options={services}
+              placeholder="Select a service"
+            />
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Venue *</Text>
@@ -122,16 +150,11 @@ export default function AddEventModal({ visible, onClose }: AddEventModalProps) 
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Event Date * (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.eventDate}
-                onChangeText={(text) => setFormData({ ...formData, eventDate: text })}
-                placeholder="2025-12-31"
-                placeholderTextColor="#999"
-              />
-            </View>
+            <DatePicker
+              label="Event Date *"
+              value={eventDate}
+              onChange={setEventDate}
+            />
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Client Name</Text>
@@ -182,18 +205,6 @@ export default function AddEventModal({ visible, onClose }: AddEventModalProps) 
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Initial Quote (₹)</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.initialQuote}
-                onChangeText={(text) => setFormData({ ...formData, initialQuote: text })}
-                placeholder="0.00"
-                placeholderTextColor="#999"
-                keyboardType="decimal-pad"
-              />
-            </View>
-
             <TouchableOpacity
               style={[styles.submitButton, createMutation.isPending && styles.submitButtonDisabled]}
               onPress={handleSubmit}
@@ -204,7 +215,7 @@ export default function AddEventModal({ visible, onClose }: AddEventModalProps) 
               ) : (
                 <>
                   <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.submitButtonText}>Create Event</Text>
+                  <Text style={styles.submitButtonText}>{event ? 'Update Event' : 'Create Event'}</Text>
                 </>
               )}
             </TouchableOpacity>

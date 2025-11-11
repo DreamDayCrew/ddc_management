@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -16,19 +16,35 @@ import { api } from '../lib/api';
 interface AddTeamMemberModalProps {
   visible: boolean;
   onClose: () => void;
+  member?: any;
 }
 
 const BRAND_MAROON = '#800020';
 
-export default function AddTeamMemberModal({ visible, onClose }: AddTeamMemberModalProps) {
+export default function AddTeamMemberModal({ visible, onClose, member }: AddTeamMemberModalProps) {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     name: '',
     designation: '',
   });
 
+  // Sync form data when member prop changes
+  useEffect(() => {
+    if (member && visible) {
+      setFormData({
+        name: member.name || '',
+        designation: member.designation || '',
+      });
+    } else if (!visible) {
+      resetForm();
+    }
+  }, [member, visible]);
+
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
+      if (member) {
+        return await api.updateTeamMember(member.id, data as any);
+      }
       return await api.createTeamMember(data as any);
     },
     onSuccess: () => {
@@ -46,8 +62,8 @@ export default function AddTeamMemberModal({ visible, onClose }: AddTeamMemberMo
   };
 
   const handleSubmit = () => {
-    if (!formData.name) {
-      alert('Please enter team member name');
+    if (!formData.name || !formData.designation) {
+      alert('Please fill in Name and Designation');
       return;
     }
     createMutation.mutate(formData);
@@ -63,7 +79,7 @@ export default function AddTeamMemberModal({ visible, onClose }: AddTeamMemberMo
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Add Team Member</Text>
+            <Text style={styles.modalTitle}>{member ? 'Edit Team Member' : 'Add Team Member'}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color="#666" />
             </TouchableOpacity>
@@ -82,12 +98,12 @@ export default function AddTeamMemberModal({ visible, onClose }: AddTeamMemberMo
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Designation</Text>
+              <Text style={styles.label}>Designation *</Text>
               <TextInput
                 style={styles.input}
                 value={formData.designation}
                 onChangeText={(text) => setFormData({ ...formData, designation: text })}
-                placeholder="e.g., Event Manager, Technician"
+                placeholder="Enter designation"
                 placeholderTextColor="#999"
               />
             </View>
@@ -102,7 +118,7 @@ export default function AddTeamMemberModal({ visible, onClose }: AddTeamMemberMo
               ) : (
                 <>
                   <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.submitButtonText}>Add Team Member</Text>
+                  <Text style={styles.submitButtonText}>{member ? 'Update Member' : 'Create Member'}</Text>
                 </>
               )}
             </TouchableOpacity>

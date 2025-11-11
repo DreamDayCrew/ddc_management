@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -12,31 +12,63 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { useConfiguration, useTeamMembers } from '../hooks/useApi';
+import { DatePicker } from './DatePicker';
+import { Picker } from './Picker';
 
 interface AddExpenseModalProps {
   visible: boolean;
   onClose: () => void;
+  expense?: any;
 }
 
 const BRAND_MAROON = '#800020';
 
-export default function AddExpenseModal({ visible, onClose }: AddExpenseModalProps) {
+export default function AddExpenseModal({ visible, onClose, expense }: AddExpenseModalProps) {
   const queryClient = useQueryClient();
+  const { data: config } = useConfiguration();
+  const { data: teamMembers } = useTeamMembers();
+  
+  const [expenseDate, setExpenseDate] = useState<Date>(new Date());
   const [formData, setFormData] = useState({
     type: 'Debit',
     category: 'Event',
-    from_account: '',
+    from_account: 'DDC Fund',
     to_account: '',
     description: '',
     amount: '',
-    date: '',
+    status: 'Pending',
   });
 
+  // Sync form data when expense prop changes
+  useEffect(() => {
+    if (expense && visible) {
+      setFormData({
+        type: expense.type || 'Debit',
+        category: expense.category || 'Event',
+        from_account: expense.from_account || 'DDC Fund',
+        to_account: expense.to_account || '',
+        description: expense.description || '',
+        amount: expense.amount?.toString() || '',
+        status: expense.status || 'Pending',
+      });
+      setExpenseDate(expense.date ? new Date(expense.date) : new Date());
+    } else if (!visible) {
+      resetForm();
+    }
+  }, [expense, visible]);
+
   const createMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
+    mutationFn: async (data: typeof formData & { date: string }) => {
+      if (expense) {
+        return await api.updateExpense(expense.id, {
+          ...data,
+          amount: parseFloat(data.amount) || 0,
+        } as any);
+      }
       return await api.createExpense({
         ...data,
-        amount: data.amount ? parseFloat(data.amount) : 0,
+        amount: parseFloat(data.amount) || 0,
       } as any);
     },
     onSuccess: () => {
@@ -50,21 +82,34 @@ export default function AddExpenseModal({ visible, onClose }: AddExpenseModalPro
     setFormData({
       type: 'Debit',
       category: 'Event',
-      from_account: '',
+      from_account: 'DDC Fund',
       to_account: '',
       description: '',
       amount: '',
-      date: '',
+      status: 'Pending',
     });
+    setExpenseDate(new Date());
   };
 
   const handleSubmit = () => {
-    if (!formData.description || !formData.amount) {
-      alert('Please fill in description and amount');
+    if (!formData.amount || !formData.description) {
+      alert('Please fill in Description and Amount');
       return;
     }
-    createMutation.mutate(formData);
+    
+    const submitData = {
+      ...formData,
+      date: expenseDate.toISOString().split('T')[0],
+    };
+    
+    createMutation.mutate(submitData);
   };
+
+  const categories = config?.expenseCategories || ['Event', 'Office', 'Asset', 'Vendor', 'Team', 'Miscellaneous'];
+  const paymentStatuses = config?.paymentStatuses || ['Pending', 'To Do', 'Completed'];
+  
+  // Account options: DDC Fund + all team member names
+  const accountOptions = ['DDC Fund', ...(teamMembers?.map(m => m.name) || [])];
 
   return (
     <Modal
@@ -76,77 +121,43 @@ export default function AddExpenseModal({ visible, onClose }: AddExpenseModalPro
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Add New Expense</Text>
+            <Text style={styles.modalTitle}>{expense ? 'Edit Expense' : 'Add New Expense'}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color="#666" />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Type *</Text>
-              <View style={styles.typeSelector}>
-                <TouchableOpacity
-                  style={[
-                    styles.typeButton,
-                    formData.type === 'Debit' && styles.typeButtonActive,
-                  ]}
-                  onPress={() => setFormData({ ...formData, type: 'Debit' })}
-                >
-                  <Text
-                    style={[
-                      styles.typeButtonText,
-                      formData.type === 'Debit' && styles.typeButtonTextActive,
-                    ]}
-                  >
-                    Debit
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.typeButton,
-                    formData.type === 'Credit' && styles.typeButtonActive,
-                  ]}
-                  onPress={() => setFormData({ ...formData, type: 'Credit' })}
-                >
-                  <Text
-                    style={[
-                      styles.typeButtonText,
-                      formData.type === 'Credit' && styles.typeButtonTextActive,
-                    ]}
-                  >
-                    Credit
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.typeButton,
-                    formData.type === 'Transfer' && styles.typeButtonActive,
-                  ]}
-                  onPress={() => setFormData({ ...formData, type: 'Transfer' })}
-                >
-                  <Text
-                    style={[
-                      styles.typeButtonText,
-                      formData.type === 'Transfer' && styles.typeButtonTextActive,
-                    ]}
-                  >
-                    Transfer
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            <Picker
+              label="Transaction Type *"
+              value={formData.type}
+              onChange={(value) => setFormData({ ...formData, type: value })}
+              options={['Credit', 'Debit', 'Transfer']}
+            />
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Category</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.category}
-                onChangeText={(text) => setFormData({ ...formData, category: text })}
-                placeholder="Event, Asset, General, etc."
-                placeholderTextColor="#999"
+            <Picker
+              label="Category *"
+              value={formData.category}
+              onChange={(value) => setFormData({ ...formData, category: value })}
+              options={categories}
+            />
+
+            <Picker
+              label="From Account *"
+              value={formData.from_account}
+              onChange={(value) => setFormData({ ...formData, from_account: value })}
+              options={accountOptions}
+            />
+
+            {formData.type === 'Transfer' && (
+              <Picker
+                label="To Account"
+                value={formData.to_account}
+                onChange={(value) => setFormData({ ...formData, to_account: value })}
+                options={accountOptions}
+                placeholder="Select destination account"
               />
-            </View>
+            )}
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Description *</Text>
@@ -154,7 +165,7 @@ export default function AddExpenseModal({ visible, onClose }: AddExpenseModalPro
                 style={[styles.input, styles.textArea]}
                 value={formData.description}
                 onChangeText={(text) => setFormData({ ...formData, description: text })}
-                placeholder="Enter expense description"
+                placeholder="Purpose of this transaction"
                 placeholderTextColor="#999"
                 multiline
                 numberOfLines={2}
@@ -173,38 +184,18 @@ export default function AddExpenseModal({ visible, onClose }: AddExpenseModalPro
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>From Account</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.from_account}
-                onChangeText={(text) => setFormData({ ...formData, from_account: text })}
-                placeholder="e.g., DDC Fund, Cash"
-                placeholderTextColor="#999"
-              />
-            </View>
+            <DatePicker
+              label="Transaction Date *"
+              value={expenseDate}
+              onChange={setExpenseDate}
+            />
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>To Account</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.to_account}
-                onChangeText={(text) => setFormData({ ...formData, to_account: text })}
-                placeholder="Destination account"
-                placeholderTextColor="#999"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.date}
-                onChangeText={(text) => setFormData({ ...formData, date: text })}
-                placeholder="2025-12-31"
-                placeholderTextColor="#999"
-              />
-            </View>
+            <Picker
+              label="Payment Status *"
+              value={formData.status}
+              onChange={(value) => setFormData({ ...formData, status: value })}
+              options={paymentStatuses}
+            />
 
             <TouchableOpacity
               style={[styles.submitButton, createMutation.isPending && styles.submitButtonDisabled]}
@@ -216,7 +207,7 @@ export default function AddExpenseModal({ visible, onClose }: AddExpenseModalPro
               ) : (
                 <>
                   <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.submitButtonText}>Create Expense</Text>
+                  <Text style={styles.submitButtonText}>{expense ? 'Update Expense' : 'Create Expense'}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -280,30 +271,6 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 60,
     textAlignVertical: 'top',
-  },
-  typeSelector: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  typeButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    alignItems: 'center',
-  },
-  typeButtonActive: {
-    backgroundColor: BRAND_MAROON,
-    borderColor: BRAND_MAROON,
-  },
-  typeButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  typeButtonTextActive: {
-    color: '#fff',
   },
   submitButton: {
     backgroundColor: BRAND_MAROON,

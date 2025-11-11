@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -12,32 +12,59 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { useConfiguration } from '../hooks/useApi';
+import { DatePicker } from './DatePicker';
+import { Picker } from './Picker';
 
 interface AddAssetModalProps {
   visible: boolean;
   onClose: () => void;
+  asset?: any;
 }
 
 const BRAND_MAROON = '#800020';
 
-export default function AddAssetModal({ visible, onClose }: AddAssetModalProps) {
+export default function AddAssetModal({ visible, onClose, asset }: AddAssetModalProps) {
   const queryClient = useQueryClient();
+  const { data: config } = useConfiguration();
+  
+  const [purchaseDate, setPurchaseDate] = useState<Date>(new Date());
   const [formData, setFormData] = useState({
     name: '',
     category: '',
     quantity: '1',
-    purchaseDate: '',
     purchasedAmount: '',
     status: 'Available',
   });
 
+  // Sync form data when asset prop changes
+  useEffect(() => {
+    if (asset && visible) {
+      setFormData({
+        name: asset.name || '',
+        category: asset.category || '',
+        quantity: asset.quantity?.toString() || '1',
+        purchasedAmount: asset.purchasedAmount?.toString() || '',
+        status: asset.status || 'Available',
+      });
+      setPurchaseDate(asset.purchaseDate ? new Date(asset.purchaseDate) : new Date());
+    } else if (!visible) {
+      resetForm();
+    }
+  }, [asset, visible]);
+
   const createMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      return await api.createAsset({
+    mutationFn: async (data: typeof formData & { purchaseDate: string }) => {
+      const submitData = {
         ...data,
         quantity: parseInt(data.quantity) || 1,
         purchasedAmount: data.purchasedAmount ? parseFloat(data.purchasedAmount) : null,
-      } as any);
+      };
+      
+      if (asset) {
+        return await api.updateAsset(asset.id, submitData as any);
+      }
+      return await api.createAsset(submitData as any);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/assets'] });
@@ -51,19 +78,27 @@ export default function AddAssetModal({ visible, onClose }: AddAssetModalProps) 
       name: '',
       category: '',
       quantity: '1',
-      purchaseDate: '',
       purchasedAmount: '',
       status: 'Available',
     });
+    setPurchaseDate(new Date());
   };
 
   const handleSubmit = () => {
-    if (!formData.name) {
-      alert('Please enter asset name');
+    if (!formData.name || !formData.category) {
+      alert('Please fill in Asset Name and Category');
       return;
     }
-    createMutation.mutate(formData);
+    
+    const submitData = {
+      ...formData,
+      purchaseDate: purchaseDate.toISOString().split('T')[0],
+    };
+    
+    createMutation.mutate(submitData);
   };
+
+  const categories = config?.assetCategories || ['Decoration', 'Equipment', 'Furniture', 'Electronics', 'Other'];
 
   return (
     <Modal
@@ -75,7 +110,7 @@ export default function AddAssetModal({ visible, onClose }: AddAssetModalProps) 
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Add New Asset</Text>
+            <Text style={styles.modalTitle}>{asset ? 'Edit Asset' : 'Add New Asset'}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color="#666" />
             </TouchableOpacity>
@@ -93,16 +128,13 @@ export default function AddAssetModal({ visible, onClose }: AddAssetModalProps) 
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Category</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.category}
-                onChangeText={(text) => setFormData({ ...formData, category: text })}
-                placeholder="e.g., Audio System, Lighting, Decor"
-                placeholderTextColor="#999"
-              />
-            </View>
+            <Picker
+              label="Category *"
+              value={formData.category}
+              onChange={(value) => setFormData({ ...formData, category: value })}
+              options={categories}
+              placeholder="Select a category"
+            />
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Quantity</Text>
@@ -117,18 +149,7 @@ export default function AddAssetModal({ visible, onClose }: AddAssetModalProps) 
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Purchase Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.purchaseDate}
-                onChangeText={(text) => setFormData({ ...formData, purchaseDate: text })}
-                placeholder="2025-12-31"
-                placeholderTextColor="#999"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Purchased Amount (₹)</Text>
+              <Text style={styles.label}>Purchase Amount (₹)</Text>
               <TextInput
                 style={styles.input}
                 value={formData.purchasedAmount}
@@ -139,43 +160,18 @@ export default function AddAssetModal({ visible, onClose }: AddAssetModalProps) 
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Status</Text>
-              <View style={styles.statusSelector}>
-                <TouchableOpacity
-                  style={[
-                    styles.statusButton,
-                    formData.status === 'Available' && styles.statusButtonActive,
-                  ]}
-                  onPress={() => setFormData({ ...formData, status: 'Available' })}
-                >
-                  <Text
-                    style={[
-                      styles.statusButtonText,
-                      formData.status === 'Available' && styles.statusButtonTextActive,
-                    ]}
-                  >
-                    Available
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.statusButton,
-                    formData.status === 'In Use' && styles.statusButtonActive,
-                  ]}
-                  onPress={() => setFormData({ ...formData, status: 'In Use' })}
-                >
-                  <Text
-                    style={[
-                      styles.statusButtonText,
-                      formData.status === 'In Use' && styles.statusButtonTextActive,
-                    ]}
-                  >
-                    In Use
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            <DatePicker
+              label="Purchase Date"
+              value={purchaseDate}
+              onChange={setPurchaseDate}
+            />
+
+            <Picker
+              label="Status"
+              value={formData.status}
+              onChange={(value) => setFormData({ ...formData, status: value })}
+              options={['Available', 'In Use', 'Under Maintenance', 'Retired']}
+            />
 
             <TouchableOpacity
               style={[styles.submitButton, createMutation.isPending && styles.submitButtonDisabled]}
@@ -187,7 +183,7 @@ export default function AddAssetModal({ visible, onClose }: AddAssetModalProps) 
               ) : (
                 <>
                   <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.submitButtonText}>Create Asset</Text>
+                  <Text style={styles.submitButtonText}>{asset ? 'Update Asset' : 'Create Asset'}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -247,30 +243,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1f2937',
     backgroundColor: '#fff',
-  },
-  statusSelector: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  statusButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    alignItems: 'center',
-  },
-  statusButtonActive: {
-    backgroundColor: BRAND_MAROON,
-    borderColor: BRAND_MAROON,
-  },
-  statusButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  statusButtonTextActive: {
-    color: '#fff',
   },
   submitButton: {
     backgroundColor: BRAND_MAROON,

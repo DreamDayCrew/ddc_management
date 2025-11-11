@@ -10,9 +10,20 @@ const BRAND_MAROON = '#800020';
 export default function AssetsScreen() {
   const { data: assets, isLoading, error } = useAssets();
   const [modalVisible, setModalVisible] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+
+  const handleEdit = (asset: Asset) => {
+    setSelectedAsset(asset);
+    setModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    setSelectedAsset(null);
+  };
 
   const renderAssetItem = ({ item }: { item: Asset }) => (
-    <View style={styles.assetCard}>
+    <TouchableOpacity style={styles.assetCard} onPress={() => handleEdit(item)}>
       <View style={styles.assetHeader}>
         <Text style={styles.assetName}>{item.name}</Text>
         <View style={[styles.statusBadge, getStatusColor(item.status)]}>
@@ -103,7 +114,8 @@ export default function AssetsScreen() {
 
       <AddAssetModal
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}
+        onClose={handleCloseModal}
+        asset={selectedAsset}
       />
     </View>
   );

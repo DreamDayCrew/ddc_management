@@ -10,9 +10,20 @@ const BRAND_MAROON = '#800020';
 export default function EventsScreen() {
   const { data: events, isLoading, error } = useEvents();
   const [modalVisible, setModalVisible] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+
+  const handleEdit = (event: Event) => {
+    setSelectedEvent(event);
+    setModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    setSelectedEvent(null);
+  };
 
   const renderEventItem = ({ item }: { item: Event }) => (
-    <TouchableOpacity style={styles.eventCard}>
+    <TouchableOpacity style={styles.eventCard} onPress={() => handleEdit(item)}>
       <View style={styles.eventHeader}>
         <Text style={styles.eventName}>{item.eventName}</Text>
         <View style={[styles.statusBadge, getStatusColor(item.eventStatus)]}>
@@ -77,7 +88,8 @@ export default function EventsScreen() {
 
       <AddEventModal
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}
+        onClose={handleCloseModal}
+        event={selectedEvent}
       />
     </View>
   );

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useExpenses } from '../hooks/useApi';
 import type { Expense } from '../types';
@@ -10,47 +10,64 @@ const BRAND_MAROON = '#800020';
 export default function ExpensesScreen() {
   const { data: expenses, isLoading, error } = useExpenses();
   const [modalVisible, setModalVisible] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<any>(null);
 
-  const renderExpenseItem = ({ item }: { item: Expense }) => (
-    <View style={styles.expenseCard}>
-      <View style={styles.expenseHeader}>
-        <View style={[styles.typeBadge, item.type === 'Credit' ? styles.creditBadge : styles.debitBadge]}>
-          <Text style={styles.typeText}>{item.type}</Text>
-        </View>
-        <Text style={[styles.amount, item.type === 'Credit' ? styles.creditAmount : styles.debitAmount]}>
-          ₹{parseFloat(item.amount).toLocaleString()}
-        </Text>
-      </View>
-      
-      <Text style={styles.category}>{item.category}</Text>
-      {item.description && (
-        <Text style={styles.description}>{item.description}</Text>
-      )}
-      
-      <View style={styles.accountRow}>
-        <Text style={styles.accountLabel}>From:</Text>
-        <Text style={styles.accountValue}>{item.from_account}</Text>
-      </View>
-      
-      {item.to_account && (
-        <View style={styles.accountRow}>
-          <Text style={styles.accountLabel}>To:</Text>
-          <Text style={styles.accountValue}>{item.to_account}</Text>
-        </View>
-      )}
-      
-      <Text style={styles.date}>{new Date(item.date).toLocaleDateString()}</Text>
-      
-      <View style={[styles.statusBadge, getStatusColor(item.status)]}>
-        <Text style={styles.statusText}>{item.status}</Text>
-      </View>
-    </View>
-  );
+  const { totalIncome, totalExpense, accountBalance, pendingRepayment } = useMemo(() => {
+    if (!expenses) return { totalIncome: 0, totalExpense: 0, accountBalance: 0, pendingRepayment: 0 };
+
+    let income = 0;
+    let expense = 0;
+    let ddcBalance = 0;
+    let repayment = 0;
+
+    expenses.forEach((t) => {
+      const amount = parseFloat(t.amount as any) || 0;
+      const fromAcc = t.from_account || '';
+      const toAcc = t.to_account || '';
+
+      if (t.type === 'Credit') {
+        income += amount;
+        if (toAcc === 'DDC Fund') {
+          ddcBalance += amount;
+        }
+      } else if (t.type === 'Debit') {
+        expense += amount;
+        if (fromAcc === 'DDC Fund') {
+          ddcBalance -= amount;
+        }
+      } else if (t.type === 'Transfer') {
+        if (fromAcc === 'DDC Fund' && toAcc !== 'DDC Fund') {
+          ddcBalance -= amount;
+          repayment += amount;
+        } else if (toAcc === 'DDC Fund' && fromAcc !== 'DDC Fund') {
+          ddcBalance += amount;
+          repayment -= amount;
+        }
+      }
+    });
+
+    return {
+      totalIncome: income,
+      totalExpense: expense,
+      accountBalance: ddcBalance,
+      pendingRepayment: Math.max(0, repayment),
+    };
+  }, [expenses]);
+
+  const handleEdit = (expense: Expense) => {
+    setSelectedExpense(expense);
+    setModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    setSelectedExpense(null);
+  };
 
   if (isLoading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color={BRAND_MAROON} />
       </View>
     );
   }
@@ -63,65 +80,95 @@ export default function ExpensesScreen() {
     );
   }
 
-  const totalCredit = expenses?.filter(e => e.type === 'Credit')
-    .reduce((sum, e) => sum + parseFloat(e.amount), 0) || 0;
-  const totalDebit = expenses?.filter(e => e.type === 'Debit')
-    .reduce((sum, e) => sum + parseFloat(e.amount), 0) || 0;
-
   return (
     <View style={styles.container}>
-      <View style={styles.summaryContainer}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Total Credit</Text>
-          <Text style={[styles.summaryValue, styles.creditAmount]}>
-            ₹{totalCredit.toLocaleString()}
-          </Text>
+      {/* Stats Cards */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cardsContainer}>
+        <View style={[styles.card, { backgroundColor: '#10b981' }]}>
+          <Ionicons name="trending-up" size={32} color="#fff" />
+          <Text style={styles.cardValue}>₹{totalIncome.toFixed(2)}</Text>
+          <Text style={styles.cardLabel}>Total Income</Text>
         </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Total Debit</Text>
-          <Text style={[styles.summaryValue, styles.debitAmount]}>
-            ₹{totalDebit.toLocaleString()}
-          </Text>
-        </View>
-      </View>
 
+        <View style={[styles.card, { backgroundColor: '#ef4444' }]}>
+          <Ionicons name="trending-down" size={32} color="#fff" />
+          <Text style={styles.cardValue}>₹{totalExpense.toFixed(2)}</Text>
+          <Text style={styles.cardLabel}>Total Expense</Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: BRAND_MAROON }]}>
+          <Ionicons name="wallet" size={32} color="#fff" />
+          <Text style={styles.cardValue}>₹{accountBalance.toFixed(2)}</Text>
+          <Text style={styles.cardLabel}>Account Balance</Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: '#f59e0b' }]}>
+          <Ionicons name="time" size={32} color="#fff" />
+          <Text style={styles.cardValue}>₹{pendingRepayment.toFixed(2)}</Text>
+          <Text style={styles.cardLabel}>Pending Repayment</Text>
+        </View>
+      </ScrollView>
+
+      {/* Expenses List */}
       <FlatList
-        data={expenses || []}
-        renderItem={renderExpenseItem}
+        data={expenses}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={styles.expenseCard}
+            onPress={() => handleEdit(item)}
+          >
+            <View style={styles.expenseHeader}>
+              <View style={styles.expenseTypeContainer}>
+                <Ionicons
+                  name={item.type === 'Credit' ? 'arrow-down-circle' : item.type === 'Debit' ? 'arrow-up-circle' : 'swap-horizontal'}
+                  size={24}
+                  color={item.type === 'Credit' ? '#10b981' : item.type === 'Debit' ? '#ef4444' : '#f59e0b'}
+                />
+                <View style={{ marginLeft: 12 }}>
+                  <Text style={styles.expenseDescription}>{item.description}</Text>
+                  <Text style={styles.expenseCategory}>{item.category} • {new Date(item.date).toLocaleDateString()}</Text>
+                </View>
+              </View>
+              <Text style={[styles.expenseAmount, { color: item.type === 'Credit' ? '#10b981' : '#ef4444' }]}>
+                {item.type === 'Credit' ? '+' : '-'}₹{parseFloat(item.amount as any).toFixed(2)}
+              </Text>
+            </View>
+            <View style={styles.expenseFooter}>
+              <Text style={styles.expenseAccount}>
+                {item.type === 'Transfer' ? `${item.from_account} → ${item.to_account}` : item.from_account}
+              </Text>
+              <View style={[styles.statusBadge, {
+                backgroundColor: item.status === 'Completed' ? '#10b981' : item.status === 'Pending' ? '#f59e0b' : '#6b7280'
+              }]}>
+                <Text style={styles.statusText}>{item.status}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+        contentContainerStyle={styles.listContainer}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No expenses found</Text>
+            <Text style={styles.emptyText}>No expenses yet</Text>
           </View>
         }
       />
 
+      {/* FAB */}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => setModalVisible(true)}
-        activeOpacity={0.8}
       >
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
       <AddExpenseModal
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}
+        onClose={handleCloseModal}
+        expense={selectedExpense}
       />
     </View>
   );
-}
-
-function getStatusColor(status: string) {
-  switch (status) {
-    case 'Completed':
-      return { backgroundColor: '#d1fae5' };
-    case 'Pending':
-      return { backgroundColor: '#fef3c7' };
-    default:
-      return { backgroundColor: '#e5e7eb' };
-  }
 }
 
 const styles = StyleSheet.create({
@@ -135,120 +182,94 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
   },
-  summaryContainer: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
+  cardsContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    maxHeight: 160,
   },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
+  card: {
+    width: 160,
+    padding: 20,
+    borderRadius: 16,
+    marginRight: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  cardValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 8,
+  },
+  cardLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  listContainer: {
+    padding: 16,
+  },
+  expenseCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    elevation: 2,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginBottom: 4,
-  },
-  summaryValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  listContent: {
-    padding: 16,
-    paddingTop: 0,
-  },
-  expenseCard: {
-    backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   expenseHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  expenseTypeContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    flex: 1,
   },
-  typeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  creditBadge: {
-    backgroundColor: '#d1fae5',
-  },
-  debitBadge: {
-    backgroundColor: '#fee2e2',
-  },
-  typeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  amount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  creditAmount: {
-    color: '#10b981',
-  },
-  debitAmount: {
-    color: '#ef4444',
-  },
-  category: {
+  expenseDescription: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1f2937',
     marginBottom: 4,
   },
-  description: {
-    fontSize: 14,
+  expenseCategory: {
+    fontSize: 13,
     color: '#6b7280',
-    marginBottom: 8,
   },
-  accountRow: {
+  expenseAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  expenseFooter: {
     flexDirection: 'row',
-    marginBottom: 4,
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  accountLabel: {
+  expenseAccount: {
     fontSize: 13,
-    color: '#9ca3af',
-    width: 60,
-  },
-  accountValue: {
-    fontSize: 13,
-    color: '#4b5563',
+    color: '#6b7280',
     flex: 1,
   },
-  date: {
-    fontSize: 12,
-    color: '#9ca3af',
-    marginTop: 8,
-  },
   statusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
-    marginTop: 8,
   },
   statusText: {
     fontSize: 11,
-    color: '#1f2937',
-    fontWeight: '500',
+    color: '#fff',
+    fontWeight: '600',
   },
   emptyContainer: {
     padding: 40,

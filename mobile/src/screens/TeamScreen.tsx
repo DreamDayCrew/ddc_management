@@ -10,9 +10,20 @@ const BRAND_MAROON = '#800020';
 export default function TeamScreen() {
   const { data: team, isLoading, error } = useTeamMembers();
   const [modalVisible, setModalVisible] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+
+  const handleEdit = (member: TeamMember) => {
+    setSelectedMember(member);
+    setModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    setSelectedMember(null);
+  };
 
   const renderTeamMember = ({ item }: { item: TeamMember }) => (
-    <View style={styles.memberCard}>
+    <TouchableOpacity style={styles.memberCard} onPress={() => handleEdit(item)}>
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>
           {item.name.charAt(0).toUpperCase()}
@@ -70,7 +81,8 @@ export default function TeamScreen() {
 
       <AddTeamMemberModal
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}
+        onClose={handleCloseModal}
+        member={selectedMember}
       />
     </View>
   );
