@@ -8,14 +8,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: 'Helvetica',
     color: '#1a1a1a',
-    backgroundColor: '#F5F5DC', // Pale beige background
+    backgroundColor: '#ffffff', // White background
   },
   
   // Header Section
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center', // Align logo and title on same line
     marginBottom: 20,
   },
   logoSection: {
