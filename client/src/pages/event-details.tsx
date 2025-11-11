@@ -453,6 +453,48 @@ export default function EventDetails() {
   const profitLoss = parseFloat(event.profitLoss || "0");
   const isProfitable = profitLoss >= 0;
 
+  // Invoice validation checks
+  const validateInvoiceGeneration = () => {
+    const errors: string[] = [];
+    
+    // Check 1: Client info must be present
+    const hasClientInfo = event.clientName || event.clientPhone || event.clientEmail || event.clientAddress;
+    if (!hasClientInfo) {
+      errors.push("Client information is missing. Please add at least client name or contact details.");
+    }
+    
+    // Check 2: Requirements must be present OR event must have a quote
+    const hasRequirements = requirements && requirements.length > 0;
+    const hasQuote = event.finalizedQuote || event.initialQuote;
+    
+    if (!hasRequirements && !hasQuote) {
+      errors.push("No requirements or quote found. Please add requirements or set an event quote.");
+    }
+    
+    return { isValid: errors.length === 0, errors };
+  };
+
+  const invoiceValidation = validateInvoiceGeneration();
+
+  const handleInvoiceClick = () => {
+    if (!invoiceValidation.isValid) {
+      toast({
+        title: "Cannot generate invoice",
+        description: (
+          <div className="space-y-2">
+            <p className="font-medium">Please fix the following issues:</p>
+            <ul className="list-disc pl-4 space-y-1">
+              {invoiceValidation.errors.map((error, index) => (
+                <li key={index}>{error}</li>
+              ))}
+            </ul>
+          </div>
+        ),
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-4">
@@ -470,56 +512,69 @@ export default function EventDetails() {
         </div>
         <div className="flex gap-2">
           {config && (
-            <PDFDownloadLink
-              document={<InvoiceTemplate config={config} event={event} requirements={requirements} invoiceNumber={generateInvoiceNumber(event.id)} />}
-              fileName={`Invoice_${event.eventName}_${format(new Date(), "yyyyMMdd")}.pdf`}
-            >
-              {({ loading }) => {
-                const invoiceAmount = calculateInvoiceValue();
-                const ddcSpent = calculateDDCCost();
-                
-                // Calculate percentage difference using DDC Spent as base
-                let difference = 0;
-                if (invoiceAmount > 0) {
-                  difference = ((ddcSpent - invoiceAmount) / invoiceAmount) * 100;
-                }
-                
-                // Determine which icon to show based on conditions
-                let Icon = null;
-                let tooltip = '';
-                
-                if (ddcSpent === 0 || isNaN(ddcSpent)) {
-                  Icon = <HeartHandshake color="#0df83c" className="h-5 w-5" />;
-                  tooltip = 'Invoice fulfilled with no spending — excellent efficiency!';
-                } else if (difference >= 10) {
-                  Icon = <HeartCrack color="#e40c0c" className="h-5 w-5" />;
-                  tooltip = 'Spending greatly exceeds the invoice — significant overspend';
-                } else if (difference > 0) {
-                  Icon = <Meh color="#e44d0c" className="h-5 w-5" />;
-                  tooltip = 'Slightly over the invoice — mild overspend';
-                } else if (difference >= -10) {
-                  Icon = <Smile color="#e0e40c" className="h-5 w-5" />;
-                  tooltip = 'Close to invoice amount — within normal range';
-                } else {
-                  Icon = <SmilePlus color="#13d820" className="h-5 w-5" />;
-                  tooltip = 'Spending far below the invoice — possible loss or underbilling';
-                }
-                
-                return (
-                  <div className="flex items-center gap-2">
-                    {Icon && (
-                      <div title={tooltip} className="flex items-center mr-1" data-testid="budget-status-indicator">
-                        {Icon}
-                      </div>
-                    )}
-                    <Button variant="outline" disabled={loading} data-testid="button-generate-invoice">
-                      <FileDown className="h-4 w-4 mr-2" />
-                      {loading ? "Generating..." : "Generate Invoice"}
-                    </Button>
-                  </div>
-                );
-              }}
-            </PDFDownloadLink>
+            invoiceValidation.isValid ? (
+              <PDFDownloadLink
+                document={<InvoiceTemplate config={config} event={event} requirements={requirements} invoiceNumber={generateInvoiceNumber(event.id)} />}
+                fileName={`Invoice_${event.eventName}_${format(new Date(), "yyyyMMdd")}.pdf`}
+              >
+                {({ loading }) => {
+                  const invoiceAmount = calculateInvoiceValue();
+                  const ddcSpent = calculateDDCCost();
+                  
+                  // Calculate percentage difference using DDC Spent as base
+                  let difference = 0;
+                  if (invoiceAmount > 0) {
+                    difference = ((ddcSpent - invoiceAmount) / invoiceAmount) * 100;
+                  }
+                  
+                  // Determine which icon to show based on conditions
+                  let Icon = null;
+                  let tooltip = '';
+                  
+                  if (ddcSpent === 0 || isNaN(ddcSpent)) {
+                    Icon = <HeartHandshake color="#0df83c" className="h-5 w-5" />;
+                    tooltip = 'Invoice fulfilled with no spending — excellent efficiency!';
+                  } else if (difference >= 10) {
+                    Icon = <HeartCrack color="#e40c0c" className="h-5 w-5" />;
+                    tooltip = 'Spending greatly exceeds the invoice — significant overspend';
+                  } else if (difference > 0) {
+                    Icon = <Meh color="#e44d0c" className="h-5 w-5" />;
+                    tooltip = 'Slightly over the invoice — mild overspend';
+                  } else if (difference >= -10) {
+                    Icon = <Smile color="#e0e40c" className="h-5 w-5" />;
+                    tooltip = 'Close to invoice amount — within normal range';
+                  } else {
+                    Icon = <SmilePlus color="#13d820" className="h-5 w-5" />;
+                    tooltip = 'Spending far below the invoice — possible loss or underbilling';
+                  }
+                  
+                  return (
+                    <div className="flex items-center gap-2">
+                      {Icon && (
+                        <div title={tooltip} className="flex items-center mr-1" data-testid="budget-status-indicator">
+                          {Icon}
+                        </div>
+                      )}
+                      <Button variant="outline" disabled={loading} data-testid="button-generate-invoice">
+                        <FileDown className="h-4 w-4 mr-2" />
+                        {loading ? "Generating..." : "Generate Invoice"}
+                      </Button>
+                    </div>
+                  );
+                }}
+              </PDFDownloadLink>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={handleInvoiceClick}
+                  data-testid="button-generate-invoice"
+                >
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Generate Invoice
+                </Button>
+              </div>
+            )
           )}
           <Dialog open={editEventOpen} onOpenChange={setEditEventOpen}>
             <DialogTrigger asChild>
