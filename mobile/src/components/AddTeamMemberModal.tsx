@@ -147,6 +147,23 @@ export default function AddTeamMemberModal({ visible, onClose, member }: AddTeam
                 </>
               )}
             </TouchableOpacity>
+
+            {member && (
+              <TouchableOpacity
+                style={[styles.deleteButton, deleteMutation.isPending && styles.submitButtonDisabled]}
+                onPress={handleDelete}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="trash" size={20} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={styles.deleteButtonText}>Delete Member</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </ScrollView>
         </View>
       </View>
@@ -218,6 +235,21 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  deleteButton: {
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  deleteButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',

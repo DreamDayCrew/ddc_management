@@ -40,19 +40,34 @@ export default function DashboardScreen() {
   const safeAssets = assets || [];
   const safeTeam = team || [];
 
-  // Calculate financial metrics
-  const totalRevenue = safeEvents.reduce((sum, event) => {
-    const quote = parseFloat(event.finalizedQuote || '0');
-    return sum + quote;
-  }, 0);
+  // Calculate financial metrics using expense data
+  let totalIncome = 0;
+  let totalExpense = 0;
+  let accountBalance = 0;
 
-  const totalCosts = safeEvents.reduce((sum, event) => {
-    const cost = parseFloat(event.ddcCost || '0');
-    return sum + cost;
-  }, 0);
+  safeExpenses.forEach((t) => {
+    const amount = parseFloat(t.amount as any) || 0;
+    const fromAcc = t.from_account || '';
+    const toAcc = t.to_account || '';
 
-  const profitLoss = totalRevenue - totalCosts;
-  const isProfitable = profitLoss >= 0;
+    if (t.type === 'Credit') {
+      totalIncome += amount;
+      if (toAcc === 'DDC Fund') {
+        accountBalance += amount;
+      }
+    } else if (t.type === 'Debit') {
+      totalExpense += amount;
+      if (fromAcc === 'DDC Fund') {
+        accountBalance -= amount;
+      }
+    } else if (t.type === 'Transfer') {
+      if (fromAcc === 'DDC Fund' && toAcc !== 'DDC Fund') {
+        accountBalance -= amount;
+      } else if (toAcc === 'DDC Fund' && fromAcc !== 'DDC Fund') {
+        accountBalance += amount;
+      }
+    }
+  });
 
   // Event statistics
   const totalEvents = safeEvents.length;
@@ -100,35 +115,33 @@ export default function DashboardScreen() {
             <View style={styles.financialIcon}>
               <Ionicons name="trending-up" size={24} color="#fff" />
             </View>
-            <Text style={styles.financialLabel}>Total Revenue</Text>
-            <Text style={styles.financialValue}>₹{totalRevenue.toLocaleString()}</Text>
+            <Text style={styles.financialLabel}>Total Income</Text>
+            <Text style={styles.financialValue}>₹{totalIncome.toLocaleString()}</Text>
           </View>
 
           <View style={[styles.financialCard, { backgroundColor: '#ef4444' }]}>
             <View style={styles.financialIcon}>
-              <Ionicons name="cash" size={24} color="#fff" />
+              <Ionicons name="trending-down" size={24} color="#fff" />
             </View>
-            <Text style={styles.financialLabel}>Total Costs</Text>
-            <Text style={styles.financialValue}>₹{totalCosts.toLocaleString()}</Text>
+            <Text style={styles.financialLabel}>Total Expenses</Text>
+            <Text style={styles.financialValue}>₹{totalExpense.toLocaleString()}</Text>
           </View>
 
           <View style={[
             styles.financialCard, 
             styles.profitCard,
-            { backgroundColor: isProfitable ? '#10b981' : '#ef4444' }
+            { backgroundColor: BRAND_MAROON }
           ]}>
             <View style={styles.financialIcon}>
               <Ionicons 
-                name={isProfitable ? 'trophy' : 'warning'} 
+                name="wallet" 
                 size={24} 
                 color="#fff" 
               />
             </View>
-            <Text style={styles.financialLabel}>
-              {isProfitable ? 'Total Profit' : 'Total Loss'}
-            </Text>
+            <Text style={styles.financialLabel}>Account Balance</Text>
             <Text style={styles.financialValue}>
-              ₹{Math.abs(profitLoss).toLocaleString()}
+              ₹{accountBalance.toLocaleString()}
             </Text>
           </View>
         </View>

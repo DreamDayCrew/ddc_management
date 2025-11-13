@@ -84,18 +84,6 @@ export default function ExpensesScreen() {
     <View style={styles.container}>
       {/* Stats Cards */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cardsContainer}>
-        <View style={[styles.card, { backgroundColor: '#10b981' }]}>
-          <Ionicons name="trending-up" size={32} color="#fff" />
-          <Text style={styles.cardValue}>₹{totalIncome.toFixed(2)}</Text>
-          <Text style={styles.cardLabel}>Total Income</Text>
-        </View>
-
-        <View style={[styles.card, { backgroundColor: '#ef4444' }]}>
-          <Ionicons name="trending-down" size={32} color="#fff" />
-          <Text style={styles.cardValue}>₹{totalExpense.toFixed(2)}</Text>
-          <Text style={styles.cardLabel}>Total Expense</Text>
-        </View>
-
         <View style={[styles.card, { backgroundColor: BRAND_MAROON }]}>
           <Ionicons name="wallet" size={32} color="#fff" />
           <Text style={styles.cardValue}>₹{accountBalance.toFixed(2)}</Text>
