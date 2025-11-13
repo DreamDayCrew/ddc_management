@@ -15,6 +15,9 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { EventsStackParamList } from '../navigation/EventsStackNavigator';
 import { api } from '../lib/api';
 import type { Event, Requirement, FulfillmentPlan, TeamMember, Vendor, Asset, Configuration } from '../types';
+import AddRequirementModal from '../components/AddRequirementModal';
+import AddPlanModal from '../components/AddPlanModal';
+import AddEventModal from '../components/AddEventModal';
 
 type Props = NativeStackScreenProps<EventsStackParamList, 'EventDetails'>;
 
@@ -24,6 +27,14 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
   const { eventId } = route.params;
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Modal state management
+  const [requirementModalVisible, setRequirementModalVisible] = useState(false);
+  const [planModalVisible, setPlanModalVisible] = useState(false);
+  const [eventModalVisible, setEventModalVisible] = useState(false);
+  const [selectedRequirement, setSelectedRequirement] = useState<Requirement | undefined>();
+  const [selectedPlan, setSelectedPlan] = useState<FulfillmentPlan | undefined>();
+  const [selectedRequirementId, setSelectedRequirementId] = useState<string | null>(null);
 
   // Fetch event data
   const { data: event, isLoading: eventLoading, refetch: refetchEvent } = useQuery({
@@ -138,6 +149,65 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     );
   };
 
+  // Delete event mutation
+  const deleteEventMutation = useMutation({
+    mutationFn: () => api.deleteEvent(eventId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      Alert.alert('Success', 'Event deleted successfully', [
+        {
+          text: 'OK',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+    },
+    onError: (error: Error) => {
+      Alert.alert('Error', `Failed to delete event: ${error.message}`);
+    },
+  });
+
+  const handleDeleteEvent = () => {
+    Alert.alert(
+      'Delete Event',
+      `Are you sure you want to delete "${event?.eventName}"? This will also delete all requirements and plans.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteEventMutation.mutate(),
+        },
+      ]
+    );
+  };
+
+  // Modal handlers
+  const handleAddRequirement = () => {
+    setSelectedRequirement(undefined);
+    setRequirementModalVisible(true);
+  };
+
+  const handleEditRequirement = (requirement: Requirement) => {
+    setSelectedRequirement(requirement);
+    setRequirementModalVisible(true);
+  };
+
+  const handleAddPlan = (requirementId: string) => {
+    setSelectedRequirementId(requirementId);
+    setSelectedPlan(undefined);
+    setPlanModalVisible(true);
+  };
+
+  const handleEditPlan = (plan: FulfillmentPlan) => {
+    setSelectedRequirementId(plan.requirementId);
+    setSelectedPlan(plan);
+    setPlanModalVisible(true);
+  };
+
+  const handleEditEvent = () => {
+    setEventModalVisible(true);
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([refetchEvent(), refetchRequirements(), refetchPlans()]);
@@ -195,8 +265,28 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     >
       {/* Event Header */}
       <View style={styles.header}>
-        <Text style={styles.eventName}>{event.eventName}</Text>
-        <Text style={styles.eventService}>{event.providedService}</Text>
+        <View style={styles.headerTop}>
+          <View style={styles.headerContent}>
+            <Text style={styles.eventName}>{event.eventName}</Text>
+            <Text style={styles.eventService}>{event.providedService}</Text>
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={handleEditEvent}
+              data-testid="button-edit-event"
+            >
+              <Ionicons name="create-outline" size={22} color={BRAND_MAROON} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={handleDeleteEvent}
+              data-testid="button-delete-event"
+            >
+              <Ionicons name="trash-outline" size={22} color="#dc2626" />
+            </TouchableOpacity>
+          </View>
+        </View>
         
         <View style={styles.statusRow}>
           <View style={[styles.statusBadge, getStatusColor(event.eventStatus)]}>
@@ -255,11 +345,25 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Requirements ({requirements.length})</Text>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={handleAddRequirement}
+            data-testid="button-add-requirement"
+          >
+            <Ionicons name="add-circle" size={24} color={BRAND_MAROON} />
+          </TouchableOpacity>
         </View>
         
         {requirements.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No requirements added yet</Text>
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={handleAddRequirement}
+              data-testid="button-add-first-requirement"
+            >
+              <Text style={styles.emptyButtonText}>Add First Requirement</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           requirements.map((req) => {
@@ -272,8 +376,16 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
               <View key={req.id} style={styles.requirementCard}>
                 <View style={styles.requirementHeader}>
                   <Text style={styles.requirementTitle}>{req.requirement}</Text>
-                  <View style={[styles.reqStatusBadge, getStatusColor(req.requirementStatus)]}>
-                    <Text style={styles.reqStatusText}>{req.requirementStatus}</Text>
+                  <View style={styles.requirementActions}>
+                    <View style={[styles.reqStatusBadge, getStatusColor(req.requirementStatus)]}>
+                      <Text style={styles.reqStatusText}>{req.requirementStatus}</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleEditRequirement(req)}
+                      data-testid={`button-edit-requirement-${req.id}`}
+                    >
+                      <Ionicons name="create-outline" size={18} color={BRAND_MAROON} />
+                    </TouchableOpacity>
                   </View>
                 </View>
                 
@@ -302,10 +414,17 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                 </View>
 
                 {/* Fulfillment Plans */}
-                {plans.length > 0 && (
-                  <View style={styles.plansSection}>
+                <View style={styles.plansSection}>
+                  <View style={styles.plansHeader}>
                     <Text style={styles.plansTitle}>Fulfillment Plans ({plans.length})</Text>
-                    {plans.map((plan) => {
+                    <TouchableOpacity
+                      onPress={() => handleAddPlan(req.id)}
+                      data-testid={`button-add-plan-${req.id}`}
+                    >
+                      <Ionicons name="add-circle-outline" size={20} color={BRAND_MAROON} />
+                    </TouchableOpacity>
+                  </View>
+                  {plans.length > 0 && plans.map((plan) => {
                       let planDetails = '';
                       let iconName: any = 'cube';
                       
@@ -324,7 +443,12 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                       }
 
                       return (
-                        <View key={plan.id} style={styles.planItem}>
+                        <TouchableOpacity
+                          key={plan.id}
+                          style={styles.planItem}
+                          onPress={() => handleEditPlan(plan)}
+                          data-testid={`button-edit-plan-${plan.id}`}
+                        >
                           <View style={styles.planHeader}>
                             <Ionicons 
                               name={iconName} 
@@ -334,16 +458,43 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                             <Text style={styles.planName}>{planDetails}</Text>
                           </View>
                           <Text style={styles.planPayment}>₹{parseFloat(plan.payment || '0').toLocaleString()}</Text>
-                        </View>
+                        </TouchableOpacity>
                       );
                     })}
-                  </View>
-                )}
+                </View>
               </View>
             );
           })
         )}
       </View>
+
+      {/* Modals */}
+      <AddRequirementModal
+        visible={requirementModalVisible}
+        onClose={() => {
+          setRequirementModalVisible(false);
+          setSelectedRequirement(undefined);
+        }}
+        eventId={eventId}
+        requirement={selectedRequirement}
+      />
+
+      <AddPlanModal
+        visible={planModalVisible}
+        onClose={() => {
+          setPlanModalVisible(false);
+          setSelectedPlan(undefined);
+          setSelectedRequirementId(null);
+        }}
+        requirementId={selectedRequirementId || ''}
+        plan={selectedPlan}
+      />
+
+      <AddEventModal
+        visible={eventModalVisible}
+        onClose={() => setEventModalVisible(false)}
+        event={event}
+      />
     </ScrollView>
   );
 }
@@ -397,6 +548,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  headerContent: {
+    flex: 1,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  iconButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
   },
   eventName: {
     fontSize: 24,
@@ -521,6 +690,21 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: '#9ca3af',
+    marginBottom: 16,
+  },
+  emptyButton: {
+    backgroundColor: BRAND_MAROON,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  emptyButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  addButton: {
+    padding: 4,
   },
   requirementCard: {
     backgroundColor: '#f9fafb',
@@ -542,6 +726,11 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     flex: 1,
     marginRight: 8,
+  },
+  requirementActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   reqStatusBadge: {
     paddingHorizontal: 8,
@@ -586,11 +775,16 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
   },
+  plansHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   plansTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: '#1f2937',
-    marginBottom: 8,
   },
   planItem: {
     flexDirection: 'row',

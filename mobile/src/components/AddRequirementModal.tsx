@@ -104,9 +104,9 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
 
     const submitData = {
       ...formData,
-      price: parseInt(formData.price) || 0,
+      price: parseFloat(formData.price) || 0,
       quantity: parseInt(formData.quantity) || 1,
-      order: parseInt(formData.price) || 0, // order stores the price for invoice calculation
+      order: parseFloat(formData.price) || 0, // order stores the price for invoice calculation
     };
 
     createMutation.mutate(submitData);
