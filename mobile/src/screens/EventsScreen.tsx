@@ -1,16 +1,24 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEvents } from '../hooks/useApi';
 import type { Event } from '../types';
 import AddEventModal from '../components/AddEventModal';
+import { EventsStackParamList } from '../navigation/EventsStackNavigator';
+
+type Props = NativeStackScreenProps<EventsStackParamList, 'EventsList'>;
 
 const BRAND_MAROON = '#800020';
 
-export default function EventsScreen() {
+export default function EventsScreen({ navigation }: Props) {
   const { data: events, isLoading, error } = useEvents();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+
+  const handleViewDetails = (event: Event) => {
+    navigation.navigate('EventDetails', { eventId: event.id });
+  };
 
   const handleEdit = (event: Event) => {
     setSelectedEvent(event);
@@ -23,7 +31,7 @@ export default function EventsScreen() {
   };
 
   const renderEventItem = ({ item }: { item: Event }) => (
-    <TouchableOpacity style={styles.eventCard} onPress={() => handleEdit(item)}>
+    <TouchableOpacity style={styles.eventCard} onPress={() => handleViewDetails(item)}>
       <View style={styles.eventHeader}>
         <Text style={styles.eventName}>{item.eventName}</Text>
         <View style={[styles.statusBadge, getStatusColor(item.eventStatus)]}>
@@ -45,6 +53,16 @@ export default function EventsScreen() {
           <Text style={styles.priceValue}>₹{parseFloat(item.finalizedQuote).toLocaleString()}</Text>
         </View>
       )}
+      
+      <TouchableOpacity 
+        style={styles.editButton}
+        onPress={(e) => {
+          e.stopPropagation();
+          handleEdit(item);
+        }}
+      >
+        <Ionicons name="create-outline" size={20} color={BRAND_MAROON} />
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 
@@ -195,6 +213,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#10b981',
+  },
+  editButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    padding: 8,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   emptyContainer: {
     padding: 40,

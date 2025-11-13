@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import type { ApiError, Event, Expense, TeamMember, Asset, Requirement, Configuration, InsertEvent, InsertExpense, InsertTeamMember, InsertAsset, InsertRequirement } from '../types';
+import type { ApiError, Event, Expense, TeamMember, Asset, Requirement, Configuration, Vendor, FulfillmentPlan, InsertEvent, InsertExpense, InsertTeamMember, InsertAsset, InsertRequirement, InsertFulfillmentPlan } from '../types';
 import { config } from '../config/environment';
 
 // API Configuration from environment
@@ -112,6 +112,24 @@ export const api = {
   // Configuration
   getConfiguration: () => apiClient.get<Configuration>('/api/configuration'),
   updateConfiguration: (data: Partial<Configuration>) => apiClient.post<Configuration>('/api/configuration', data),
+
+  // Vendors
+  getVendors: () => apiClient.get<Vendor[]>('/api/vendors'),
+
+  // Fulfillment Plans
+  getAllPlans: () => apiClient.get<FulfillmentPlan[]>('/api/plans'),
+  getRequirementPlans: (requirementId: string) => 
+    apiClient.get<FulfillmentPlan[]>(`/api/requirements/${requirementId}/plans`),
+  createPlan: (requirementId: string, data: InsertFulfillmentPlan) => 
+    apiClient.post<FulfillmentPlan>(`/api/requirements/${requirementId}/plans`, data),
+  updatePlan: (planId: string, data: Partial<InsertFulfillmentPlan>) => 
+    apiClient.patch<FulfillmentPlan>(`/api/plans/${planId}`, data),
+  deletePlan: (planId: string) => 
+    apiClient.delete<void>(`/api/plans/${planId}`),
+
+  // Budget Update
+  updateEventBudget: (eventId: string, data: { finalizedQuote?: string; ddcCost?: string }) =>
+    apiClient.patch<Event>(`/api/events/${eventId}/budget`, data),
 };
 
 export default apiClient;

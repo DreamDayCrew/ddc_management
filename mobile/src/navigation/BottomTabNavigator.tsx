@@ -1,7 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import DashboardScreen from '../screens/DashboardScreen';
-import EventsScreen from '../screens/EventsScreen';
+import EventsStackNavigator from './EventsStackNavigator';
 import ExpensesScreen from '../screens/ExpensesScreen';
 import TeamScreen from '../screens/TeamScreen';
 import AssetsScreen from '../screens/AssetsScreen';
@@ -68,8 +68,8 @@ export default function BottomTabNavigator() {
       />
       <Tab.Screen 
         name="Events" 
-        component={EventsScreen}
-        options={{ headerTitle: 'Events' }}
+        component={EventsStackNavigator}
+        options={{ headerShown: false }}
       />
       <Tab.Screen 
         name="Expenses" 
