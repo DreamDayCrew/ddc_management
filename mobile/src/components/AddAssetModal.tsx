@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -67,11 +68,35 @@ export default function AddAssetModal({ visible, onClose, asset }: AddAssetModal
       return await api.createAsset(submitData as any);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/assets'] });
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
       resetForm();
       onClose();
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.deleteAsset(asset.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      Alert.alert('Success', 'Asset deleted successfully');
+      onClose();
+    },
+    onError: (error: Error) => {
+      Alert.alert('Error', `Failed to delete asset: ${error.message}`);
+    },
+  });
+
+  const handleDelete = () => {
+    if (!asset) return;
+    Alert.alert(
+      'Delete Asset',
+      `Are you sure you want to delete ${asset.name}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate() },
+      ]
+    );
+  };
 
   const resetForm = () => {
     setFormData({

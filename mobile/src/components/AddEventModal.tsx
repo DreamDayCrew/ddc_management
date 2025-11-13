@@ -67,7 +67,10 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
       return await api.createEvent(data as any);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/events'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      if (event) {
+        queryClient.invalidateQueries({ queryKey: ['event', event.id] });
+      }
       resetForm();
       onClose();
     },

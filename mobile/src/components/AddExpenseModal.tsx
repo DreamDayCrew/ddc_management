@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -72,11 +73,35 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
       } as any);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
       resetForm();
       onClose();
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.deleteExpense(expense.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      Alert.alert('Success', 'Expense deleted successfully');
+      onClose();
+    },
+    onError: (error: Error) => {
+      Alert.alert('Error', `Failed to delete expense: ${error.message}`);
+    },
+  });
+
+  const handleDelete = () => {
+    if (!expense) return;
+    Alert.alert(
+      'Delete Expense',
+      'Are you sure you want to delete this expense?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate() },
+      ]
+    );
+  };
 
   const resetForm = () => {
     setFormData({

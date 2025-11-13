@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -48,11 +49,35 @@ export default function AddTeamMemberModal({ visible, onClose, member }: AddTeam
       return await api.createTeamMember(data as any);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/team'] });
+      queryClient.invalidateQueries({ queryKey: ['team'] });
       resetForm();
       onClose();
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.deleteTeamMember(member.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['team'] });
+      Alert.alert('Success', 'Team member deleted successfully');
+      onClose();
+    },
+    onError: (error: Error) => {
+      Alert.alert('Error', `Failed to delete team member: ${error.message}`);
+    },
+  });
+
+  const handleDelete = () => {
+    if (!member) return;
+    Alert.alert(
+      'Delete Team Member',
+      `Are you sure you want to delete ${member.name}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate() },
+      ]
+    );
+  };
 
   const resetForm = () => {
     setFormData({
