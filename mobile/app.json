@@ -2,7 +2,10 @@
   "expo": {
     "name": "Dream Day Crew",
     "slug": "dream-day-crew",
-    "version": "1.0.0",
+    "version": "1.0.2",
+    "cli": {
+      "appVersionSource": "remote"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

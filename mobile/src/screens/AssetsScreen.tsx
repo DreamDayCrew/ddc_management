@@ -50,10 +50,7 @@ export default function AssetsScreen() {
         <Text style={styles.details}>{item.detailsAndUse}</Text>
       )}
       
-      {item.warranty && (
-        <Text style={styles.warranty}>🛡️ Warranty: {item.warranty}</Text>
-      )}
-    </View>
+    </TouchableOpacity>
   );
 
   if (isLoading) {
@@ -244,6 +241,12 @@ const styles = StyleSheet.create({
   warranty: {
     fontSize: 13,
     color: '#f59e0b',
+  },
+  assetId: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 4,
+    fontFamily: 'monospace',
   },
   emptyContainer: {
     padding: 40,

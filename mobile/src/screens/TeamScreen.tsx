@@ -33,7 +33,7 @@ export default function TeamScreen() {
         <Text style={styles.memberName}>{item.name}</Text>
         <Text style={styles.memberDesignation}>{item.designation}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   if (isLoading) {
