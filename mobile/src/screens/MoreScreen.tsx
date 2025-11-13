@@ -69,7 +69,7 @@ export default function MoreScreen({ navigation }: any) {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Image 
-          source={require('@assets/Logo Sticker_1763031270643.jpeg')}
+          source={require('../../assets/ddc-logo.jpeg')}
           style={styles.logo}
           resizeMode="contain"
         />

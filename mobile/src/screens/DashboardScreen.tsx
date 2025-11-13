@@ -78,7 +78,7 @@ export default function DashboardScreen() {
       {/* Header with Logo */}
       <View style={styles.header}>
         <Image 
-          source={require('@assets/Logo Sticker_1763031270643.jpeg')}
+          source={require('../../assets/ddc-logo.jpeg')}
           style={styles.logo}
           resizeMode="contain"
         />
