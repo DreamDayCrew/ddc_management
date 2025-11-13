@@ -3,8 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DashboardScreen from '../screens/DashboardScreen';
 import EventsStackNavigator from './EventsStackNavigator';
 import ExpensesScreen from '../screens/ExpensesScreen';
-import TeamScreen from '../screens/TeamScreen';
-import AssetsScreen from '../screens/AssetsScreen';
+import MoreStackNavigator from './MoreStackNavigator';
 
 const Tab = createBottomTabNavigator();
 
@@ -24,10 +23,8 @@ export default function BottomTabNavigator() {
             iconName = focused ? 'calendar' : 'calendar-outline';
           } else if (route.name === 'Expenses') {
             iconName = focused ? 'wallet' : 'wallet-outline';
-          } else if (route.name === 'Team') {
-            iconName = focused ? 'people' : 'people-outline';
-          } else if (route.name === 'Assets') {
-            iconName = focused ? 'cube' : 'cube-outline';
+          } else if (route.name === 'More') {
+            iconName = focused ? 'menu' : 'menu-outline';
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -77,14 +74,9 @@ export default function BottomTabNavigator() {
         options={{ headerTitle: 'Expenses' }}
       />
       <Tab.Screen 
-        name="Team" 
-        component={TeamScreen}
-        options={{ headerTitle: 'Team' }}
-      />
-      <Tab.Screen 
-        name="Assets" 
-        component={AssetsScreen}
-        options={{ headerTitle: 'Assets' }}
+        name="More" 
+        component={MoreStackNavigator}
+        options={{ headerShown: false }}
       />
     </Tab.Navigator>
   );

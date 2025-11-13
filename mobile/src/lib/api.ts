@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import type { ApiError, Event, Expense, TeamMember, Asset, Requirement, Configuration, Vendor, FulfillmentPlan, InsertEvent, InsertExpense, InsertTeamMember, InsertAsset, InsertRequirement, InsertFulfillmentPlan } from '../types';
+import type { ApiError, Event, Expense, TeamMember, Asset, Requirement, Configuration, Vendor, FulfillmentPlan, InsertEvent, InsertExpense, InsertTeamMember, InsertAsset, InsertRequirement, InsertFulfillmentPlan, InsertVendor } from '../types';
 import { config } from '../config/environment';
 
 // API Configuration from environment
@@ -115,6 +115,9 @@ export const api = {
 
   // Vendors
   getVendors: () => apiClient.get<Vendor[]>('/api/vendors'),
+  createVendor: (data: InsertVendor) => apiClient.post<Vendor>('/api/vendors', data),
+  updateVendor: (id: string, data: Partial<InsertVendor>) => apiClient.patch<Vendor>(`/api/vendors/${id}`, data),
+  deleteVendor: (id: string) => apiClient.delete<void>(`/api/vendors/${id}`),
 
   // Fulfillment Plans
   getAllPlans: () => apiClient.get<FulfillmentPlan[]>('/api/plans'),
