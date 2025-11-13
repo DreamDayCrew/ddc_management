@@ -237,27 +237,35 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
               <>
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Vendor *</Text>
-                  <Picker
-                    selectedValue={formData.vendorId}
-                    onValueChange={(value) => setFormData({ ...formData, vendorId: value })}
-                    items={[
-                      { label: 'Select vendor', value: '' },
-                      ...vendors.map(v => ({ label: v.name, value: v.id }))
-                    ]}
-                    data-testid="picker-vendor"
-                  />
+                  <View style={styles.pickerContainer}>
+                    <RNPicker
+                      selectedValue={formData.vendorId}
+                      onValueChange={(value: string) => setFormData({ ...formData, vendorId: value })}
+                      style={styles.picker}
+                      data-testid="picker-vendor"
+                    >
+                      <RNPicker.Item label="Select vendor" value="" />
+                      {vendors.map(v => (
+                        <RNPicker.Item key={v.id} label={v.name} value={v.id} />
+                      ))}
+                    </RNPicker>
+                  </View>
                 </View>
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Category</Text>
-                  <Picker
-                    selectedValue={formData.vendorCategory}
-                    onValueChange={(value) => setFormData({ ...formData, vendorCategory: value })}
-                    items={[
-                      { label: 'Select category', value: '' },
-                      ...vendorCategories.map(c => ({ label: c, value: c }))
-                    ]}
-                    data-testid="picker-vendor-category"
-                  />
+                  <View style={styles.pickerContainer}>
+                    <RNPicker
+                      selectedValue={formData.vendorCategory}
+                      onValueChange={(value: string) => setFormData({ ...formData, vendorCategory: value })}
+                      style={styles.picker}
+                      data-testid="picker-vendor-category"
+                    >
+                      <RNPicker.Item label="Select category" value="" />
+                      {vendorCategories.map(c => (
+                        <RNPicker.Item key={c} label={c} value={c} />
+                      ))}
+                    </RNPicker>
+                  </View>
                 </View>
               </>
             )}
@@ -266,27 +274,35 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
               <>
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Team Member *</Text>
-                  <Picker
-                    selectedValue={formData.teamMemberId}
-                    onValueChange={(value) => setFormData({ ...formData, teamMemberId: value })}
-                    items={[
-                      { label: 'Select team member', value: '' },
-                      ...teamMembers.map(t => ({ label: t.name, value: t.id }))
-                    ]}
-                    data-testid="picker-team-member"
-                  />
+                  <View style={styles.pickerContainer}>
+                    <RNPicker
+                      selectedValue={formData.teamMemberId}
+                      onValueChange={(value: string) => setFormData({ ...formData, teamMemberId: value })}
+                      style={styles.picker}
+                      data-testid="picker-team-member"
+                    >
+                      <RNPicker.Item label="Select team member" value="" />
+                      {teamMembers.map(t => (
+                        <RNPicker.Item key={t.id} label={t.name} value={t.id} />
+                      ))}
+                    </RNPicker>
+                  </View>
                 </View>
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Role</Text>
-                  <Picker
-                    selectedValue={formData.teamRole}
-                    onValueChange={(value) => setFormData({ ...formData, teamRole: value })}
-                    items={[
-                      { label: 'Select role', value: '' },
-                      ...roles.map(r => ({ label: r, value: r }))
-                    ]}
-                    data-testid="picker-team-role"
-                  />
+                  <View style={styles.pickerContainer}>
+                    <RNPicker
+                      selectedValue={formData.teamRole}
+                      onValueChange={(value: string) => setFormData({ ...formData, teamRole: value })}
+                      style={styles.picker}
+                      data-testid="picker-team-role"
+                    >
+                      <RNPicker.Item label="Select role" value="" />
+                      {roles.map(r => (
+                        <RNPicker.Item key={r} label={r} value={r} />
+                      ))}
+                    </RNPicker>
+                  </View>
                 </View>
               </>
             )}
@@ -295,39 +311,51 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
               <>
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Asset *</Text>
-                  <Picker
-                    selectedValue={formData.assetId}
-                    onValueChange={(value) => setFormData({ ...formData, assetId: value })}
-                    items={[
-                      { label: 'Select asset', value: '' },
-                      ...assets.map(a => ({ label: a.name, value: a.id }))
-                    ]}
-                    data-testid="picker-asset"
-                  />
+                  <View style={styles.pickerContainer}>
+                    <RNPicker
+                      selectedValue={formData.assetId}
+                      onValueChange={(value: string) => setFormData({ ...formData, assetId: value })}
+                      style={styles.picker}
+                      data-testid="picker-asset"
+                    >
+                      <RNPicker.Item label="Select asset" value="" />
+                      {assets.map(a => (
+                        <RNPicker.Item key={a.id} label={a.name} value={a.id} />
+                      ))}
+                    </RNPicker>
+                  </View>
                 </View>
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Purchase Status</Text>
-                  <Picker
-                    selectedValue={formData.assetPurchaseStatus}
-                    onValueChange={(value) => setFormData({ ...formData, assetPurchaseStatus: value })}
-                    items={[
-                      { label: 'Select status', value: '' },
-                      ...assetPurchaseStatuses.map(s => ({ label: s, value: s }))
-                    ]}
-                    data-testid="picker-purchase-status"
-                  />
+                  <View style={styles.pickerContainer}>
+                    <RNPicker
+                      selectedValue={formData.assetPurchaseStatus}
+                      onValueChange={(value: string) => setFormData({ ...formData, assetPurchaseStatus: value })}
+                      style={styles.picker}
+                      data-testid="picker-purchase-status"
+                    >
+                      <RNPicker.Item label="Select status" value="" />
+                      {assetPurchaseStatuses.map(s => (
+                        <RNPicker.Item key={s} label={s} value={s} />
+                      ))}
+                    </RNPicker>
+                  </View>
                 </View>
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Category</Text>
-                  <Picker
-                    selectedValue={formData.assetCategory}
-                    onValueChange={(value) => setFormData({ ...formData, assetCategory: value })}
-                    items={[
-                      { label: 'Select category', value: '' },
-                      ...assetCategories.map(c => ({ label: c, value: c }))
-                    ]}
-                    data-testid="picker-asset-category"
-                  />
+                  <View style={styles.pickerContainer}>
+                    <RNPicker
+                      selectedValue={formData.assetCategory}
+                      onValueChange={(value: string) => setFormData({ ...formData, assetCategory: value })}
+                      style={styles.picker}
+                      data-testid="picker-asset-category"
+                    >
+                      <RNPicker.Item label="Select category" value="" />
+                      {assetCategories.map(c => (
+                        <RNPicker.Item key={c} label={c} value={c} />
+                      ))}
+                    </RNPicker>
+                  </View>
                 </View>
               </>
             )}
@@ -346,22 +374,34 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Payment Status</Text>
-              <Picker
-                selectedValue={formData.paymentStatus}
-                onValueChange={(value) => setFormData({ ...formData, paymentStatus: value })}
-                items={paymentStatuses.map(s => ({ label: s, value: s }))}
-                data-testid="picker-payment-status"
-              />
+              <View style={styles.pickerContainer}>
+                <RNPicker
+                  selectedValue={formData.paymentStatus}
+                  onValueChange={(value: string) => setFormData({ ...formData, paymentStatus: value })}
+                  style={styles.picker}
+                  data-testid="picker-payment-status"
+                >
+                  {paymentStatuses.map(s => (
+                    <RNPicker.Item key={s} label={s} value={s} />
+                  ))}
+                </RNPicker>
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Plan Status</Text>
-              <Picker
-                selectedValue={formData.planStatus}
-                onValueChange={(value) => setFormData({ ...formData, planStatus: value })}
-                items={planStatuses.map(s => ({ label: s, value: s }))}
-                data-testid="picker-plan-status"
-              />
+              <View style={styles.pickerContainer}>
+                <RNPicker
+                  selectedValue={formData.planStatus}
+                  onValueChange={(value: string) => setFormData({ ...formData, planStatus: value })}
+                  style={styles.picker}
+                  data-testid="picker-plan-status"
+                >
+                  {planStatuses.map(s => (
+                    <RNPicker.Item key={s} label={s} value={s} />
+                  ))}
+                </RNPicker>
+              </View>
             </View>
           </ScrollView>
 
@@ -511,5 +551,14 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+  },
+  picker: {
+    height: 50,
   },
 });
