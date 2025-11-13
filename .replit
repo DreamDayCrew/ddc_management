@@ -64,7 +64,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd mobile && npx expo start --tunnel"
+args = "cd mobile && npx expo start --tunnel --non-interactive"
 
 [workflows.workflow.metadata]
 outputType = "console"
