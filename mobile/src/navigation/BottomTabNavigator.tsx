@@ -1,6 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import DashboardScreen from '../screens/DashboardScreen';
+import DashboardScreenSimple from '../screens/DashboardScreenSimple';
 import EventsStackNavigator from './EventsStackNavigator';
 import ExpensesScreen from '../screens/ExpensesScreen';
 import MoreStackNavigator from './MoreStackNavigator';
@@ -60,7 +60,7 @@ export default function BottomTabNavigator() {
     >
       <Tab.Screen 
         name="Dashboard" 
-        component={DashboardScreen}
+        component={DashboardScreenSimple}
         options={{ headerTitle: 'Dashboard' }}
       />
       <Tab.Screen 

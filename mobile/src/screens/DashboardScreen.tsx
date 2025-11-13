@@ -29,7 +29,7 @@ export default function DashboardScreen() {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={BRAND_MAROON} />
-        <Text style={{ marginTop: 16, color: '#6b7280' }}>Loading dashboard...</Text>
+        <Text style={styles.loadingText}>Loading dashboard...</Text>
       </View>
     );
   }
@@ -301,6 +301,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f9fafb',
+  },
+  loadingText: {
+    marginTop: 16,
+    color: '#6b7280',
+    fontSize: 14,
   },
   header: {
     backgroundColor: BRAND_MAROON,
