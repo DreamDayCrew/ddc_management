@@ -29,33 +29,40 @@ export default function DashboardScreen() {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={BRAND_MAROON} />
+        <Text style={{ marginTop: 16, color: '#6b7280' }}>Loading dashboard...</Text>
       </View>
     );
   }
 
+  // Fallback if no data
+  const safeEvents = events || [];
+  const safeExpenses = expenses || [];
+  const safeAssets = assets || [];
+  const safeTeam = team || [];
+
   // Calculate financial metrics
-  const totalRevenue = events?.reduce((sum, event) => {
+  const totalRevenue = safeEvents.reduce((sum, event) => {
     const quote = parseFloat(event.finalizedQuote || '0');
     return sum + quote;
-  }, 0) || 0;
+  }, 0);
 
-  const totalCosts = events?.reduce((sum, event) => {
+  const totalCosts = safeEvents.reduce((sum, event) => {
     const cost = parseFloat(event.ddcCost || '0');
     return sum + cost;
-  }, 0) || 0;
+  }, 0);
 
   const profitLoss = totalRevenue - totalCosts;
   const isProfitable = profitLoss >= 0;
 
   // Event statistics
-  const totalEvents = events?.length || 0;
-  const upcomingEvents = events?.filter(e => {
+  const totalEvents = safeEvents.length;
+  const upcomingEvents = safeEvents.filter(e => {
     const eventDate = new Date(e.eventDate);
     const today = new Date();
     return eventDate >= today;
-  }).length || 0;
-  const inProgressEvents = events?.filter(e => e.eventStatus === 'In Progress').length || 0;
-  const completedEvents = events?.filter(e => e.eventStatus === 'Completed').length || 0;
+  }).length;
+  const inProgressEvents = safeEvents.filter(e => e.eventStatus === 'In Progress').length;
+  const completedEvents = safeEvents.filter(e => e.eventStatus === 'Completed').length;
 
   // Requirement statistics
   const toDoRequirements = requirements.filter(r => r.requirementStatus === 'To Do').length;
@@ -64,14 +71,14 @@ export default function DashboardScreen() {
   const totalRequirements = requirements.length;
 
   // Upcoming events for timeline
-  const upcoming = events
-    ?.filter(e => {
+  const upcoming = safeEvents
+    .filter(e => {
       const eventDate = new Date(e.eventDate);
       const today = new Date();
       return eventDate >= today;
     })
     .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())
-    .slice(0, 5) || [];
+    .slice(0, 5);
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -257,7 +264,7 @@ export default function DashboardScreen() {
             <View style={[styles.resourceIcon, { backgroundColor: '#fef3c7' }]}>
               <Ionicons name="cube" size={24} color="#f59e0b" />
             </View>
-            <Text style={styles.resourceNumber}>{assets?.length || 0}</Text>
+            <Text style={styles.resourceNumber}>{safeAssets.length}</Text>
             <Text style={styles.resourceLabel}>Assets</Text>
           </View>
 
@@ -265,7 +272,7 @@ export default function DashboardScreen() {
             <View style={[styles.resourceIcon, { backgroundColor: '#dbeafe' }]}>
               <Ionicons name="people" size={24} color="#3b82f6" />
             </View>
-            <Text style={styles.resourceNumber}>{team?.length || 0}</Text>
+            <Text style={styles.resourceNumber}>{safeTeam.length}</Text>
             <Text style={styles.resourceLabel}>Team</Text>
           </View>
 
@@ -273,7 +280,7 @@ export default function DashboardScreen() {
             <View style={[styles.resourceIcon, { backgroundColor: '#fce7f3' }]}>
               <Ionicons name="wallet" size={24} color="#ec4899" />
             </View>
-            <Text style={styles.resourceNumber}>{expenses?.length || 0}</Text>
+            <Text style={styles.resourceNumber}>{safeExpenses.length}</Text>
             <Text style={styles.resourceLabel}>Expenses</Text>
           </View>
         </View>
