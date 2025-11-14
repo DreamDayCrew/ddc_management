@@ -1,19 +1,13 @@
 // Environment configuration for mobile app
-// IMPORTANT: Update the PRODUCTION_API_URL before building APK for distribution
+/// <reference types="@types/react-native" />
 
-// Get the Replit deployment URL from environment or use placeholder
-// To get your URL: Deploy your app on Replit and copy the deployment URL
 const PRODUCTION_API_URL = 'https://ddc-management.onrender.com';
-
-// Replit development URL - automatically works with Expo Go on physical devices
-const REPLIT_DEV_URL = 'https://11f1ac2b-9680-4ae7-a0f5-0f47d2dbbf65-00-156r0awcxd3y4.kirk.replit.dev';
+// Use your computer's local IP address for development on physical devices
+const LOCAL_DEV_URL = 'http://172.19.129.244:5000';
 
 export const config = {
-  // API URL based on environment
-  // Development: Uses Replit dev URL (accessible from phone via Expo Go)
-  // Production: Uses your deployment URL
   API_URL: __DEV__ 
-    ? REPLIT_DEV_URL           // Replit development server (works with Expo Go)
+    ? LOCAL_DEV_URL            // Local development server (localhost:5000)
     : PRODUCTION_API_URL,      // Production deployment URL
   
   API_TIMEOUT: 10000,

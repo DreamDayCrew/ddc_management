@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Alert, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTeamMembers } from '../hooks/useApi';
 import type { TeamMember } from '../types';
 import AddTeamMemberModal from '../components/AddTeamMemberModal';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '../lib/api';
 
 const BRAND_MAROON = '#800020';
 
@@ -11,10 +13,44 @@ export default function TeamScreen() {
   const { data: team, isLoading, error } = useTeamMembers();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<TeamMember | null>(null);
+
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.deleteTeamMember(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/team'] });
+      Alert.alert('Success', 'Team member deleted successfully');
+    },
+    onError: (error: Error) => {
+      Alert.alert('Error', `Failed to delete team member: ${error.message}`);
+    },
+  });
 
   const handleEdit = (member: TeamMember) => {
     setSelectedMember(member);
     setModalVisible(true);
+  };
+
+  const handleDelete = (member: TeamMember) => {
+    console.log('Delete button clicked for member:', member);
+    setMemberToDelete(member);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (!memberToDelete) return;
+    console.log('Deleting member with ID:', memberToDelete.id);
+    deleteMutation.mutate(memberToDelete.id);
+    setShowDeleteConfirm(false);
+    setMemberToDelete(null);
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setMemberToDelete(null);
   };
 
   const handleCloseModal = () => {
@@ -23,17 +59,36 @@ export default function TeamScreen() {
   };
 
   const renderTeamMember = ({ item }: { item: TeamMember }) => (
-    <TouchableOpacity style={styles.memberCard} onPress={() => handleEdit(item)}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>
-          {item.name.charAt(0).toUpperCase()}
-        </Text>
-      </View>
-      <View style={styles.memberInfo}>
-        <Text style={styles.memberName}>{item.name}</Text>
-        <Text style={styles.memberDesignation}>{item.designation}</Text>
-      </View>
-    </TouchableOpacity>
+    <View style={styles.memberCard}>
+      <TouchableOpacity 
+        style={styles.memberContent}
+        onPress={() => {
+          console.log('Member row clicked for edit:', item.id);
+          handleEdit(item);
+        }}
+      >
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>
+            {item.name.charAt(0).toUpperCase()}
+          </Text>
+        </View>
+        <View style={styles.memberInfo}>
+          <Text style={styles.memberName}>{item.name}</Text>
+          <Text style={styles.memberDesignation}>{item.designation}</Text>
+        </View>
+      </TouchableOpacity>
+      <TouchableOpacity 
+        style={styles.deleteButton}
+        onPress={(e) => {
+          e.stopPropagation(); // Prevent event bubbling to parent
+          console.log('Trash icon pressed for:', item.id);
+          handleDelete(item);
+        }}
+        testID={`delete-member-${item.id}`}
+      >
+        <Ionicons name="trash-outline" size={22} color="#dc2626" />
+      </TouchableOpacity>
+    </View>
   );
 
   if (isLoading) {
@@ -84,6 +139,37 @@ export default function TeamScreen() {
         onClose={handleCloseModal}
         member={selectedMember}
       />
+
+      {/* Custom Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteConfirm}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={cancelDelete}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmModal}>
+            <Text style={styles.confirmTitle}>Delete Team Member</Text>
+            <Text style={styles.confirmMessage}>
+              Are you sure you want to delete {memberToDelete?.name}?
+            </Text>
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity 
+                style={[styles.confirmButton, styles.cancelButton]}
+                onPress={cancelDelete}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.confirmButton, styles.deleteConfirmButton]}
+                onPress={confirmDelete}
+              >
+                <Text style={styles.deleteButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -121,15 +207,31 @@ const styles = StyleSheet.create({
   memberCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    padding: 16,
+    backgroundColor: '#fff',
     borderRadius: 12,
+    paddingRight: 4, // Reduced right padding since delete button has its own padding
     marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
+    position: 'relative', // For z-index to work on children
+  },
+  memberContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  deleteButton: {
+    padding: 12,
+    marginLeft: 8,
+    zIndex: 10, // Ensure it's above other elements
+    backgroundColor: 'rgba(220, 38, 38, 0.1)', // Light red background
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   avatar: {
     width: 50,
@@ -185,5 +287,55 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  confirmModal: {
+    width: '80%',
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 20,
+    alignItems: 'center',
+    elevation: 5,
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  confirmMessage: {
+    fontSize: 16,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  confirmButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  confirmButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#e5e7eb',
+  },
+  deleteConfirmButton: {
+    backgroundColor: '#ef4444',
+  },
+  cancelButtonText: {
+    color: '#4b5563',
+    fontWeight: '600',
+  },
+  deleteButtonText: {
+    color: 'white',
+    fontWeight: '600',
   },
 });

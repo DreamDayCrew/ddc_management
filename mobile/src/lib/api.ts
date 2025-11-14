@@ -107,11 +107,14 @@ export const api = {
   getAsset: (id: string) => apiClient.get<Asset>(`/api/assets/${id}`),
   createAsset: (data: InsertAsset) => apiClient.post<Asset>('/api/assets', data),
   updateAsset: (id: string, data: Partial<InsertAsset>) => apiClient.patch<Asset>(`/api/assets/${id}`, data),
-  deleteAsset: (id: string) => apiClient.delete<void>(`/api/assets/${id}`),
+  deleteAsset: (id: string) => apiClient.delete<{ success: boolean }>(`/api/assets/${id}`),
   
   // Configuration
   getConfiguration: () => apiClient.get<Configuration>('/api/configuration'),
-  updateConfiguration: (data: Partial<Configuration>) => apiClient.post<Configuration>('/api/configuration', data),
+  createConfiguration: (data: Omit<Configuration, 'id'>) => 
+    apiClient.post<Configuration>('/api/configuration', data),
+  updateConfiguration: (data: Partial<Configuration> & { id: string }) => 
+    apiClient.patch<Configuration>(`/api/configuration/${data.id}`, data),
 
   // Vendors
   getVendors: () => apiClient.get<Vendor[]>('/api/vendors'),

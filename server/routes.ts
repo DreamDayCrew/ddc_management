@@ -122,7 +122,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!deleted) {
       return res.status(404).json({ error: "Asset not found" });
     }
-    res.status(204).send();
+    res.json({ success: true });
   });
 
   // Vendor routes
@@ -394,8 +394,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('Creating event with data:', JSON.stringify(req.body, null, 2));
       const validatedData = insertEventSchema.parse(req.body);
-      console.log('Validation passed, creating event with:', JSON.stringify(validatedData, null, 2));
-      const event = await storage.createEvent(validatedData);
+      
+      // Convert registeredOn to a string if it's a Date object
+      const eventData = {
+        ...validatedData,
+        registeredOn: validatedData.registeredOn 
+          ? new Date(validatedData.registeredOn).toISOString().split('T')[0]
+          : new Date().toISOString().split('T')[0]
+      };
+      
+      console.log('Creating event with:', JSON.stringify(eventData, null, 2));
+      const event = await storage.createEvent(eventData);
       res.status(201).json(event);
     } catch (error: any) {
       console.error('Event creation failed:', error.message);

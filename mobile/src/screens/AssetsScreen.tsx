@@ -275,16 +275,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     fontStyle: 'italic',
   },
-  warranty: {
-    fontSize: 13,
-    color: '#f59e0b',
-  },
-  assetId: {
-    fontSize: 12,
-    color: '#9ca3af',
-    marginTop: 4,
-    fontFamily: 'monospace',
-  },
   emptyContainer: {
     padding: 40,
     alignItems: 'center',

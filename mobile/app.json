@@ -2,7 +2,7 @@
   "expo": {
     "name": "Dream Day Crew",
     "slug": "dream-day-crew",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "cli": {
       "appVersionSource": "remote"
     },
@@ -28,7 +28,8 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "extra": {
       "eas": {
