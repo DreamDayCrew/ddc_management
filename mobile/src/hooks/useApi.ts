@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Alert } from 'react-native';
 import { api } from '../lib/api';
 import type { Event, Expense, TeamMember, Asset, Requirement } from '../types';
 
@@ -106,8 +107,20 @@ export function useCreateTeamMember() {
 // Assets hooks
 export function useAssets() {
   return useQuery<Asset[]>({
-    queryKey: ['/api/assets'],
-    queryFn: api.getAssets,
+    queryKey: ['assets'],
+    queryFn: async () => {
+      const data = await api.getAssets();
+      // Use a Set to track unique asset IDs
+      const uniqueIds = new Set<string>();
+      // Filter out duplicates by checking the Set
+      return data.filter(asset => {
+        if (uniqueIds.has(asset.id)) {
+          return false;
+        }
+        uniqueIds.add(asset.id);
+        return true;
+      });
+    }
   });
 }
 
@@ -116,7 +129,8 @@ export function useCreateAsset() {
   return useMutation({
     mutationFn: api.createAsset,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/assets'] });
+      // Invalidate the assets query to refetch the data
+      return queryClient.invalidateQueries({ queryKey: ['assets'] });
     },
   });
 }
@@ -126,7 +140,7 @@ export function useUpdateAsset() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<import('../types').InsertAsset> }) => api.updateAsset(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/assets'] });
+      return queryClient.invalidateQueries({ queryKey: ['assets'] });
     },
   });
 }
@@ -134,9 +148,29 @@ export function useUpdateAsset() {
 export function useDeleteAsset() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: api.deleteAsset,
+    mutationFn: async (id: string) => {
+      console.log('[useDeleteAsset] Starting deletion for asset ID:', id);
+      try {
+        const response = await api.deleteAsset(id);
+        console.log('[useDeleteAsset] Delete API response:', response);
+        return response;
+      } catch (error) {
+        console.error('[useDeleteAsset] Failed to delete asset:', {
+          error,
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined
+        });
+        throw error;
+      }
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/assets'] });
+      console.log('[useDeleteAsset] Invalidate queries');
+      // Invalidate the assets query to refetch the data
+      return queryClient.invalidateQueries({ queryKey: ['assets'] });
+    },
+    onError: (error: Error) => {
+      console.error('[useDeleteAsset] Error in mutation:', error);
+      Alert.alert('Error', `Failed to delete asset: ${error.message || 'Unknown error'}`);
     },
   });
 }

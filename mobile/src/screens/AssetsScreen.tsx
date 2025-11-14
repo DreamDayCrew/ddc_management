@@ -1,17 +1,51 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Alert, Modal, RefreshControl } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAssets, useDeleteAsset } from '../hooks/useApi';
+import { useAssets } from '../hooks/useApi';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '../lib/api';
 import type { Asset } from '../types';
 import AddAssetModal from '../components/AddAssetModal';
 
 const BRAND_MAROON = '#800020';
 
 export default function AssetsScreen() {
-  const { data: assets, isLoading, error } = useAssets();
-  const deleteAsset = useDeleteAsset();
+  const { data: assets = [], isLoading, error, refetch } = useAssets();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetch]);
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.deleteAsset(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      Alert.alert('Success', 'Asset deleted successfully');
+    },
+    onError: (error: Error) => {
+      Alert.alert('Error', `Failed to delete asset: ${error.message}`);
+    },
+  });
 
   const handleEdit = (asset: Asset) => {
     setSelectedAsset(asset);
@@ -19,18 +53,17 @@ export default function AssetsScreen() {
   };
 
   const handleDelete = (asset: Asset) => {
-    Alert.alert(
-      'Delete Asset?',
-      `Are you sure you want to delete "${asset.name}"? This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          onPress: () => deleteAsset.mutate(asset.id),
-          style: 'destructive' 
-        }
-      ]
-    );
+    console.log('Delete button clicked for asset:', asset);
+    setAssetToDelete(asset);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (!assetToDelete) return;
+    console.log('Deleting asset with ID:', assetToDelete.id);
+    deleteMutation.mutate(assetToDelete.id);
+    setShowDeleteConfirm(false);
+    setAssetToDelete(null);
   };
 
   const handleCloseModal = () => {
@@ -55,7 +88,7 @@ export default function AssetsScreen() {
             accessibilityLabel={`Delete ${item.name}`}
             style={styles.deleteButton}
           >
-            <Ionicons name="trash-outline" size={20} color="#ef4444" />
+            <Ionicons name="trash-outline" size={22} color="#dc2626" />
           </TouchableOpacity>
         </View>
       </View>
@@ -118,18 +151,58 @@ export default function AssetsScreen() {
         </View>
       </View>
 
+      {error && <Text style={styles.errorText}>Error loading assets: {error.message}</Text>}
       <FlatList
-        data={assets || []}
+        data={assets}
         renderItem={renderAssetItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No assets found</Text>
-          </View>
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#3b82f6']}
+            tintColor="#3b82f6"
+          />
         }
       />
-
+      
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteConfirm}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDeleteConfirm(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmationBox}>
+            <Text style={styles.confirmationTitle}>Delete Asset?</Text>
+            <Text style={styles.confirmationMessage}>
+              Are you sure you want to delete "{assetToDelete?.name}"? This action cannot be undone.
+            </Text>
+            <View style={styles.confirmationButtons}>
+              <TouchableOpacity 
+                style={[styles.confirmButton, styles.cancelButton]}
+                onPress={() => setShowDeleteConfirm(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.confirmButton, styles.deleteConfirmButton]}
+                onPress={confirmDelete}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      
       <TouchableOpacity
         style={styles.fab}
         onPress={() => setModalVisible(true)}
@@ -245,7 +318,66 @@ const styles = StyleSheet.create({
     color: '#1f2937',
   },
   deleteButton: {
-    padding: 4,
+    padding: 12,
+    marginLeft: 8,
+    zIndex: 10,
+    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  confirmationBox: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+  },
+  confirmationTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 12,
+    color: '#1f2937',
+  },
+  confirmationMessage: {
+    fontSize: 16,
+    color: '#4b5563',
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+  confirmationButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  confirmButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f3f4f6',
+  },
+  cancelButtonText: {
+    color: '#4b5563',
+    fontWeight: '500',
+  },
+  deleteConfirmButton: {
+    backgroundColor: '#ef4444',
+  },
+  deleteButtonText: {
+    color: 'white',
+    fontWeight: '500',
   },
   category: {
     fontSize: 14,

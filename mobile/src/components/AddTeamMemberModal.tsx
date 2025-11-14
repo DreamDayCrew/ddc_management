@@ -70,6 +70,8 @@ export default function AddTeamMemberModal({ visible, onClose, member }: AddTeam
     }
     createMutation.mutate(formData);
   };
+  
+  const isPending = createMutation.isPending;
 
   return (
     <Modal
@@ -109,21 +111,30 @@ export default function AddTeamMemberModal({ visible, onClose, member }: AddTeam
                 placeholderTextColor="#999"
               />
             </View>
-
-            <TouchableOpacity
-              style={[styles.submitButton, createMutation.isPending && styles.submitButtonDisabled]}
-              onPress={handleSubmit}
-              disabled={createMutation.isPending}
-            >
-              {createMutation.isPending ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.submitButtonText}>{member ? 'Update Member' : 'Create Member'}</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            <View style={styles.modalFooter}>
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={onClose}
+                  disabled={isPending}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.saveButton, isPending && styles.submitButtonDisabled]}
+                  onPress={handleSubmit}
+                  disabled={isPending}
+                  data-testid="button-save-vendor"
+                >
+                  {isPending ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.saveButtonText}>{member ? 'Update Member' : 'Create Member'}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
           </ScrollView>
         </View>
       </View>
@@ -213,5 +224,40 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  modalFooter: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    gap: 12,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#6b7280',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  saveButton: {
+    flex: 1,
+    backgroundColor: BRAND_MAROON,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

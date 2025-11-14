@@ -148,7 +148,7 @@ export default function TeamScreen() {
         onRequestClose={cancelDelete}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.confirmModal}>
+          <View style={styles.confirmationBox}>
             <Text style={styles.confirmTitle}>Delete Team Member</Text>
             <Text style={styles.confirmMessage}>
               Are you sure you want to delete {memberToDelete?.name}?
@@ -293,6 +293,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  confirmationBox: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
   },
   confirmModal: {
     width: '80%',

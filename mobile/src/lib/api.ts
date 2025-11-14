@@ -107,7 +107,25 @@ export const api = {
   getAsset: (id: string) => apiClient.get<Asset>(`/api/assets/${id}`),
   createAsset: (data: InsertAsset) => apiClient.post<Asset>('/api/assets', data),
   updateAsset: (id: string, data: Partial<InsertAsset>) => apiClient.patch<Asset>(`/api/assets/${id}`, data),
-  deleteAsset: (id: string) => apiClient.delete<{ success: boolean }>(`/api/assets/${id}`),
+  deleteAsset: async (id: string) => {
+    console.log('[api] Deleting asset with ID:', id);
+    try {
+      const response = await apiClient.delete<{ success: boolean }>(`/api/assets/${id}`);
+      console.log('[api] Delete asset response:', response);
+      return response;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorResponse = (error as any)?.response?.data;
+      
+      console.error('[api] Error deleting asset:', {
+        id,
+        error: errorMessage,
+        response: errorResponse
+      });
+      
+      throw error;
+    }
+  },
   
   // Configuration
   getConfiguration: () => apiClient.get<Configuration>('/api/configuration'),

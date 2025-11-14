@@ -174,21 +174,29 @@ export default function AddAssetModal({ visible, onClose, asset }: AddAssetModal
               options={['Available', 'In Use', 'Under Maintenance', 'Retired']}
             />
 
-            <TouchableOpacity
-              style={[styles.submitButton, createMutation.isPending && styles.submitButtonDisabled]}
-              onPress={handleSubmit}
-              disabled={createMutation.isPending}
-            >
-              {createMutation.isPending ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.submitButtonText}>{asset ? 'Update Asset' : 'Create Asset'}</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
+            <View style={styles.modalFooter}>
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={onClose}
+                  disabled={createMutation.isPending}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={handleSubmit}
+                  disabled={createMutation.isPending}
+                  data-testid="button-save-vendor"
+                >
+                  {createMutation.isPending ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.submitButtonText}>{asset ? 'Update Asset' : 'Create Asset'}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
           </ScrollView>
         </View>
       </View>
@@ -263,5 +271,35 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  modalFooter: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    gap: 12,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#6b7280',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  saveButton: {
+    flex: 1,
+    backgroundColor: BRAND_MAROON,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
   },
 });

@@ -9,7 +9,9 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
@@ -36,6 +38,8 @@ export default function AddVendorModal({ visible, vendor, onClose }: Props) {
     queryKey: ['configuration'],
     queryFn: () => api.getConfiguration(),
   });
+
+  const vendorCategories = config?.vendorCategories || [];
 
   useEffect(() => {
     if (vendor) {
@@ -171,13 +175,36 @@ export default function AddVendorModal({ visible, vendor, onClose }: Props) {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Category</Text>
-              <TextInput
-                style={styles.input}
-                value={category}
-                onChangeText={setCategory}
-                placeholder="e.g., Photography, Catering"
-                data-testid="input-vendor-category"
-              />
+              {Platform.OS === 'web' ? (
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  style={styles.select}
+                  data-testid="select-vendor-category"
+                >
+                  <option value="">Select a category</option>
+                  {vendorCategories.map((cat: string) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={category}
+                    onValueChange={(itemValue) => setCategory(itemValue)}
+                    style={styles.picker}
+                    dropdownIconColor="#6b7280"
+                    data-testid="picker-vendor-category"
+                  >
+                    <Picker.Item label="Select a category" value="" />
+                    {vendorCategories.map((cat: string) => (
+                      <Picker.Item key={cat} label={cat} value={cat} />
+                    ))}
+                  </Picker>
+                </View>
+              )}
             </View>
 
             <View style={styles.inputGroup}>
@@ -228,17 +255,6 @@ export default function AddVendorModal({ visible, vendor, onClose }: Props) {
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            {vendor && (
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={handleDelete}
-                disabled={isPending}
-                data-testid="button-delete-vendor"
-              >
-                <Ionicons name="trash" size={20} color="#fff" />
-                <Text style={styles.deleteButtonText}>Delete</Text>
-              </TouchableOpacity>
-            )}
             <View style={styles.actionButtons}>
               <TouchableOpacity
                 style={styles.cancelButton}
@@ -257,7 +273,7 @@ export default function AddVendorModal({ visible, vendor, onClose }: Props) {
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Text style={styles.saveButtonText}>
-                    {vendor ? 'Update' : 'Add'}
+                    {vendor ? 'Update Vendor' : 'Add Vendor'}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -314,6 +330,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1f2937',
     backgroundColor: '#fff',
+  },
+  select: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#fff',
+    marginBottom: 16,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    marginBottom: 16,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+  },
+  picker: {
+    width: '100%',
+    height: 50,
   },
   modalFooter: {
     padding: 20,

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Alert, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type { Vendor } from '../types';
 import AddVendorModal from '../components/AddVendorModal';
@@ -9,6 +9,47 @@ import AddVendorModal from '../components/AddVendorModal';
 const BRAND_MAROON = '#800020';
 
 export default function VendorsScreen() {
+  const queryClient = useQueryClient();
+  const [vendorToDelete, setVendorToDelete] = useState<Vendor | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.deleteVendor(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/vendor'] });
+      Alert.alert('Success', 'Vendor deleted successfully');
+    },
+    onError: (error: Error) => {
+      Alert.alert('Error', `Failed to delete vendor: ${error.message}`);
+    },
+  });
+
+  const deleteVendor = useMutation({
+    mutationFn: (id: string) => api.deleteVendor(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vendors'] });
+    },
+  });
+
+  const handleDelete = (vendor: Vendor) => {
+    console.log('Delete button clicked for vendor:', vendor);
+    setVendorToDelete(vendor);
+    setShowDeleteConfirm(true);
+  };
+
+    const confirmDelete = () => {
+    if (!vendorToDelete) return;
+    console.log('Deleting vendor with ID:', vendorToDelete.id);
+    deleteMutation.mutate(vendorToDelete.id);
+    setShowDeleteConfirm(false);
+    setVendorToDelete(null);
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setVendorToDelete(null);
+  };
+
   const { data: vendors, isLoading, error } = useQuery({
     queryKey: ['vendors'],
     queryFn: () => api.getVendors(),
@@ -46,14 +87,32 @@ export default function VendorsScreen() {
           )}
         </View>
         {item.rating !== null && item.rating !== undefined && item.rating > 0 && (
-          <View style={styles.ratingContainer}>
-            <Ionicons name="star" size={16} color="#f59e0b" />
-            <Text style={styles.ratingText}>{item.rating}</Text>
+          <View style={styles.ratingWrapper}>
+            <View style={styles.ratingContainer}>
+              <Ionicons name="star" size={16} color="#f59e0b" />
+              <Text style={styles.ratingText}>{item.rating}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.vendorDeleteButton}
+               onPress={(e) => {
+                e.stopPropagation(); // Prevent event bubbling to parent
+                console.log('Trash icon pressed for:', item.id);
+                handleDelete(item);
+              }}
+              testID={`delete-member-${item.id}`}
+            >
+              {deleteVendor.isPending ? (
+                <ActivityIndicator size="small" color="#dc2626" />
+              ) : (
+                <Ionicons name="trash-outline" size={20} color="#dc2626" />
+              )}
+            </TouchableOpacity>
           </View>
         )}
       </View>
 
-      {item.specialization && (
+      {item.specialization && ( 
         <View style={styles.vendorDetail}>
           <Ionicons name="briefcase" size={14} color="#6b7280" />
           <Text style={styles.detailText}>{item.specialization}</Text>
@@ -121,6 +180,36 @@ export default function VendorsScreen() {
         vendor={selectedVendor}
         onClose={handleCloseModal}
       />
+
+      <Modal
+        visible={showDeleteConfirm}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={cancelDelete}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmationBox}>
+            <Text style={styles.confirmTitle}>Delete Vendor</Text>
+            <Text style={styles.confirmMessage}>
+              Are you sure you want to delete {vendorToDelete?.name}?
+            </Text>
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity 
+                style={[styles.confirmButton, styles.cancelButton]}
+                onPress={cancelDelete}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.confirmButton, styles.deleteConfirmButton]}
+                onPress={confirmDelete}
+              >
+                <Text style={styles.deleteButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -245,5 +334,75 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 16,
     color: '#ef4444',
+  },
+  ratingWrapper: {
+    alignItems: 'flex-end',
+  },
+
+  vendorDeleteButton: {
+    padding: 8,
+    marginTop: 6,
+    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  confirmationBox: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+  },
+  confirmModal: {
+    width: '80%',
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 20,
+    alignItems: 'center',
+    elevation: 5,
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  confirmMessage: {
+    fontSize: 16,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  confirmButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  confirmButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#e5e7eb',
+  },
+  deleteConfirmButton: {
+    backgroundColor: '#ef4444',
+  },
+  cancelButtonText: {
+    color: '#4b5563',
+    fontWeight: '600',
+  },
+  deleteButtonText: {
+    color: 'white',
+    fontWeight: '600',
   },
 });
