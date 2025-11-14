@@ -108,16 +108,16 @@ export class MemStorage implements IStorage {
       socialLinks: config.socialLinks || null,
       termsAndConditions: config.termsAndConditions || null,
       signatureImage: config.signatureImage || null,
-      assetCategories: config.assetCategories || [],
+      assetCategories: config.assetCategories || ['Audio System','Decoration','Furniture','Photography','Lighting','Stage Equipment','Electrical / Wires','Office use / Safety'],
       assetPurchaseStatus: config.assetPurchaseStatus || ['Existing', 'New'],
-      servicesProvided: config.servicesProvided || [],
-      investmentTypes: config.investmentTypes || ['Office'],
-      planStatuses: config.planStatuses || ['To Do', 'In Progress', 'Completed'],
-      roles: config.roles || ['Designer'],
-      paymentModes: config.paymentModes || ['Cash', 'Gray'],
-      paymentStatuses: config.paymentStatuses || ['To Do', 'Completed'],
-      vendorCategories: config.vendorCategories || ['Decoration', 'Photography'],
-      expenseCategories: config.expenseCategories || ['Office', 'Asset', 'Event', 'Vendor', 'Team', 'Miscellaneous'],
+      servicesProvided: config.servicesProvided || ['Wedding Planning & Décor','Engagements & Receptions','Birthday & Anniversary Celebrations','Corporate Events & Launchs','Cultural & Theme Events','Marathons, carnivals, stage plays, and non-profit initiatives','Service & Installation','Devotional events'],
+      investmentTypes: config.investmentTypes || ['Office','Equipment','Marketing','Inventory'],
+      planStatuses: config.planStatuses || ['To Do','In Progress','Completed','Blocker'],
+      roles: config.roles || ['Designer','Coordinator','Manager','Technical Support','Decorator','Logistics','Purchasing Items'],
+      paymentModes: config.paymentModes || ['Cash','Bank Transfer','UPI'],
+      paymentStatuses: config.paymentStatuses || ['Pending', 'Paid','Partial'],
+      vendorCategories: config.vendorCategories || ['Decoration','Photography','Catering','Audio/Visual','Venue','Transportation','Lightings'],
+      expenseCategories: config.expenseCategories || ['Office','Event','Asset'],
     };
     this.configuration = newConfig;
     return newConfig;
@@ -131,35 +131,72 @@ export class MemStorage implements IStorage {
 
   // Assets
   async getAssets(): Promise<Asset[]> {
-    return Array.from(this.assets.values());
+    // Return a new array with copies of the assets to prevent direct modification
+    return Array.from(this.assets.values()).map(asset => ({
+      ...asset,
+      // Ensure purchasedAmount is a string
+      purchasedAmount: asset.purchasedAmount ? String(asset.purchasedAmount) : null
+    }));
   }
 
   async getAsset(id: string): Promise<Asset | undefined> {
-    return this.assets.get(id);
+    const asset = this.assets.get(id);
+    if (!asset) return undefined;
+    
+    // Return a copy with purchasedAmount as string
+    return {
+      ...asset,
+      purchasedAmount: asset.purchasedAmount ? String(asset.purchasedAmount) : null
+    };
   }
 
   async createAsset(asset: InsertAsset): Promise<Asset> {
+    // Ensure purchasedAmount is properly formatted as a string
+    const purchasedAmount = asset.purchasedAmount !== undefined && asset.purchasedAmount !== null
+      ? String(asset.purchasedAmount)
+      : null;
+      
     const newAsset: Asset = { 
       id: randomUUID(),
       name: asset.name,
       category: asset.category,
       quantity: asset.quantity ?? 1,
       purchaseDate: asset.purchaseDate || null,
-      purchasedAmount: asset.purchasedAmount || null,
+      purchasedAmount: purchasedAmount,
       status: asset.status || 'Active',
       detailsAndUse: asset.detailsAndUse || null,
       warranty: asset.warranty || null,
     };
+    
     this.assets.set(newAsset.id, newAsset);
-    return newAsset;
+    return { ...newAsset }; // Return a copy to prevent direct modification
   }
 
   async updateAsset(id: string, asset: Partial<InsertAsset>): Promise<Asset | undefined> {
     const existing = this.assets.get(id);
     if (!existing) return undefined;
-    const updated = { ...existing, ...asset };
+    
+    // Create a new object with the updated values
+    const updated: Asset = { ...existing };
+    
+    // Update only the provided fields
+    if (asset.name !== undefined) updated.name = asset.name;
+    if (asset.category !== undefined) updated.category = asset.category;
+    if (asset.quantity !== undefined) updated.quantity = asset.quantity;
+    if (asset.purchaseDate !== undefined) updated.purchaseDate = asset.purchaseDate;
+    if (asset.status !== undefined) updated.status = asset.status;
+    if (asset.detailsAndUse !== undefined) updated.detailsAndUse = asset.detailsAndUse;
+    if (asset.warranty !== undefined) updated.warranty = asset.warranty;
+    
+    // Handle purchasedAmount separately to ensure it's a string
+    if ('purchasedAmount' in asset) {
+      updated.purchasedAmount = asset.purchasedAmount !== undefined && asset.purchasedAmount !== null
+        ? String(asset.purchasedAmount)
+        : null;
+    }
+    
     this.assets.set(id, updated);
-    return updated;
+    return { ...updated }; // Return a copy to prevent direct modification
   }
 
   async deleteAsset(id: string): Promise<boolean> {
@@ -238,23 +275,47 @@ export class MemStorage implements IStorage {
   }
 
   async createExpense(expense: InsertExpense): Promise<Expense> {
-    // Convert contribution numbers to strings to match the schema
-    const contributionAsStrings = expense.contribution 
-      ? expense.contribution.map(num => num.toString())
+    // Ensure contribution is an array of numbers and handle null/undefined cases
+    const contribution = Array.isArray(expense.contribution)
+      ? expense.contribution.map(Number).filter(n => !isNaN(n))
+      : [];
+      
+    // Ensure contributor is an array of strings
+    const contributor = Array.isArray(expense.contributor)
+      ? expense.contributor.map(id => id?.toString() ?? '').filter(Boolean)
+      : [];
+      
+    // Ensure contribution_status is properly typed
+    const contribution_status = Array.isArray(expense.contribution_status)
+      ? expense.contribution_status
       : [];
       
     const newExpense: Expense = { 
       id: randomUUID(),
       type: expense.type,
-      category: expense.category || null,
-      description: expense.description,
+      category: expense.category || 'Event',
+      description: expense.description || null,
       amount: expense.amount,
-      mode: expense.mode || null,
-      date: expense.date,
+      date: (() => {
+        const dateObj = expense.date 
+          ? (expense.date instanceof Date 
+              ? expense.date 
+              : new Date(expense.date))
+          : new Date();
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      })(),
       status: expense.status || 'Pending',
-      contributor: expense.contributor || [],
-      contribution: contributionAsStrings,
-      contribution_status: expense.contribution_status || [],
+      from_account: expense.from_account || 'DDC Fund',
+      to_account: expense.to_account || null,
+      contributor,
+      contribution: contribution.map(String),
+      contribution_status,
+      split_type: expense.split_type || null,
+      created_at: new Date().toISOString(), 
+      updated_at: new Date().toISOString() 
     };
     this.expenses.set(newExpense.id, newExpense);
     return newExpense;
@@ -264,21 +325,50 @@ export class MemStorage implements IStorage {
     const existing = this.expenses.get(id);
     if (!existing) return undefined;
     
-    // Convert contribution numbers to strings if they are provided
-    let contributionUpdate = existing.contribution;
+    // Process contribution update if provided
+    // Process contribution update if provided
+    let contribution = existing.contribution;
     if (expense.contribution !== undefined) {
-      contributionUpdate = expense.contribution.map(num => num.toString());
+      contribution = Array.isArray(expense.contribution)
+        ? expense.contribution.map(n => n?.toString() ?? '0').filter(Boolean)
+        : [];
     }
     
-    const updated = { 
-      ...existing, 
+    // Process contributor update if provided
+    let contributor = existing.contributor;
+    if (expense.contributor !== undefined) {
+      contributor = Array.isArray(expense.contributor)
+        ? expense.contributor.map(id => id?.toString() ?? '').filter(Boolean)
+        : [];
+    }
+    
+    // Process contribution_status update if provided
+    let contribution_status = existing.contribution_status;
+    if (expense.contribution_status !== undefined) {
+      contribution_status = Array.isArray(expense.contribution_status)
+        ? expense.contribution_status
+        : [];
+    }
+    
+    // Process date update if provided
+    let date = existing.date;
+    if (expense.date !== undefined) {
+      date = expense.date instanceof Date 
+        ? expense.date.toISOString().split('T')[0]
+        : expense.date || existing.date;
+    }
+    
+    const updated: Expense = { 
+      ...existing,
       ...expense,
-      // Only update the arrays if they are provided in the update
-      contributor: expense.contributor !== undefined ? expense.contributor : existing.contributor,
-      contribution: contributionUpdate,
-      contribution_status: expense.contribution_status !== undefined ? 
-        expense.contribution_status : existing.contribution_status,
+      id: existing.id, // Prevent ID from being overridden
+      date,
+      contributor,
+      contribution,
+      contribution_status,
+      updated_at: new Date() ,
     };
+    
     this.expenses.set(id, updated);
     return updated;
   }
@@ -296,28 +386,49 @@ export class MemStorage implements IStorage {
     return this.events.get(id);
   }
 
+  // Helper function to safely format dates
+  private formatDate(date: Date | string | null | undefined): string {
+    if (!date) return '';
+    if (date instanceof Date) return date.toISOString().split('T')[0];
+    if (typeof date === 'string') return date;
+    return '';
+  }
+
+  // Helper function to handle numeric fields
+  private formatNumber(value: string | number | null | undefined): string | null {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number') return value.toString();
+    return value || null;
+  }
+
   async createEvent(event: InsertEvent): Promise<Event> {
-    const newEvent: Event = { 
+    // Ensure registeredOn is properly formatted as a string
+    const registeredOn = event.registeredOn 
+      ? this.formatDate(event.registeredOn)
+      : new Date().toISOString().split('T')[0];
+      
+    const newEvent: Event = {
       id: randomUUID(),
       providedService: event.providedService,
       eventName: event.eventName,
-      registeredOn: event.registeredOn || new Date().toISOString().split('T')[0], // YYYY-MM-DD format
-      eventDate: event.eventDate,
+      registeredOn: registeredOn,
+      eventDate: this.formatDate(event.eventDate),
       venue: event.venue,
-      clientName: event.clientName || null,
-      clientPhone: event.clientPhone || null,
-      clientAddress: event.clientAddress || null,
-      clientEmail: event.clientEmail || null,
-      eventStatus: event.eventStatus || 'Inquired',
-      initialQuote: event.initialQuote || null,
-      finalizedQuote: event.finalizedQuote || null,
-      ddcCost: event.ddcCost || null,
-      profitLoss: event.profitLoss || null,
-      paymentMode: event.paymentMode || null,
-      paymentStatus: event.paymentStatus || 'Pending',
-      source: event.source || null,
-      notes: event.notes || null,
+      source: event.source ?? null,
+      clientName: event.clientName ?? null,
+      clientPhone: event.clientPhone ?? null,
+      clientAddress: event.clientAddress ?? null,
+      clientEmail: event.clientEmail ?? null,
+      eventStatus: event.eventStatus ?? 'Draft',
+      paymentStatus: event.paymentStatus ?? 'Pending',
+      paymentMode: event.paymentMode ?? null,
+      notes: event.notes ?? null,
+      finalizedQuote: this.formatNumber(event.finalizedQuote),
+      initialQuote: this.formatNumber(event.initialQuote),
+      ddcCost: this.formatNumber(event.ddcCost),
+      profitLoss: this.formatNumber(event.profitLoss),
     };
+    
     this.events.set(newEvent.id, newEvent);
     return newEvent;
   }
@@ -325,7 +436,38 @@ export class MemStorage implements IStorage {
   async updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event | undefined> {
     const existing = this.events.get(id);
     if (!existing) return undefined;
-    const updated = { ...existing, ...event };
+
+    const updated: Event = { ...existing };
+
+    // Update all provided fields
+    if (event.providedService !== undefined) updated.providedService = event.providedService;
+    if (event.eventName !== undefined) updated.eventName = event.eventName;
+    if (event.venue !== undefined) updated.venue = event.venue;
+    if (event.source !== undefined) updated.source = event.source ?? null;
+    if (event.clientName !== undefined) updated.clientName = event.clientName ?? null;
+    if (event.clientPhone !== undefined) updated.clientPhone = event.clientPhone ?? null;
+    if (event.clientAddress !== undefined) updated.clientAddress = event.clientAddress ?? null;
+    if (event.clientEmail !== undefined) updated.clientEmail = event.clientEmail ?? null;
+    if (event.eventStatus !== undefined) updated.eventStatus = event.eventStatus ?? 'Draft';
+    if (event.paymentStatus !== undefined) updated.paymentStatus = event.paymentStatus ?? 'Pending';
+    if (event.paymentMode !== undefined) updated.paymentMode = event.paymentMode ?? null;
+    if (event.notes !== undefined) updated.notes = event.notes ?? null;
+    
+    // Handle numeric fields
+    if (event.finalizedQuote !== undefined) updated.finalizedQuote = this.formatNumber(event.finalizedQuote);
+    if (event.initialQuote !== undefined) updated.initialQuote = this.formatNumber(event.initialQuote);
+    if (event.ddcCost !== undefined) updated.ddcCost = this.formatNumber(event.ddcCost);
+    if (event.profitLoss !== undefined) updated.profitLoss = this.formatNumber(event.profitLoss);
+    
+    // Handle date fields
+    if (event.registeredOn !== undefined) {
+      updated.registeredOn = this.formatDate(event.registeredOn) || updated.registeredOn;
+    }
+    
+    if (event.eventDate !== undefined) {
+      updated.eventDate = this.formatDate(event.eventDate) || '';
+    }
+    
     this.events.set(id, updated);
     return updated;
   }
@@ -351,6 +493,7 @@ export class MemStorage implements IStorage {
     const newRequirement: Requirement = { 
       id: randomUUID(),
       eventId: requirement.eventId,
+      description: requirement.description || '',
       requirement: requirement.requirement,
       requirementOwner: requirement.requirementOwner || null,
       requirementStatus: requirement.requirementStatus || 'To Do',
@@ -388,22 +531,23 @@ export class MemStorage implements IStorage {
   }
 
   async createFulfillmentPlan(plan: InsertFulfillmentPlan): Promise<FulfillmentPlan> {
+    const now = new Date();
     const newPlan: FulfillmentPlan = { 
       id: randomUUID(),
       requirementId: plan.requirementId,
       planType: plan.planType,
-      teamMemberId: plan.teamMemberId || null,
-      teamRole: plan.teamRole || null,
-      payment: plan.payment !== undefined ? String(plan.payment) : '0',
       vendorId: plan.vendorId || null,
       vendorCategory: plan.vendorCategory || null,
-      paymentStatus: plan.paymentStatus || null,
+      teamMemberId: plan.teamMemberId || null,
+      teamRole: plan.teamRole || null,
       assetId: plan.assetId || null,
-      assetCategory: plan.assetCategory || null,
       assetPurchaseStatus: plan.assetPurchaseStatus || null,
-      planStatus: plan.planStatus || 'To Do',
-      createdAt: new Date(),
-      updatedAt: new Date()
+      createdAt: now,
+      updatedAt: now,
+      assetCategory: plan.assetCategory || null,
+      payment: plan.payment !== undefined ? String(plan.payment) : null,
+      paymentStatus: plan.paymentStatus || null,
+      planStatus: plan.planStatus || 'To Do'
     };
     console.log('Trying to insert:', JSON.stringify(newPlan, null, 2));
     this.fulfillmentPlans.set(newPlan.id, newPlan);

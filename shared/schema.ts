@@ -18,16 +18,16 @@ export const configurations = pgTable("configurations", {
   socialLinks: text("social_links").array(),
   termsAndConditions: text("terms_and_conditions"),
   signatureImage: text("signature_image"),
-  assetCategories: text("asset_categories").array().notNull().default(sql`ARRAY[]::text[]`),
+  assetCategories: text("asset_categories").array().notNull().default(sql`ARRAY['Audio System','Decoration','Furniture','Photography','Lighting','Stage Equipment','Electrical / Wires','Office use / Safety']::text[]`),
   assetPurchaseStatus: text("asset_purchase_status").array().notNull().default(sql`ARRAY['Existing', 'New']::text[]`),
-  servicesProvided: text("services_provided").array().notNull().default(sql`ARRAY[]::text[]`),
-  investmentTypes: text("investment_types").array().notNull().default(sql`ARRAY['Office']::text[]`),
-  planStatuses: text("plan_statuses").array().notNull().default(sql`ARRAY['To Do', 'In Progress', 'Completed']::text[]`),
-  roles: text("roles").array().notNull().default(sql`ARRAY['Designer']::text[]`),
-  paymentModes: text("payment_modes").array().notNull().default(sql`ARRAY['Cash', 'Gray']::text[]`),
-  paymentStatuses: text("payment_statuses").array().notNull().default(sql`ARRAY['To Do', 'Completed']::text[]`),
-  vendorCategories: text("vendor_categories").array().notNull().default(sql`ARRAY['Decoration', 'Photography']::text[]`),
-  expenseCategories: text("expense_categories").array().notNull().default(sql`ARRAY['Materials', 'Labor', 'Venue', 'Catering', 'Equipment', 'Transportation', 'Marketing', 'Miscellaneous']::text[]`),
+  servicesProvided: text("services_provided").array().notNull().default(sql`ARRAY['Wedding Planning & Décor','Engagements & Receptions','Birthday & Anniversary Celebrations','Corporate Events & Launchs','Cultural & Theme Events','Marathons, carnivals, stage plays, and non-profit initiatives','Service & Installation','Devotional events']::text[]`),
+  investmentTypes: text("investment_types").array().notNull().default(sql`ARRAY['Office','Equipment','Marketing','Inventory']::text[]`),
+  planStatuses: text("plan_statuses").array().notNull().default(sql`ARRAY['To Do','In Progress','Completed','Blocker']::text[]`),
+  roles: text("roles").array().notNull().default(sql`ARRAY['Designer','Coordinator','Manager','Technical Support','Decorator','Logistics','Purchasing Items']::text[]`),
+  paymentModes: text("payment_modes").array().notNull().default(sql`ARRAY['Cash','Bank Transfer','UPI']::text[]`),
+  paymentStatuses: text("payment_statuses").array().notNull().default(sql`ARRAY['Pending', 'Paid','Partial']::text[]`),
+  vendorCategories: text("vendor_categories").array().notNull().default(sql`ARRAY['Decoration','Photography','Catering','Audio/Visual','Venue','Transportation','Lightings']::text[]`),
+  expenseCategories: text("expense_categories").array().notNull().default(sql`ARRAY['Office','Event','Asset']::text[]`),
 });
 
 // Assets Schema
@@ -162,7 +162,16 @@ export const fulfillmentPlans = pgTable('fulfillment_plans', {
 
 // Insert Schemas
 export const insertConfigurationSchema = createInsertSchema(configurations).omit({ id: true });
-export const insertAssetSchema = createInsertSchema(assets).omit({ id: true });
+export const insertAssetSchema = createInsertSchema(assets)
+  .omit({ id: true })
+  .extend({
+    purchasedAmount: z.union([z.string(), z.number()])
+      .transform((val) => {
+        if (val === "" || val === null || val === undefined) return null;
+        return String(val);
+      })
+      .pipe(z.string().nullable().optional()),
+  });
 export const insertVendorSchema = createInsertSchema(vendors).omit({ id: true });
 export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id: true });
 export const insertExpenseSchema = createInsertSchema(expenses)
@@ -201,7 +210,9 @@ export const insertFulfillmentPlanSchema = createInsertSchema(fulfillmentPlans, 
 export type Configuration = typeof configurations.$inferSelect;
 export type InsertConfiguration = z.infer<typeof insertConfigurationSchema>;
 export type Asset = typeof assets.$inferSelect;
-export type InsertAsset = z.infer<typeof insertAssetSchema>;
+export type InsertAsset = Omit<z.infer<typeof insertAssetSchema>, 'purchasedAmount'> & {
+  purchasedAmount?: string | number | null;
+};
 export type Vendor = typeof vendors.$inferSelect;
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type TeamMember = typeof teamMembers.$inferSelect;
@@ -209,7 +220,23 @@ export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
 export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 export type Event = typeof events.$inferSelect;
-export type InsertEvent = z.infer<typeof insertEventSchema>;
+export type InsertEvent = Omit<typeof events.$inferInsert, 'id'> & {
+  eventDate: Date | string;
+  registeredOn?: Date | string | null;
+  source?: string | null;
+  clientName?: string | null;
+  clientPhone?: string | null;
+  clientEmail?: string | null;
+  clientAddress?: string | null;
+  eventStatus?: string | null;
+  paymentStatus?: string | null;
+  paymentMode?: string | null;
+  notes?: string | null;
+  finalizedQuote?: number | string | null;
+  initialQuote?: number | string | null;
+  ddcCost?: number | string | null;
+  profitLoss?: number | string | null;
+};
 export type Requirement = typeof requirements.$inferSelect;
 export type InsertRequirement = z.infer<typeof insertRequirementSchema>;
 

@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
+import { Configuration } from '../types';
 import {
   View,
   Text,
-  StyleSheet,
-  ScrollView,
+  Linking,
   TextInput,
+  ScrollView,
   TouchableOpacity,
+  Switch,
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { Ionicons } from '@expo/vector-icons';
+import styles from './ConfigurationScreen.styles';
 
 const BRAND_MAROON = '#800020';
 
@@ -21,44 +24,106 @@ export default function ConfigurationScreen() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [gstNumber, setGstNumber] = useState('');
+  const [includeGst, setIncludeGst] = useState(false);
+  const [website, setWebsite] = useState('');
+  const [address, setAddress] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const { data: config, isLoading } = useQuery({
+  const { data: config, isLoading, refetch } = useQuery<Configuration | null>({
     queryKey: ['configuration'],
-    queryFn: () => api.getConfiguration(),
+    queryFn: async () => {
+      try {
+        const data = await api.getConfiguration();
+        console.log('Configuration loaded:', data);
+        if (!data?.id) {
+          console.warn('No configuration found, will create a new one on save');
+        }
+        return data;
+      } catch (error) {
+        console.error('Error loading configuration:', error);
+        return null;
+      }
+    }
   });
 
   useEffect(() => {
     if (config) {
+      console.log('Loading config:', config);
       setBusinessName(config.businessName || '');
       setEmail(config.email || '');
       setPhone(config.phone || '');
       setGstNumber(config.gstNumber || '');
+      // Ensure includeGst is properly converted to boolean
+      const includeGstValue = config.includeGst === 'true' || config.includeGst === "true" || "false";
+      console.log('Setting includeGst:', includeGstValue, 'from:', config.includeGst);
+      setIncludeGst(Boolean(includeGstValue));
+      setWebsite(config.website || '');
+      setAddress(config.address || '');
     }
   }, [config]);
 
   const updateMutation = useMutation({
-    mutationFn: (data: any) => api.updateConfiguration(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['configuration'] });
-      Alert.alert('Success', 'Configuration updated successfully');
+    mutationFn: async (data: Partial<Configuration> & { id?: string }) => {
+      if (data.id) {
+        // Update existing configuration
+        const { id, ...updateData } = data;
+        return api.updateConfiguration({ id, ...updateData });
+      } else {
+        // Create new configuration
+        const { id, ...createData } = data;
+        return api.createConfiguration(createData as Omit<Configuration, 'id'>);
+      }
     },
-    onError: (error: Error) => {
-      Alert.alert('Error', `Failed to update: ${error.message}`);
+    onSuccess: (data) => {
+      // Invalidate and refetch the configuration query
+      queryClient.setQueryData(['configuration'], data);
+      Alert.alert('Success', 'Configuration saved successfully');
+    },
+    onError: (error: any) => {
+      console.error('Save error:', error);
+      Alert.alert('Error', error.message || 'Failed to save configuration');
     },
   });
 
-  const handleSave = () => {
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    
     if (!businessName.trim()) {
-      Alert.alert('Error', 'Business name is required');
+      newErrors.businessName = 'Business name is required';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSave = async () => {
+    console.log('Save button clicked');
+    
+    // Validate form
+    if (!validateForm()) {
+      console.log('Form validation failed');
       return;
     }
 
-    updateMutation.mutate({
+    const configData = {
+      id: config?.id, // Will be undefined for new configs
       businessName: businessName.trim(),
       email: email.trim() || null,
       phone: phone.trim() || null,
       gstNumber: gstNumber.trim() || null,
-    });
+      includeGst: includeGst ? 'true' : 'false', // Convert to string 'true'/'false'
+      website: website.trim() || null,
+      address: address.trim() || null,
+    };
+
+    console.log('Saving configuration:', configData);
+    
+    try {
+      await updateMutation.mutateAsync(configData);
+    } catch (error) {
+      console.error('Error saving configuration:', error);
+      // Error is already handled by the mutation's onError
+    }
   };
 
   if (isLoading) {
@@ -75,14 +140,33 @@ export default function ConfigurationScreen() {
         <Text style={styles.sectionTitle}>Business Information</Text>
         
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Business Name *</Text>
+          <View style={styles.labelContainer}>
+            <Text style={styles.label}>Business Name</Text>
+            <Text style={styles.required}>*</Text>
+          </View>
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              errors.businessName ? styles.inputError : undefined
+            ].filter(Boolean) as any}
             value={businessName}
-            onChangeText={setBusinessName}
+            onChangeText={(text) => {
+              setBusinessName(text);
+              // Clear error when user starts typing
+              if (errors.businessName) {
+                setErrors(prev => ({
+                  ...prev,
+                  businessName: ''
+                }));
+              }
+            }}
             placeholder="Enter business name"
+            placeholderTextColor="#9ca3af"
             data-testid="input-business-name"
           />
+          {errors.businessName && (
+            <Text style={styles.errorText}>{errors.businessName}</Text>
+          )}
         </View>
 
         <View style={styles.inputGroup}>
@@ -121,117 +205,84 @@ export default function ConfigurationScreen() {
             data-testid="input-gst"
           />
         </View>
+
+        <View style={[styles.inputGroup, styles.switchContainer]}>
+          <Text style={styles.label}>Include GST in Invoices</Text>
+          <Switch
+            value={includeGst}
+            onValueChange={setIncludeGst}
+            trackColor={{ false: '#d1d5db', true: BRAND_MAROON }}
+            thumbColor="#ffffff"
+            style={styles.switchStyle} 
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Website</Text>
+          <TextInput
+            style={styles.input}
+            value={website}
+            onChangeText={setWebsite}
+            placeholder="https://example.com"
+            keyboardType="url"
+            autoCapitalize="none"
+            autoCorrect={false}
+            data-testid="input-website"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Business Address</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={address}
+            onChangeText={setAddress}
+            placeholder="Enter business address"
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+            data-testid="input-address"
+          />
+        </View>
       </View>
 
       <View style={styles.infoCard}>
         <Ionicons name="information-circle" size={20} color="#3b82f6" />
         <Text style={styles.infoText}>
-          Categories and other advanced settings can be managed from the web application
+          Categories and other advanced settings can be managed from the{' '}
+          <Text 
+            style={{color: '#3b82f6', textDecorationLine: 'underline'}}
+            onPress={() => Linking.openURL('https://ddc-management.onrender.com/')}
+            accessibilityLabel="Open web application"
+            accessibilityRole="link"
+          >
+            Dream Day Crew Web Application
+          </Text>
         </Text>
       </View>
 
       <TouchableOpacity
-        style={styles.saveButton}
-        onPress={handleSave}
+        style={[styles.saveButton, updateMutation.isPending && styles.saveButtonDisabled]}
+        onPress={() => {
+          console.log('Save button pressed');
+          handleSave();
+        }}
         disabled={updateMutation.isPending}
         data-testid="button-save-config"
+        activeOpacity={0.7}
       >
         {updateMutation.isPending ? (
-          <ActivityIndicator size="small" color="#fff" />
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.saveButtonText}>Saving...</Text>
+          </View>
         ) : (
-          <>
-            <Ionicons name="save" size={20} color="#fff" />
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="save" size={20} color="#fff" style={{ marginRight: 8 }} />
             <Text style={styles.saveButtonText}>Save Changes</Text>
-          </>
+          </View>
         )}
       </TouchableOpacity>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  section: {
-    backgroundColor: '#ffffff',
-    padding: 20,
-    marginTop: 16,
-    marginHorizontal: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 20,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#1f2937',
-    backgroundColor: '#fff',
-  },
-  infoCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#eff6ff',
-    padding: 16,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 8,
-    gap: 12,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#1e40af',
-    lineHeight: 20,
-  },
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: BRAND_MAROON,
-    marginHorizontal: 16,
-    marginTop: 24,
-    marginBottom: 32,
-    padding: 16,
-    borderRadius: 8,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

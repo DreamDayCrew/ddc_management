@@ -1,16 +1,110 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  FlatList, 
+  ActivityIndicator, 
+  TouchableOpacity, 
+  Alert,
+  RefreshControl,
+  Modal,
+  TextInput,
+  ScrollView,
+  Image
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAssets } from '../hooks/useApi';
 import type { Asset } from '../types';
 import AddAssetModal from '../components/AddAssetModal';
+import { api } from '../lib/api';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 const BRAND_MAROON = '#800020';
 
 export default function AssetsScreen() {
+  const queryClient = useQueryClient();
   const { data: assets, isLoading, error } = useAssets();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+
+  const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      console.log('[Delete Mutation] Starting deletion for asset ID:', id);
+      setDeletingAssetId(id);
+      try {
+        console.log('[Delete Mutation] Calling api.deleteAsset...');
+        const result = await api.deleteAsset(id);
+        console.log('[Delete Mutation] API delete request completed');
+        return id;
+      } catch (error) {
+        console.error('[Delete Mutation] Error in mutationFn:', {
+          error,
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined
+        });
+        throw error;
+      } finally {
+        console.log('[Delete Mutation] Cleaning up, setting deletingAssetId to null');
+        setDeletingAssetId(null);
+      }
+    },
+    onSuccess: (deletedId) => {
+      console.log('Delete successful, updating cache for ID:', deletedId);
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      Alert.alert('Success', 'Asset deleted successfully');
+    },
+    onError: (error: Error) => {
+      console.error('Delete mutation error:', error);
+      Alert.alert(
+        'Error', 
+        `Failed to delete asset: ${error.message || 'Unknown error occurred'}`
+      );
+    },
+  });
+
+  const handleDelete = (asset: Asset) => {
+    console.log('[Delete] Delete button clicked for asset:', { 
+      id: asset.id, 
+      name: asset.name 
+    });
+    
+    Alert.alert(
+      'Delete Asset',
+      `Are you sure you want to delete ${asset.name}?`,
+      [
+        { 
+          text: 'Cancel', 
+          style: 'cancel',
+          onPress: () => console.log('[Delete] User cancelled deletion')
+        },
+        { 
+          text: 'Delete', 
+          style: 'destructive', 
+          onPress: () => {
+            console.log('[Delete] User confirmed deletion, calling deleteMutation.mutate');
+            setDeletingAssetId(asset.id);
+            deleteMutation.mutate(asset.id, {
+              onSuccess: () => {
+                console.log('[Delete] Mutation successful');
+                setDeletingAssetId(null);
+              },
+              onError: (error) => {
+                console.error('[Delete] Mutation error:', error);
+                setDeletingAssetId(null);
+                Alert.alert(
+                  'Error',
+                  `Failed to delete asset: ${error.message || 'Unknown error occurred'}`
+                );
+              }
+            });
+          }
+        },
+      ]
+    );
+  };
 
   const handleEdit = (asset: Asset) => {
     setSelectedAsset(asset);
@@ -23,34 +117,52 @@ export default function AssetsScreen() {
   };
 
   const renderAssetItem = ({ item }: { item: Asset }) => (
-    <TouchableOpacity style={styles.assetCard} onPress={() => handleEdit(item)}>
-      <View style={styles.assetHeader}>
-        <Text style={styles.assetName}>{item.name}</Text>
-        <View style={[styles.statusBadge, getStatusColor(item.status)]}>
-          <Text style={styles.statusText}>{item.status}</Text>
-        </View>
+    <View style={styles.assetCard}>
+      <View style={{ flex: 1 }}>
+        <TouchableOpacity onPress={() => handleEdit(item)}>
+          <View style={styles.assetHeader}>
+            <Text style={styles.assetName}>{item.name}</Text>
+            <View style={[styles.statusBadge, getStatusColor(item.status)]}>
+              <Text style={styles.statusText}>{item.status}</Text>
+            </View>
+          </View>
+          
+          <Text style={styles.category}>📦 {item.category}</Text>
+          <Text style={styles.quantity}>Quantity: {item.quantity}</Text>
+          
+          {item.purchasedAmount && (
+            <Text style={styles.price}>
+              Purchase Price: ₹{parseFloat(item.purchasedAmount).toLocaleString()}
+            </Text>
+          )}
+          
+          {item.purchaseDate && (
+            <Text style={styles.date}>
+              Purchased: {new Date(item.purchaseDate).toLocaleDateString()}
+            </Text>
+          )}
+          
+          {item.detailsAndUse && (
+            <Text style={styles.details} numberOfLines={2} ellipsizeMode="tail">
+              {item.detailsAndUse}
+            </Text>
+          )}
+        </TouchableOpacity>
       </View>
       
-      <Text style={styles.category}>📦 {item.category}</Text>
-      <Text style={styles.quantity}>Quantity: {item.quantity}</Text>
-      
-      {item.purchasedAmount && (
-        <Text style={styles.price}>
-          Purchase Price: ₹{parseFloat(item.purchasedAmount).toLocaleString()}
-        </Text>
-      )}
-      
-      {item.purchaseDate && (
-        <Text style={styles.date}>
-          Purchased: {new Date(item.purchaseDate).toLocaleDateString()}
-        </Text>
-      )}
-      
-      {item.detailsAndUse && (
-        <Text style={styles.details}>{item.detailsAndUse}</Text>
-      )}
-      
-    </TouchableOpacity>
+      <TouchableOpacity 
+        style={styles.deleteButton}
+        onPress={(e) => {
+          e.stopPropagation(); // Prevent event bubbling to parent
+          console.log('Trash icon pressed for:', item.id);
+          handleDelete(item);
+        }}
+        disabled={!!deletingAssetId}
+        testID={`delete-member-${item.id}`}
+      >
+        <Ionicons name="trash-outline" size={22} color="#dc2626" />
+      </TouchableOpacity>
+    </View>
   );
 
   if (isLoading) {
@@ -142,6 +254,79 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
   },
+  assetCard: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  assetHeader: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  assetName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    flex: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#1f2937',
+  },
+  category: {
+    fontSize: 14,
+    color: '#4b5563',
+    marginBottom: 4,
+  },
+  quantity: {
+    fontSize: 14,
+    color: '#4b5563',
+    marginBottom: 4,
+  },
+  price: {
+    fontSize: 14,
+    color: '#4b5563',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  date: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  details: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 4,
+  },
+  deleteButton: {
+    padding: 12,
+    marginLeft: 8,
+    zIndex: 10, // Ensure it's above other elements
+    backgroundColor: 'rgba(220, 38, 38, 0.1)', // Light red background
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   summaryContainer: {
     flexDirection: 'row',
     padding: 16,
@@ -173,80 +358,7 @@ const styles = StyleSheet.create({
     color: '#2563eb',
   },
   listContent: {
-    padding: 16,
-    paddingTop: 0,
-  },
-  assetCard: {
-    backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  assetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  assetName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    flex: 1,
-    marginRight: 8,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  category: {
-    fontSize: 14,
-    color: '#2563eb',
-    marginBottom: 4,
-    fontWeight: '500',
-  },
-  quantity: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 4,
-  },
-  price: {
-    fontSize: 15,
-    color: '#10b981',
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  date: {
-    fontSize: 13,
-    color: '#9ca3af',
-    marginBottom: 8,
-  },
-  details: {
-    fontSize: 13,
-    color: '#4b5563',
-    marginBottom: 4,
-    fontStyle: 'italic',
-  },
-  warranty: {
-    fontSize: 13,
-    color: '#f59e0b',
-  },
-  assetId: {
-    fontSize: 12,
-    color: '#9ca3af',
-    marginTop: 4,
-    fontFamily: 'monospace',
+    paddingBottom: 80, // Extra padding at the bottom for FAB
   },
   emptyContainer: {
     padding: 40,
@@ -254,26 +366,30 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#9ca3af',
+    color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 8,
   },
   errorText: {
-    fontSize: 16,
     color: '#ef4444',
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 8,
   },
   fab: {
     position: 'absolute',
-    right: 20,
-    bottom: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    right: 24,
+    bottom: 24,
     backgroundColor: BRAND_MAROON,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 6,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
 });

@@ -74,8 +74,12 @@ export class DatabaseStorage implements IStorage {
   // Assets
   async getAssets(): Promise<Asset[]> {
     try {
-      const result = await db.select().from(assets);
-      return result || [];
+      const result = await db.select().from(assets).orderBy(assets.name);
+      // Ensure purchasedAmount is always a string for consistency
+      return result.map(asset => ({
+        ...asset,
+        purchasedAmount: asset.purchasedAmount ? String(asset.purchasedAmount) : null
+      }));
     } catch (error) {
       console.error('[DB] Error fetching assets, returning empty array:', error);
       return [];
@@ -84,20 +88,66 @@ export class DatabaseStorage implements IStorage {
 
   async getAsset(id: string): Promise<Asset | undefined> {
     const result = await db.select().from(assets).where(eq(assets.id, id));
-    return result[0];
+    if (!result[0]) return undefined;
+    
+    // Ensure purchasedAmount is a string
+    return {
+      ...result[0],
+      purchasedAmount: result[0].purchasedAmount ? String(result[0].purchasedAmount) : null
+    };
   }
 
   async createAsset(asset: InsertAsset): Promise<Asset> {
-    const result = await db.insert(assets).values(asset).returning();
-    return result[0];
+    // Ensure purchasedAmount is properly formatted as a string
+    const purchasedAmount = asset.purchasedAmount !== undefined && asset.purchasedAmount !== null
+      ? String(asset.purchasedAmount)
+      : null;
+      
+    const assetData = {
+      ...asset,
+      purchasedAmount,
+      // Ensure other fields have proper default values if needed
+      quantity: asset.quantity ?? 1,
+      status: asset.status || 'Active',
+      purchaseDate: asset.purchaseDate || null,
+      detailsAndUse: asset.detailsAndUse || null,
+      warranty: asset.warranty || null,
+    };
+    
+    const result = await db.insert(assets).values(assetData).returning();
+    
+    // Ensure purchasedAmount is a string in the returned object
+    return {
+      ...result[0],
+      purchasedAmount: result[0].purchasedAmount ? String(result[0].purchasedAmount) : null
+    };
   }
 
   async updateAsset(id: string, asset: Partial<InsertAsset>): Promise<Asset | undefined> {
+    // Prepare update data
+    const updateData: any = { ...asset };
+    
+    // Only update purchasedAmount if it's provided
+    if ('purchasedAmount' in asset) {
+      updateData.purchasedAmount = asset.purchasedAmount !== undefined && asset.purchasedAmount !== null
+        ? String(asset.purchasedAmount)
+        : null;
+    }
+    
     const result = await db.update(assets)
-      .set(asset)
+      .set(updateData)
       .where(eq(assets.id, id))
       .returning();
-    return result[0];
+      
+    if (!result.length) {
+      return undefined;
+    }
+    
+    // Ensure purchasedAmount is a string in the returned object
+    return {
+      ...result[0],
+      purchasedAmount: result[0].purchasedAmount ? String(result[0].purchasedAmount) : null
+    };
   }
 
   async deleteAsset(id: string): Promise<boolean> {
@@ -329,11 +379,22 @@ export class DatabaseStorage implements IStorage {
     // Create a new object to hold the update data
     const updateData: Partial<InsertEvent> = { ...event };
     
-    // Convert registeredOn to Date object if it's being updated
+    // Convert registeredOn to YYYY-MM-DD string if it's being updated
     if (event.registeredOn !== undefined) {
-      updateData.registeredOn = event.registeredOn instanceof Date 
-        ? event.registeredOn 
-        : new Date(event.registeredOn);
+      if (event.registeredOn === null) {
+        updateData.registeredOn = undefined; // Keep existing value in database
+      } else {
+        let date: Date;
+        if (Object.prototype.toString.call(event.registeredOn) === '[object Date]') {
+          date = event.registeredOn as Date;
+        } else {
+          date = new Date(event.registeredOn as string);
+          if (isNaN(date.getTime())) {
+            throw new Error('Invalid date format for registeredOn');
+          }
+        }
+        updateData.registeredOn = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+      }
     }
       
     const result = await db.update(events)
