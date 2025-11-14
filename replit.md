@@ -18,6 +18,13 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### November 14, 2025 - Critical Mobile App Fixes
+- **Dashboard Fix**: Fixed BottomTabNavigator to use full DashboardScreen instead of DashboardScreenSimple, restoring complete dashboard with financial overview, event statistics, requirements progress, and resources summary
+- **Requirement Creation Fix**: Fixed AddRequirementModal to send integers (not floats) for price/quantity/order fields, matching backend schema expectations. Corrected invoice calculation to order = price * quantity
+- **Code Cleanup**: Removed unused DashboardScreenSimple.tsx file
+- **Verification**: Confirmed Add Plan functionality is properly integrated in EventDetailsScreen (button + modal working correctly)
+- **Expense Calculations**: Verified Account Balance and Pending Repayment calculations are mathematically correct (net DDC Fund balance tracking)
+
 ### November 11, 2025 - Mobile App Complete CRUD & Enhanced UX
 - **Native Date Pickers**: Created reusable DatePicker component using @react-native-community/datetimepicker with iOS (spinner) and Android (calendar) support, integrated into Event, Expense, and Asset modals
 - **Configuration Dropdowns**: Created reusable Picker component with configuration-driven dropdowns for:
