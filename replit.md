@@ -21,6 +21,12 @@ Preferred communication style: Simple, everyday language.
 ### November 14, 2025 - Critical Mobile App Fixes
 - **Dashboard Fix**: Fixed BottomTabNavigator to use full DashboardScreen instead of DashboardScreenSimple, restoring complete dashboard with financial overview, event statistics, requirements progress, and resources summary
 - **Requirement Creation Fix**: Fixed AddRequirementModal to send integers (not floats) for price/quantity/order fields, matching backend schema expectations. Corrected invoice calculation to order = price * quantity
+- **Asset Delete Feature**: Implemented complete delete functionality for assets
+  - Added useDeleteAsset hook to mobile/src/hooks/useApi.ts
+  - Added trash icon button in asset list items (top-right header)
+  - Implemented Alert.alert confirmation dialog with destructive action styling
+  - Used event.stopPropagation() to prevent edit action when delete is clicked
+  - Added accessibility attributes for screen readers
 - **Code Cleanup**: Removed unused DashboardScreenSimple.tsx file
 - **Verification**: Confirmed Add Plan functionality is properly integrated in EventDetailsScreen (button + modal working correctly)
 - **Expense Calculations**: Verified Account Balance and Pending Repayment calculations are mathematically correct (net DDC Fund balance tracking)
