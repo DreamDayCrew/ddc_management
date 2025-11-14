@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAssets } from '../hooks/useApi';
+import { useAssets, useDeleteAsset } from '../hooks/useApi';
 import type { Asset } from '../types';
 import AddAssetModal from '../components/AddAssetModal';
 
@@ -9,12 +9,28 @@ const BRAND_MAROON = '#800020';
 
 export default function AssetsScreen() {
   const { data: assets, isLoading, error } = useAssets();
+  const deleteAsset = useDeleteAsset();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
 
   const handleEdit = (asset: Asset) => {
     setSelectedAsset(asset);
     setModalVisible(true);
+  };
+
+  const handleDelete = (asset: Asset) => {
+    Alert.alert(
+      'Delete Asset?',
+      `Are you sure you want to delete "${asset.name}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          onPress: () => deleteAsset.mutate(asset.id),
+          style: 'destructive' 
+        }
+      ]
+    );
   };
 
   const handleCloseModal = () => {
@@ -26,8 +42,21 @@ export default function AssetsScreen() {
     <TouchableOpacity style={styles.assetCard} onPress={() => handleEdit(item)}>
       <View style={styles.assetHeader}>
         <Text style={styles.assetName}>{item.name}</Text>
-        <View style={[styles.statusBadge, getStatusColor(item.status)]}>
-          <Text style={styles.statusText}>{item.status}</Text>
+        <View style={styles.headerRight}>
+          <View style={[styles.statusBadge, getStatusColor(item.status)]}>
+            <Text style={styles.statusText}>{item.status}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={(e) => {
+              e.stopPropagation();
+              handleDelete(item);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Delete ${item.name}`}
+            style={styles.deleteButton}
+          >
+            <Ionicons name="trash-outline" size={20} color="#ef4444" />
+          </TouchableOpacity>
         </View>
       </View>
       
@@ -200,6 +229,11 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -209,6 +243,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#1f2937',
+  },
+  deleteButton: {
+    padding: 4,
   },
   category: {
     fontSize: 14,

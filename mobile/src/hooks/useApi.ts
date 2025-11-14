@@ -131,6 +131,16 @@ export function useUpdateAsset() {
   });
 }
 
+export function useDeleteAsset() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.deleteAsset,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/assets'] });
+    },
+  });
+}
+
 export function useUpdateTeamMember() {
   const queryClient = useQueryClient();
   return useMutation({
