@@ -102,11 +102,14 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
       return;
     }
 
+    const price = parseInt(formData.price) || 0;
+    const quantity = parseInt(formData.quantity) || 1;
+
     const submitData = {
       ...formData,
-      price: parseFloat(formData.price) || 0,
-      quantity: parseInt(formData.quantity) || 1,
-      order: parseFloat(formData.price) || 0, // order stores the price for invoice calculation
+      price: price,
+      quantity: quantity,
+      order: price * quantity, // order = price * quantity for invoice calculation
     };
 
     createMutation.mutate(submitData);
