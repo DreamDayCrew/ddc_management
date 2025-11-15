@@ -43,6 +43,13 @@ const settingsMenu: MenuItem[] = [
     icon: 'settings',
     screen: 'Configuration',
     description: 'Configure business settings'
+  },
+  {
+    id: 'app-configuration',
+    title: 'App Configuration',
+    icon: 'lock-closed',
+    screen: 'AppConfiguration',
+    description: 'Security and app settings'
   }
 ];
 
@@ -91,7 +98,7 @@ export default function MoreScreen({ navigation }: any) {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>Dream Day Crew</Text>
-        <Text style={styles.footerSubtext}>Event Management System v1.0</Text>
+        <Text style={styles.footerSubtext}>Event Management System v1.4</Text>
       </View>
     </ScrollView>
   );

@@ -4,6 +4,7 @@ import AssetsScreen from '../screens/AssetsScreen';
 import TeamScreen from '../screens/TeamScreen';
 import VendorsScreen from '../screens/VendorsScreen';
 import ConfigurationScreen from '../screens/ConfigurationScreen';
+import AppConfigurationScreen from '../screens/AppConfigurationScreen';
 
 export type MoreStackParamList = {
   MoreMenu: undefined;
@@ -11,6 +12,7 @@ export type MoreStackParamList = {
   Team: undefined;
   Vendors: undefined;
   Configuration: undefined;
+  AppConfiguration: undefined;
 };
 
 const Stack = createNativeStackNavigator<MoreStackParamList>();
@@ -57,6 +59,11 @@ export default function MoreStackNavigator() {
         name="Configuration" 
         component={ConfigurationScreen}
         options={{ title: 'Business Configuration' }}
+      />
+      <Stack.Screen 
+        name="AppConfiguration" 
+        component={AppConfigurationScreen}
+        options={{ title: 'App Configuration' }}
       />
     </Stack.Navigator>
   );

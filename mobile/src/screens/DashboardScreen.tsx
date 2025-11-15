@@ -97,7 +97,7 @@ export default function DashboardScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header with Logo */}
+      {/* Header with Logo 
       <View style={styles.header}>
         <Image 
           source={require('../../assets/ddc-logo.jpeg')}
@@ -105,7 +105,7 @@ export default function DashboardScreen() {
           resizeMode="contain"
         />
         <Text style={styles.headerSubtitle}>Event Management Dashboard</Text>
-      </View>
+      </View>*/}
 
       {/* Financial Overview */}
       <View style={styles.section}>
