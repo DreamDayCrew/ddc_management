@@ -7,6 +7,8 @@ import {
   vendors,
   teamMembers,
   expenses,
+  accountBalance,
+  repayments,
   events,
   requirements,
   fulfillmentPlans,
@@ -20,6 +22,10 @@ import {
   type InsertTeamMember,
   type Expense,
   type InsertExpense,
+  type AccountBalance,
+  type InsertAccountBalance,
+  type Repayment,
+  type InsertRepayment,
   type Event,
   type InsertEvent,
   type Requirement,
@@ -290,6 +296,33 @@ export class DatabaseStorage implements IStorage {
         .returning();
         
       console.log('[DB] Successfully created expense:', result[0]);
+      
+      // Update account balance based on transaction type
+      const amount = Number(expense.amount);
+      console.log(`[DB] Processing balance update for transaction type: ${expense.type}, amount: ${amount}`);
+      
+      switch (expense.type) {
+        case 'Credit':
+          // Add amount to balance
+          await this.updateAccountBalanceAmount(amount);
+          break;
+        case 'Debit':
+          // Subtract amount from balance
+          await this.updateAccountBalanceAmount(-amount);
+          break;
+        case 'Transfer':
+          if (expense.from_account === 'DDC Fund') {
+            // Subtract amount from balance
+            await this.updateAccountBalanceAmount(-amount);
+          } else if (expense.to_account === 'DDC Fund') {
+            // Add amount to balance
+            await this.updateAccountBalanceAmount(amount);
+          }
+          // Update repayment records for Transfer transactions
+          await this.updateRepaymentForTransfer(expense);
+          break;
+      }
+        
       return result[0];
     } catch (error) {
       console.error('[DB] Error creating expense:', error);
@@ -303,6 +336,20 @@ export class DatabaseStorage implements IStorage {
   async updateExpense(id: string, expense: Partial<InsertExpense>): Promise<Expense | undefined> {
     console.log(`[DB] Updating expense ${id} with data:`, JSON.stringify(expense, null, 2));
     try {
+      // First, get the existing expense to compare changes
+      const existingExpenses = await db.select().from(expenses).where(eq(expenses.id, id));
+      if (existingExpenses.length === 0) {
+        console.log(`[DB] Expense ${id} not found`);
+        return undefined;
+      }
+      const existing = existingExpenses[0];
+      
+      // Store old values for balance/repayment adjustments
+      const oldType = existing.type;
+      const oldAmount = Number(existing.amount);
+      const oldFromAccount = existing.from_account;
+      const oldToAccount = existing.to_account;
+      
       // Prepare the update object with only defined values
       const updateData: any = { ...expense };
       
@@ -323,15 +370,155 @@ export class DatabaseStorage implements IStorage {
           : [];
       }
       
+      // Update the expense
       const result = await db.update(expenses)
-        .set(updateData)
+        .set({ ...updateData, updated_at: new Date() })
         .where(eq(expenses.id, id))
         .returning();
         
       console.log(`[DB] Update result for expense ${id}:`, result[0] ? 'Success' : 'Not found');
+      
+      if (result[0]) {
+        // Get new values
+        const newType = expense.type || oldType;
+        const newAmount = expense.amount ? Number(expense.amount) : oldAmount;
+        const newFromAccount = expense.from_account || oldFromAccount;
+        const newToAccount = expense.to_account || oldToAccount;
+        
+        // Revert the old transaction's effect on balance
+        await this.revertTransactionEffect(oldType, oldAmount, oldFromAccount, oldToAccount);
+        
+        // Apply the new transaction's effect on balance
+        await this.applyTransactionEffect(newType, newAmount, newFromAccount, newToAccount, result[0]);
+      }
+      
       return result[0];
     } catch (error) {
       console.error(`[DB] Error updating expense ${id}:`, error);
+      throw error;
+    }
+  }
+
+  // Helper to revert transaction effects
+  private async revertTransactionEffect(type: string, amount: number, fromAccount: string, toAccount: string | null): Promise<void> {
+    console.log(`[DB] Reverting transaction effect: type=${type}, amount=${amount}`);
+    try {
+      switch (type) {
+        case 'Credit':
+          // Subtract the amount that was added
+          await this.updateAccountBalanceAmount(-amount);
+          break;
+        case 'Debit':
+          // Add back the amount that was subtracted
+          await this.updateAccountBalanceAmount(amount);
+          break;
+        case 'Transfer':
+          if (fromAccount === 'DDC Fund') {
+            // Add back the amount that was subtracted
+            await this.updateAccountBalanceAmount(amount);
+          } else if (toAccount === 'DDC Fund') {
+            // Subtract the amount that was added
+            await this.updateAccountBalanceAmount(-amount);
+          }
+          // Revert repayment changes
+          await this.revertRepaymentEffect(type, amount, fromAccount, toAccount);
+          break;
+      }
+    } catch (error) {
+      console.error('[DB] Error reverting transaction effect:', error);
+      throw error;
+    }
+  }
+
+  // Helper to apply transaction effects
+  private async applyTransactionEffect(type: string, amount: number, fromAccount: string, toAccount: string | null, expense: Expense): Promise<void> {
+    console.log(`[DB] Applying transaction effect: type=${type}, amount=${amount}`);
+    try {
+      switch (type) {
+        case 'Credit':
+          // Add amount to balance
+          await this.updateAccountBalanceAmount(amount);
+          break;
+        case 'Debit':
+          // Subtract amount from balance
+          await this.updateAccountBalanceAmount(-amount);
+          break;
+        case 'Transfer':
+          if (fromAccount === 'DDC Fund') {
+            // Subtract amount from balance
+            await this.updateAccountBalanceAmount(-amount);
+          } else if (toAccount === 'DDC Fund') {
+            // Add amount to balance
+            await this.updateAccountBalanceAmount(amount);
+          }
+          // Update repayment records
+          await this.updateRepaymentForTransfer({
+            type: expense.type,
+            amount: expense.amount,
+            from_account: expense.from_account,
+            to_account: expense.to_account,
+            date: new Date(expense.date),
+            contributor: [],
+            contribution: [],
+            contribution_status: [],
+          });
+          break;
+      }
+    } catch (error) {
+      console.error('[DB] Error applying transaction effect:', error);
+      throw error;
+    }
+  }
+
+  // Helper to revert repayment effects
+  private async revertRepaymentEffect(type: string, amount: number, fromAccount: string, toAccount: string | null): Promise<void> {
+    console.log(`[DB] Reverting repayment effect: type=${type}, amount=${amount}`);
+    try {
+      if (type === 'Transfer' && toAccount === 'DDC Fund' && fromAccount) {
+        // Revert CASE 1: Transfer to DDC Fund
+        const sourceName = fromAccount;
+        const existingRepayment = await db.select().from(repayments).where(eq(repayments.source_name, sourceName));
+        
+        if (existingRepayment.length > 0) {
+          const repayment = existingRepayment[0];
+          const currentAllocated = Number(repayment.allocated_amount);
+          const currentPending = Number(repayment.pending_amount);
+          
+          if (currentAllocated > amount) {
+            await db.update(repayments)
+              .set({
+                allocated_amount: String(currentAllocated - amount),
+                pending_amount: String(currentPending - amount),
+              })
+              .where(eq(repayments.id, repayment.id));
+          } else {
+            // Remove the record if allocation becomes zero
+            await db.delete(repayments).where(eq(repayments.id, repayment.id));
+          }
+        }
+      } else if (type === 'Transfer' && fromAccount === 'DDC Fund' && toAccount) {
+        // Revert CASE 2: Transfer from DDC Fund
+        const sourceName = toAccount;
+        const existingRepayment = await db.select().from(repayments).where(eq(repayments.source_name, sourceName));
+        
+        if (existingRepayment.length > 0) {
+          const repayment = existingRepayment[0];
+          const currentRepaid = Number(repayment.repaid_amount);
+          const currentAllocated = Number(repayment.allocated_amount);
+          
+          const newRepaidAmount = Math.max(0, currentRepaid - amount);
+          const newPendingAmount = currentAllocated - newRepaidAmount;
+          
+          await db.update(repayments)
+            .set({
+              repaid_amount: String(newRepaidAmount),
+              pending_amount: String(newPendingAmount),
+            })
+            .where(eq(repayments.id, repayment.id));
+        }
+      }
+    } catch (error) {
+      console.error('[DB] Error reverting repayment effect:', error);
       throw error;
     }
   }
@@ -345,6 +532,289 @@ export class DatabaseStorage implements IStorage {
       return success;
     } catch (error) {
       console.error(`[DB] Error deleting expense ${id}:`, error);
+      throw error;
+    }
+  }
+
+  // Account Balance CRUD operations
+  async getAccountBalance(): Promise<AccountBalance[]> {
+    console.log('[DB] Fetching all account balances');
+    try {
+      const result = await db.select().from(accountBalance);
+      console.log(`[DB] Found ${result.length} account balances`);
+      return result;
+    } catch (error) {
+      console.error('[DB] Error fetching account balances:', error);
+      throw error;
+    }
+  }
+
+  async getAccountBalanceById(id: number): Promise<AccountBalance | undefined> {
+    console.log(`[DB] Fetching account balance with ID: ${id}`);
+    try {
+      const result = await db.select().from(accountBalance).where(eq(accountBalance.id, id));
+      return result[0];
+    } catch (error) {
+      console.error(`[DB] Error fetching account balance ${id}:`, error);
+      throw error;
+    }
+  }
+
+  async createAccountBalance(balance: InsertAccountBalance): Promise<AccountBalance> {
+    console.log('[DB] Creating new account balance:', JSON.stringify(balance, null, 2));
+    try {
+      const result = await db.insert(accountBalance).values({
+        name: balance.name || 'DDC Fund',
+        balance: String(typeof balance.balance === 'number' ? balance.balance : Number(balance.balance) || 0),
+      }).returning();
+      
+      console.log('[DB] Account balance created successfully:', result[0]);
+      return result[0];
+    } catch (error) {
+      console.error('[DB] Error creating account balance:', error);
+      throw error;
+    }
+  }
+
+  async updateAccountBalance(id: number, balance: Partial<InsertAccountBalance>): Promise<AccountBalance | undefined> {
+    console.log(`[DB] Updating account balance ${id} with data:`, JSON.stringify(balance, null, 2));
+    try {
+      const updateData: any = {};
+      
+      if (balance.name !== undefined) {
+        updateData.name = balance.name;
+      }
+      
+      if (balance.balance !== undefined) {
+        updateData.balance = String(typeof balance.balance === 'number' ? balance.balance : Number(balance.balance) || 0);
+      }
+      
+      const result = await db
+        .update(accountBalance)
+        .set(updateData)
+        .where(eq(accountBalance.id, id))
+        .returning();
+      
+      if (result.length === 0) {
+        console.log(`[DB] Account balance ${id} not found for update`);
+        return undefined;
+      }
+      
+      console.log('[DB] Account balance updated successfully:', result[0]);
+      return result[0];
+    } catch (error) {
+      console.error(`[DB] Error updating account balance ${id}:`, error);
+      throw error;
+    }
+  }
+
+  async deleteAccountBalance(id: number): Promise<boolean> {
+    console.log(`[DB] Deleting account balance with ID: ${id}`);
+    try {
+      const result = await db.delete(accountBalance).where(eq(accountBalance.id, id)).returning();
+      const success = result.length > 0;
+      console.log(`[DB] Delete account balance ${id} result:`, success ? 'Success' : 'Not found');
+      return success;
+    } catch (error) {
+      console.error(`[DB] Error deleting account balance ${id}:`, error);
+      throw error;
+    }
+  }
+
+  // Repayments CRUD operations
+  async getRepayments(): Promise<Repayment[]> {
+    console.log('[DB] Fetching all repayments');
+    try {
+      const result = await db.select().from(repayments);
+      console.log(`[DB] Found ${result.length} repayments`);
+      return result;
+    } catch (error) {
+      console.error('[DB] Error fetching repayments:', error);
+      throw error;
+    }
+  }
+
+  async getRepayment(id: number): Promise<Repayment | undefined> {
+    console.log(`[DB] Fetching repayment with ID: ${id}`);
+    try {
+      const result = await db.select().from(repayments).where(eq(repayments.id, id));
+      return result[0];
+    } catch (error) {
+      console.error(`[DB] Error fetching repayment ${id}:`, error);
+      throw error;
+    }
+  }
+
+  async createRepayment(repayment: InsertRepayment): Promise<Repayment> {
+    console.log('[DB] Creating new repayment:', JSON.stringify(repayment, null, 2));
+    try {
+      const result = await db.insert(repayments).values({
+        source_name: repayment.source_name,
+        allocated_amount: String(typeof repayment.allocated_amount === 'number' 
+          ? repayment.allocated_amount 
+          : Number(repayment.allocated_amount) || 0),
+        repaid_amount: String(typeof repayment.repaid_amount === 'number' 
+          ? repayment.repaid_amount 
+          : Number(repayment.repaid_amount) || 0),
+        pending_amount: String(typeof repayment.pending_amount === 'number' 
+          ? repayment.pending_amount 
+          : Number(repayment.pending_amount) || 0),
+      }).returning();
+      
+      console.log('[DB] Repayment created successfully:', result[0]);
+      return result[0];
+    } catch (error) {
+      console.error('[DB] Error creating repayment:', error);
+      throw error;
+    }
+  }
+
+  async updateRepayment(id: number, repayment: Partial<InsertRepayment>): Promise<Repayment | undefined> {
+    console.log(`[DB] Updating repayment ${id} with data:`, JSON.stringify(repayment, null, 2));
+    try {
+      const updateData: any = {};
+      
+      if (repayment.source_name !== undefined) {
+        updateData.source_name = repayment.source_name;
+      }
+      
+      if (repayment.allocated_amount !== undefined) {
+        updateData.allocated_amount = String(typeof repayment.allocated_amount === 'number' 
+          ? repayment.allocated_amount 
+          : Number(repayment.allocated_amount) || 0);
+      }
+      
+      if (repayment.repaid_amount !== undefined) {
+        updateData.repaid_amount = String(typeof repayment.repaid_amount === 'number' 
+          ? repayment.repaid_amount 
+          : Number(repayment.repaid_amount) || 0);
+      }
+      
+      if (repayment.pending_amount !== undefined) {
+        updateData.pending_amount = String(typeof repayment.pending_amount === 'number' 
+          ? repayment.pending_amount 
+          : Number(repayment.pending_amount) || 0);
+      }
+      
+      const result = await db
+        .update(repayments)
+        .set(updateData)
+        .where(eq(repayments.id, id))
+        .returning();
+      
+      if (result.length === 0) {
+        console.log(`[DB] Repayment ${id} not found for update`);
+        return undefined;
+      }
+      
+      console.log('[DB] Repayment updated successfully:', result[0]);
+      return result[0];
+    } catch (error) {
+      console.error(`[DB] Error updating repayment ${id}:`, error);
+      throw error;
+    }
+  }
+
+  async deleteRepayment(id: number): Promise<boolean> {
+    console.log(`[DB] Deleting repayment with ID: ${id}`);
+    try {
+      const result = await db.delete(repayments).where(eq(repayments.id, id)).returning();
+      const success = result.length > 0;
+      console.log(`[DB] Delete repayment ${id} result:`, success ? 'Success' : 'Not found');
+      return success;
+    } catch (error) {
+      console.error(`[DB] Error deleting repayment ${id}:`, error);
+      throw error;
+    }
+  }
+
+  private async updateRepaymentForTransfer(expense: InsertExpense): Promise<void> {
+    const amount = Number(expense.amount);
+    console.log(`[DB] Updating repayment for transfer: type=${expense.type}, amount=${amount}, from=${expense.from_account}, to=${expense.to_account}`);
+    
+    try {
+      if (expense.type === 'Transfer' && expense.to_account === 'DDC Fund' && expense.from_account) {
+        // CASE 1: Transfer to DDC Fund - add or update repayment record
+        const sourceName = expense.from_account;
+        const existingRepayment = await db.select().from(repayments).where(eq(repayments.source_name, sourceName));
+        
+        if (existingRepayment.length > 0) {
+          // Update existing record
+          const repayment = existingRepayment[0];
+          const currentAllocated = Number(repayment.allocated_amount);
+          const currentPending = Number(repayment.pending_amount);
+          
+          await db.update(repayments)
+            .set({
+              allocated_amount: String(currentAllocated + amount),
+              pending_amount: String(currentPending + amount),
+            })
+            .where(eq(repayments.id, repayment.id));
+        } else {
+          // Create new record
+          await db.insert(repayments).values({
+            source_name: sourceName,
+            allocated_amount: String(amount),
+            repaid_amount: '0',
+            pending_amount: String(amount),
+          });
+        }
+      } else if (expense.type === 'Transfer' && expense.from_account === 'DDC Fund' && expense.to_account) {
+        // CASE 2: Transfer from DDC Fund - update repayment record
+        const sourceName = expense.to_account;
+        const existingRepayment = await db.select().from(repayments).where(eq(repayments.source_name, sourceName));
+        
+        if (existingRepayment.length > 0) {
+          // Update existing record
+          const repayment = existingRepayment[0];
+          const currentRepaid = Number(repayment.repaid_amount);
+          const currentAllocated = Number(repayment.allocated_amount);
+          
+          const newRepaidAmount = currentRepaid + amount;
+          const newPendingAmount = currentAllocated - newRepaidAmount;
+          
+          await db.update(repayments)
+            .set({
+              repaid_amount: String(newRepaidAmount),
+              pending_amount: String(newPendingAmount),
+            })
+            .where(eq(repayments.id, repayment.id));
+        }
+      }
+    } catch (error) {
+      console.error('[DB] Error updating repayment for transfer:', error);
+      throw error;
+    }
+  }
+
+  // Helper method to update account balance
+  private async updateAccountBalanceAmount(amount: number): Promise<void> {
+    console.log(`[DB] Updating account balance by amount: ${amount}`);
+    try {
+      // Get the first (and only) account balance record
+      const balances = await db.select().from(accountBalance).limit(1);
+      
+      if (balances.length === 0) {
+        // Create initial record if none exists
+        console.log('[DB] Creating initial account balance record');
+        await db.insert(accountBalance).values({
+          name: 'DDC Fund',
+          balance: String(amount),
+        });
+      } else {
+        // Update the existing record
+        const existingBalance = balances[0];
+        const currentBalance = Number(existingBalance.balance);
+        const newBalance = currentBalance + amount;
+        console.log(`[DB] Updating balance from ${currentBalance} to ${newBalance}`);
+        
+        await db
+          .update(accountBalance)
+          .set({ balance: String(newBalance) })
+          .where(eq(accountBalance.id, existingBalance.id));
+      }
+    } catch (error) {
+      console.error('[DB] Error updating account balance:', error);
       throw error;
     }
   }

@@ -1,58 +1,59 @@
-import { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, FlatList } from 'react-native';
+import React, { useState, useMemo } from "react";
+import { View, Text, ScrollView, TouchableOpacity, Modal, Alert, StyleSheet, ActivityIndicator, FlatList } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
-import { useExpenses } from '../hooks/useApi';
+import { useExpenses, useAccountBalance, useRepayments } from "../hooks/useApi";
 import type { Expense } from '../types';
 import AddExpenseModal from '../components/AddExpenseModal';
+import RepaymentDetailsModal from '../components/RepaymentDetailsModal';
 
 const BRAND_MAROON = '#800020';
 
 export default function ExpensesScreen() {
   const { data: expenses, isLoading, error } = useExpenses();
+  const { data: accountBalances } = useAccountBalance();
+  const { data: repayments } = useRepayments();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<any>(null);
+  const [repaymentModalVisible, setRepaymentModalVisible] = useState(false);
 
   const { totalIncome, totalExpense, accountBalance, pendingRepayment } = useMemo(() => {
-    if (!expenses) return { totalIncome: 0, totalExpense: 0, accountBalance: 0, pendingRepayment: 0 };
-
     let income = 0;
     let expense = 0;
-    let ddcBalance = 0;
+
+    // Calculate income and expense from expenses data
+    if (expenses) {
+      expenses.forEach((t) => {
+        const amount = parseFloat(t.amount as any) || 0;
+
+        if (t.type === 'Credit') {
+          income += amount;
+        } else if (t.type === 'Debit') {
+          expense += amount;
+        }
+      });
+    }
+
+    // Get account balance from database
+    let balance = 0;
+    if (accountBalances && accountBalances.length > 0) {
+      balance = parseFloat(accountBalances[0].balance as any) || 0;
+    }
+
+    // Calculate pending repayment from repayments data
     let repayment = 0;
-
-    expenses.forEach((t) => {
-      const amount = parseFloat(t.amount as any) || 0;
-      const fromAcc = t.from_account || '';
-      const toAcc = t.to_account || '';
-
-      if (t.type === 'Credit') {
-        income += amount;
-        if (toAcc === 'DDC Fund') {
-          ddcBalance += amount;
-        }
-      } else if (t.type === 'Debit') {
-        expense += amount;
-        if (fromAcc === 'DDC Fund') {
-          ddcBalance -= amount;
-        }
-      } else if (t.type === 'Transfer') {
-        if (fromAcc === 'DDC Fund' && toAcc !== 'DDC Fund') {
-          ddcBalance -= amount;
-          repayment += amount;
-        } else if (toAcc === 'DDC Fund' && fromAcc !== 'DDC Fund') {
-          ddcBalance += amount;
-          repayment -= amount;
-        }
-      }
-    });
+    if (repayments) {
+      repayments.forEach((r) => {
+        repayment += parseFloat(r.pending_amount as any) || 0;
+      });
+    }
 
     return {
       totalIncome: income,
       totalExpense: expense,
-      accountBalance: ddcBalance,
+      accountBalance: balance,
       pendingRepayment: Math.max(0, repayment),
     };
-  }, [expenses]);
+  }, [expenses, accountBalances, repayments]);
 
   const handleEdit = (expense: Expense) => {
     setSelectedExpense(expense);
@@ -90,11 +91,14 @@ export default function ExpensesScreen() {
           <Text style={styles.cardLabel}>Account Balance</Text>
         </View>
 
-        <View style={[styles.card, { backgroundColor: '#f59e0b' }]}>
-          <Ionicons name="time" size={32} color="#fff" />
-          <Text style={styles.cardValue}>₹{pendingRepayment.toFixed(2)}</Text>
-          <Text style={styles.cardLabel}>Pending Repayment</Text>
-        </View>
+        <TouchableOpacity 
+          style={[styles.card, { backgroundColor: '#f59e0b' }]}
+          onPress={() => setRepaymentModalVisible(true)}
+        >
+          <Ionicons name="time" size={32} color={BRAND_MAROON} />
+          <Text style={[styles.cardValue, { color: BRAND_MAROON }]}>₹{pendingRepayment.toFixed(2)}</Text>
+          <Text style={[styles.cardLabel, { color: BRAND_MAROON }]}>Pending Repayment</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Expenses List */}
@@ -108,11 +112,11 @@ export default function ExpensesScreen() {
           >
             <View style={styles.expenseHeader}>
               <View style={styles.expenseTypeContainer}>
-                <Ionicons
-                  name={item.type === 'Credit' ? 'arrow-down-circle' : item.type === 'Debit' ? 'arrow-up-circle' : 'swap-horizontal'}
-                  size={24}
-                  color={item.type === 'Credit' ? '#10b981' : item.type === 'Debit' ? '#ef4444' : '#f59e0b'}
-                />
+                <Ionicons 
+                    name={item.type === 'Credit' ? 'arrow-down-circle' : item.type === 'Debit' ? 'arrow-up-circle' : 'swap-horizontal'}
+                    size={20} 
+                    color={item.type === 'Credit' ? '#10b981' : item.type === 'Debit' ? '#ef4444' : '#f59e0b'}
+                  />
                 <View style={{ marginLeft: 12 }}>
                   <Text style={styles.expenseDescription}>{item.description}</Text>
                   <Text style={styles.expenseCategory}>{item.category} • {new Date(item.date).toLocaleDateString()}</Text>
@@ -154,6 +158,12 @@ export default function ExpensesScreen() {
         visible={modalVisible}
         onClose={handleCloseModal}
         expense={selectedExpense}
+      />
+
+      <RepaymentDetailsModal
+        visible={repaymentModalVisible}
+        onClose={() => setRepaymentModalVisible(false)}
+        repayments={repayments || []}
       />
     </View>
   );

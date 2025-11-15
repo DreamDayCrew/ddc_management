@@ -16,6 +16,10 @@ export type {
   InsertConfiguration,
   FulfillmentPlan,
   InsertFulfillmentPlan,
+  AccountBalance,
+  InsertAccountBalance,
+  Repayment,
+  InsertRepayment,
 } from '../../../shared/schema';
 
 // API Response types

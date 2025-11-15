@@ -38,7 +38,7 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
     to_account: '',
     description: '',
     amount: '',
-    status: 'Pending',
+    status: 'Paid',
   });
 
   // Sync form data when expense prop changes
@@ -51,7 +51,7 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
         to_account: expense.to_account || '',
         description: expense.description || '',
         amount: expense.amount?.toString() || '',
-        status: expense.status || 'Pending',
+        status: expense.status || 'Paid',
       });
       setExpenseDate(expense.date ? new Date(expense.date) : new Date());
     } else if (!visible) {
@@ -64,16 +64,18 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
       if (expense) {
         return await api.updateExpense(expense.id, {
           ...data,
-          amount: parseFloat(data.amount) || 0,
+          amount: data.amount || '0',
         } as any);
       }
       return await api.createExpense({
         ...data,
-        amount: parseFloat(data.amount) || 0,
+        amount: data.amount || '0',
       } as any);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/repayments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/account-balance'] });
       resetForm();
       onClose();
     },
@@ -82,7 +84,9 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
   const deleteMutation = useMutation({
     mutationFn: () => api.deleteExpense(expense.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/repayments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/account-balance'] });
       Alert.alert('Success', 'Expense deleted successfully');
       onClose();
     },
@@ -111,7 +115,7 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
       to_account: '',
       description: '',
       amount: '',
-      status: 'Pending',
+      status: 'Paid',
     });
     setExpenseDate(new Date());
   };
@@ -131,7 +135,6 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
   };
 
   const categories = config?.expenseCategories || ['Event', 'Office', 'Asset', 'Vendor', 'Team', 'Miscellaneous'];
-  const paymentStatuses = config?.paymentStatuses || ['Pending', 'To Do', 'Completed'];
   
   // Account options: DDC Fund + all team member names
   const accountOptions = ['DDC Fund', ...(teamMembers?.map(m => m.name) || [])];
@@ -210,16 +213,9 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
             </View>
 
             <DatePicker
-              label="Transaction Date *"
+              label="Date *"
               value={expenseDate}
               onChange={setExpenseDate}
-            />
-
-            <Picker
-              label="Payment Status *"
-              value={formData.status}
-              onChange={(value) => setFormData({ ...formData, status: value })}
-              options={paymentStatuses}
             />
 
             <TouchableOpacity

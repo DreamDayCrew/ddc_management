@@ -15,6 +15,10 @@ import {
   type InsertRequirement,
   type FulfillmentPlan,
   type InsertFulfillmentPlan,
+  type AccountBalance,
+  type InsertAccountBalance,
+  type Repayment,
+  type InsertRepayment,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -52,6 +56,20 @@ export interface IStorage {
   updateExpense(id: string, expense: Partial<InsertExpense>): Promise<Expense | undefined>;
   deleteExpense(id: string): Promise<boolean>;
 
+  // Account Balance
+  getAccountBalance(): Promise<AccountBalance[]>;
+  getAccountBalanceById(id: number): Promise<AccountBalance | undefined>;
+  createAccountBalance(balance: InsertAccountBalance): Promise<AccountBalance>;
+  updateAccountBalance(id: number, balance: Partial<InsertAccountBalance>): Promise<AccountBalance | undefined>;
+  deleteAccountBalance(id: number): Promise<boolean>;
+
+  // Repayments
+  getRepayments(): Promise<Repayment[]>;
+  getRepayment(id: number): Promise<Repayment | undefined>;
+  createRepayment(repayment: InsertRepayment): Promise<Repayment>;
+  updateRepayment(id: number, repayment: Partial<InsertRepayment>): Promise<Repayment | undefined>;
+  deleteRepayment(id: number): Promise<boolean>;
+
   // Events
   getEvents(): Promise<Event[]>;
   getEvent(id: string): Promise<Event | undefined>;
@@ -88,6 +106,10 @@ export class MemStorage implements IStorage {
   private events: Map<string, Event> = new Map();
   private requirements: Map<string, Requirement> = new Map();
   private fulfillmentPlans: Map<string, FulfillmentPlan> = new Map();
+  private accountBalance: Map<number, AccountBalance> = new Map();
+  private repayments: Map<number, Repayment> = new Map();
+  private currentAccountBalanceId: number = 1;
+  private currentRepaymentId: number = 1;
 
   // Configuration
   async getConfiguration(): Promise<Configuration | undefined> {
@@ -314,9 +336,34 @@ export class MemStorage implements IStorage {
       contribution: contribution.map(String),
       contribution_status,
       split_type: expense.split_type || null,
-      created_at: new Date().toISOString(), 
-      updated_at: new Date().toISOString() 
+      created_at: new Date(), 
+      updated_at: new Date() 
     };
+    
+    // Update account balance based on transaction type
+    const amount = Number(expense.amount);
+    switch (expense.type) {
+      case 'credit':
+        // Add amount to balance
+        await this.updateAccountBalanceAmount(amount);
+        break;
+      case 'debit':
+        // Subtract amount from balance
+        await this.updateAccountBalanceAmount(-amount);
+        break;
+      case 'Transfer':
+        if (expense.from_account === 'DDC Fund') {
+          // Subtract amount from balance
+          await this.updateAccountBalanceAmount(-amount);
+        } else if (expense.to_account === 'DDC Fund') {
+          // Add amount to balance
+          await this.updateAccountBalanceAmount(amount);
+        }
+        // Update repayment records for transfer transactions
+        await this.updateRepaymentForTransfer(expense);
+        break;
+    }
+    
     this.expenses.set(newExpense.id, newExpense);
     return newExpense;
   }
@@ -325,7 +372,12 @@ export class MemStorage implements IStorage {
     const existing = this.expenses.get(id);
     if (!existing) return undefined;
     
-    // Process contribution update if provided
+    // Store old values for balance/repayment adjustments
+    const oldType = existing.type;
+    const oldAmount = Number(existing.amount);
+    const oldFromAccount = existing.from_account;
+    const oldToAccount = existing.to_account;
+    
     // Process contribution update if provided
     let contribution = existing.contribution;
     if (expense.contribution !== undefined) {
@@ -369,12 +421,291 @@ export class MemStorage implements IStorage {
       updated_at: new Date() ,
     };
     
+    // Update balance and repayments if type, amount, or accounts changed
+    const newType = expense.type || oldType;
+    const newAmount = expense.amount ? Number(expense.amount) : oldAmount;
+    const newFromAccount = expense.from_account || oldFromAccount;
+    const newToAccount = expense.to_account || oldToAccount;
+    
+    // Revert the old transaction's effect on balance
+    await this.revertTransactionEffect(oldType, oldAmount, oldFromAccount, oldToAccount);
+    
+    // Create a proper InsertExpense object for the new transaction
+    const newExpenseData: InsertExpense = {
+      type: newType,
+      amount: String(newAmount),
+      date: expense.date || new Date(existing.date),
+      from_account: newFromAccount,
+      to_account: newToAccount,
+      category: expense.category || existing.category,
+      description: expense.description || existing.description,
+      status: expense.status || existing.status,
+      contributor: expense.contributor || existing.contributor,
+      contribution: (expense.contribution || existing.contribution).map(Number),
+      contribution_status: expense.contribution_status || existing.contribution_status,
+      split_type: expense.split_type || existing.split_type,
+    };
+    
+    // Apply the new transaction's effect on balance
+    await this.applyTransactionEffect(newType, newAmount, newFromAccount, newToAccount, newExpenseData);
+    
     this.expenses.set(id, updated);
     return updated;
   }
 
+  // Helper to revert transaction effects
+  private async revertTransactionEffect(type: string, amount: number, fromAccount: string, toAccount: string | null): Promise<void> {
+    switch (type) {
+      case 'credit':
+        // Subtract the amount that was added
+        await this.updateAccountBalanceAmount(-amount);
+        break;
+      case 'debit':
+        // Add back the amount that was subtracted
+        await this.updateAccountBalanceAmount(amount);
+        break;
+      case 'Transfer':
+        if (fromAccount === 'DDC Fund') {
+          // Add back the amount that was subtracted
+          await this.updateAccountBalanceAmount(amount);
+        } else if (toAccount === 'DDC Fund') {
+          // Subtract the amount that was added
+          await this.updateAccountBalanceAmount(-amount);
+        }
+        // Revert repayment changes
+        await this.revertRepaymentEffect(type, amount, fromAccount, toAccount);
+        break;
+    }
+  }
+
+  // Helper to apply transaction effects
+  private async applyTransactionEffect(type: string, amount: number, fromAccount: string, toAccount: string | null, expense: InsertExpense): Promise<void> {
+    switch (type) {
+      case 'credit':
+        // Add amount to balance
+        await this.updateAccountBalanceAmount(amount);
+        break;
+      case 'debit':
+        // Subtract amount from balance
+        await this.updateAccountBalanceAmount(-amount);
+        break;
+      case 'Transfer':
+        if (fromAccount === 'DDC Fund') {
+          // Subtract amount from balance
+          await this.updateAccountBalanceAmount(-amount);
+        } else if (toAccount === 'DDC Fund') {
+          // Add amount to balance
+          await this.updateAccountBalanceAmount(amount);
+        }
+        // Update repayment records
+        await this.updateRepaymentForTransfer(expense);
+        break;
+    }
+  }
+
+  // Helper to revert repayment effects
+  private async revertRepaymentEffect(type: string, amount: number, fromAccount: string, toAccount: string | null): Promise<void> {
+    if (type === 'Transfer' && toAccount === 'DDC Fund' && fromAccount) {
+      // Revert CASE 1: Transfer to DDC Fund
+      const sourceName = fromAccount;
+      const existingRepayment = Array.from(this.repayments.values()).find(r => r.source_name === sourceName);
+      
+      if (existingRepayment) {
+        const currentAllocated = Number(existingRepayment.allocated_amount);
+        const currentPending = Number(existingRepayment.pending_amount);
+        
+        if (currentAllocated > amount) {
+          await this.updateRepayment(existingRepayment.id, {
+            allocated_amount: String(currentAllocated - amount),
+            pending_amount: String(currentPending - amount),
+          });
+        } else {
+          // Remove the record if allocation becomes zero
+          await this.deleteRepayment(existingRepayment.id);
+        }
+      }
+    } else if (type === 'Transfer' && fromAccount === 'DDC Fund' && toAccount) {
+      // Revert CASE 2: Transfer from DDC Fund
+      const sourceName = toAccount;
+      const existingRepayment = Array.from(this.repayments.values()).find(r => r.source_name === sourceName);
+      
+      if (existingRepayment) {
+        const currentRepaid = Number(existingRepayment.repaid_amount);
+        const currentAllocated = Number(existingRepayment.allocated_amount);
+        
+        const newRepaidAmount = Math.max(0, currentRepaid - amount);
+        const newPendingAmount = currentAllocated - newRepaidAmount;
+        
+        await this.updateRepayment(existingRepayment.id, {
+          repaid_amount: String(newRepaidAmount),
+          pending_amount: String(newPendingAmount),
+        });
+      }
+    }
+  }
+
   async deleteExpense(id: string): Promise<boolean> {
     return this.expenses.delete(id);
+  }
+
+  // Account Balance
+  async getAccountBalance(): Promise<AccountBalance[]> {
+    return Array.from(this.accountBalance.values());
+  }
+
+  async getAccountBalanceById(id: number): Promise<AccountBalance | undefined> {
+    return this.accountBalance.get(id);
+  }
+
+  async createAccountBalance(balance: InsertAccountBalance): Promise<AccountBalance> {
+    const id = this.currentAccountBalanceId++;
+    const newBalance: AccountBalance = {
+      id,
+      name: balance.name || 'DDC Fund',
+      balance: String(typeof balance.balance === 'number' ? balance.balance : Number(balance.balance) || 0),
+    };
+    this.accountBalance.set(id, newBalance);
+    return newBalance;
+  }
+
+  async updateAccountBalance(id: number, balance: Partial<InsertAccountBalance>): Promise<AccountBalance | undefined> {
+    const existing = this.accountBalance.get(id);
+    if (!existing) return undefined;
+    
+    const updated: AccountBalance = {
+      ...existing,
+      name: balance.name !== undefined ? balance.name : existing.name,
+      balance: balance.balance !== undefined 
+        ? String(typeof balance.balance === 'number' ? balance.balance : Number(balance.balance) || 0)
+        : existing.balance,
+    };
+    this.accountBalance.set(id, updated);
+    return updated;
+  }
+
+  async deleteAccountBalance(id: number): Promise<boolean> {
+    return this.accountBalance.delete(id);
+  }
+
+  // Repayments
+  async getRepayments(): Promise<Repayment[]> {
+    return Array.from(this.repayments.values());
+  }
+
+  async getRepayment(id: number): Promise<Repayment | undefined> {
+    return this.repayments.get(id);
+  }
+
+  async createRepayment(repayment: InsertRepayment): Promise<Repayment> {
+    const id = this.currentRepaymentId++;
+    const newRepayment: Repayment = {
+      id,
+      source_name: repayment.source_name,
+      allocated_amount: String(typeof repayment.allocated_amount === 'number' 
+        ? repayment.allocated_amount 
+        : Number(repayment.allocated_amount) || 0),
+      repaid_amount: String(typeof repayment.repaid_amount === 'number' 
+        ? repayment.repaid_amount 
+        : Number(repayment.repaid_amount) || 0),
+      pending_amount: String(typeof repayment.pending_amount === 'number' 
+        ? repayment.pending_amount 
+        : Number(repayment.pending_amount) || 0),
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+    this.repayments.set(id, newRepayment);
+    return newRepayment;
+  }
+
+  async updateRepayment(id: number, repayment: Partial<InsertRepayment>): Promise<Repayment | undefined> {
+    const existing = this.repayments.get(id);
+    if (!existing) return undefined;
+    
+    const updated: Repayment = {
+      ...existing,
+      source_name: repayment.source_name !== undefined ? repayment.source_name : existing.source_name,
+      allocated_amount: repayment.allocated_amount !== undefined 
+        ? String(typeof repayment.allocated_amount === 'number' ? repayment.allocated_amount : Number(repayment.allocated_amount) || 0)
+        : existing.allocated_amount,
+      repaid_amount: repayment.repaid_amount !== undefined 
+        ? String(typeof repayment.repaid_amount === 'number' ? repayment.repaid_amount : Number(repayment.repaid_amount) || 0)
+        : existing.repaid_amount,
+      pending_amount: repayment.pending_amount !== undefined 
+        ? String(typeof repayment.pending_amount === 'number' ? repayment.pending_amount : Number(repayment.pending_amount) || 0)
+        : existing.pending_amount,
+      updated_at: new Date(),
+    };
+    this.repayments.set(id, updated);
+    return updated;
+  }
+
+  async deleteRepayment(id: number): Promise<boolean> {
+    const deleted = this.repayments.delete(id);
+    return deleted;
+  }
+
+  // Helper method to update account balance
+  private async updateAccountBalanceAmount(amount: number): Promise<void> {
+    // Get the first (and only) account balance record
+    const balances = Array.from(this.accountBalance.values());
+    if (balances.length === 0) {
+      // Create initial record if none exists
+      await this.createAccountBalance({ balance: String(amount) });
+    } else {
+      // Update the existing record
+      const existingBalance = balances[0];
+      const currentBalance = Number(existingBalance.balance);
+      const newBalance = currentBalance + amount;
+      await this.updateAccountBalance(existingBalance.id, { balance: String(newBalance) });
+    }
+  }
+
+  // Helper method to update repayment
+  private async updateRepaymentForTransfer(expense: InsertExpense): Promise<void> {
+    const amount = Number(expense.amount);
+    
+    if (expense.type === 'Transfer' && expense.to_account === 'DDC Fund' && expense.from_account) {
+      // CASE 1: Transfer to DDC Fund - add or update repayment record
+      const sourceName = expense.from_account;
+      const existingRepayment = Array.from(this.repayments.values()).find(r => r.source_name === sourceName);
+      
+      if (existingRepayment) {
+        // Update existing record
+        const currentAllocated = Number(existingRepayment.allocated_amount);
+        const currentPending = Number(existingRepayment.pending_amount);
+        
+        await this.updateRepayment(existingRepayment.id, {
+          allocated_amount: String(currentAllocated + amount),
+          pending_amount: String(currentPending + amount),
+        });
+      } else {
+        // Create new record
+        await this.createRepayment({
+          source_name: sourceName,
+          allocated_amount: String(amount),
+          repaid_amount: '0',
+          pending_amount: String(amount),
+        });
+      }
+    } else if (expense.type === 'Transfer' && expense.from_account === 'DDC Fund' && expense.to_account) {
+      // CASE 2: Transfer from DDC Fund - update repayment record
+      const sourceName = expense.to_account;
+      const existingRepayment = Array.from(this.repayments.values()).find(r => r.source_name === sourceName);
+      
+      if (existingRepayment) {
+        // Update existing record
+        const currentRepaid = Number(existingRepayment.repaid_amount);
+        const currentAllocated = Number(existingRepayment.allocated_amount);
+        
+        const newRepaidAmount = currentRepaid + amount;
+        const newPendingAmount = currentAllocated - newRepaidAmount;
+        
+        await this.updateRepayment(existingRepayment.id, {
+          repaid_amount: String(newRepaidAmount),
+          pending_amount: String(newPendingAmount),
+        });
+      }
+    }
   }
 
   // Events

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Alert } from 'react-native';
 import { api } from '../lib/api';
-import type { Event, Expense, TeamMember, Asset, Requirement } from '../types';
+import type { Event, Expense, TeamMember, Asset, Requirement, AccountBalance, Repayment } from '../types';
 
 // Events hooks
 export function useEvents() {
@@ -63,6 +63,20 @@ export function useExpenses() {
   return useQuery<Expense[]>({
     queryKey: ['/api/expenses'],
     queryFn: api.getExpenses,
+  });
+}
+
+export function useAccountBalance() {
+  return useQuery<AccountBalance[]>({
+    queryKey: ['/api/account-balance'],
+    queryFn: api.getAccountBalance,
+  });
+}
+
+export function useRepayments() {
+  return useQuery<Repayment[]>({
+    queryKey: ['/api/repayments'],
+    queryFn: api.getRepayments,
   });
 }
 

@@ -50,17 +50,17 @@ export default function DashboardScreen() {
     const fromAcc = t.from_account || '';
     const toAcc = t.to_account || '';
 
-    if (t.type === 'Credit') {
+    if (t.type === 'Credit' || t.type === 'credit') {
       totalIncome += amount;
       if (toAcc === 'DDC Fund') {
         accountBalance += amount;
       }
-    } else if (t.type === 'Debit') {
+    } else if (t.type === 'Debit' || t.type === 'debit') {
       totalExpense += amount;
       if (fromAcc === 'DDC Fund') {
         accountBalance -= amount;
       }
-    } else if (t.type === 'Transfer') {
+    } else if (t.type === 'Transfer' || t.type === 'transfer') {
       if (fromAcc === 'DDC Fund' && toAcc !== 'DDC Fund') {
         accountBalance -= amount;
       } else if (toAcc === 'DDC Fund' && fromAcc !== 'DDC Fund') {

@@ -98,7 +98,7 @@ export default function MoreScreen({ navigation }: any) {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>Dream Day Crew</Text>
-        <Text style={styles.footerSubtext}>Event Management System v1.4</Text>
+        <Text style={styles.footerSubtext}>Event Management System v1.5</Text>
       </View>
     </ScrollView>
   );

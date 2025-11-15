@@ -12,6 +12,8 @@ import {
   insertEventSchema,
   insertRequirementSchema,
   insertFulfillmentPlanSchema,
+  insertAccountBalanceSchema,
+  insertRepaymentSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -371,7 +373,195 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error(`[API] Error deleting expense ${id}:`, error);
       res.status(500).json({ 
         error: `Failed to delete expense ${id}`,
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message: error.message 
+      });
+    }
+  });
+
+  // Account Balance routes
+  app.get("/api/account-balance", async (_req, res) => {
+    console.log('[API] GET /api/account-balance - Fetching all account balances');
+    try {
+      const balances = await storage.getAccountBalance();
+      console.log(`[API] Successfully fetched ${balances.length} account balances`);
+      res.json(balances);
+    } catch (error) {
+      console.error('[API] Error fetching account balances:', error);
+      res.status(500).json({ error: "Failed to fetch account balances" });
+    }
+  });
+
+  app.get("/api/account-balance/:id", async (req, res) => {
+    const { id } = req.params;
+    console.log(`[API] GET /api/account-balance/${id} - Fetching account balance`);
+    try {
+      const balance = await storage.getAccountBalanceById(Number(id));
+      if (!balance) {
+        console.log(`[API] Account balance ${id} not found`);
+        return res.status(404).json({ error: "Account balance not found" });
+      }
+      console.log(`[API] Successfully fetched account balance ${id}`);
+      res.json(balance);
+    } catch (error) {
+      console.error(`[API] Error fetching account balance ${id}:`, error);
+      res.status(500).json({ error: "Failed to fetch account balance" });
+    }
+  });
+
+  app.post("/api/account-balance", async (req, res) => {
+    console.log('[API] POST /api/account-balance - Creating account balance');
+    try {
+      const result = insertAccountBalanceSchema.safeParse(req.body);
+      if (!result.success) {
+        console.error('[API] Invalid account balance data:', result.error);
+        return res.status(400).json({ error: "Invalid account balance data", details: result.error });
+      }
+      
+      const newBalance = await storage.createAccountBalance(result.data);
+      console.log('[API] Account balance created successfully:', newBalance);
+      res.status(201).json(newBalance);
+    } catch (error) {
+      console.error('[API] Error creating account balance:', error);
+      res.status(500).json({ error: "Failed to create account balance" });
+    }
+  });
+
+  app.put("/api/account-balance/:id", async (req, res) => {
+    const { id } = req.params;
+    console.log(`[API] PUT /api/account-balance/${id} - Updating account balance`);
+    try {
+      const result = insertAccountBalanceSchema.partial().safeParse(req.body);
+      if (!result.success) {
+        console.error('[API] Invalid account balance update data:', result.error);
+        return res.status(400).json({ error: "Invalid account balance data", details: result.error });
+      }
+      
+      const updatedBalance = await storage.updateAccountBalance(Number(id), result.data);
+      if (!updatedBalance) {
+        console.log(`[API] Account balance ${id} not found for update`);
+        return res.status(404).json({ error: "Account balance not found" });
+      }
+      
+      console.log(`[API] Account balance ${id} updated successfully:`, updatedBalance);
+      res.json(updatedBalance);
+    } catch (error) {
+      console.error(`[API] Error updating account balance ${id}:`, error);
+      res.status(500).json({ error: "Failed to update account balance" });
+    }
+  });
+
+  app.delete("/api/account-balance/:id", async (req, res) => {
+    const { id } = req.params;
+    console.log(`[API] DELETE /api/account-balance/${id} - Deleting account balance`);
+    
+    try {
+      const deleted = await storage.deleteAccountBalance(Number(id));
+      if (!deleted) {
+        console.log(`[API] Account balance ${id} not found for deletion`);
+        return res.status(404).json({ error: "Account balance not found" });
+      }
+      
+      console.log(`[API] Account balance ${id} deleted successfully`);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error(`[API] Error deleting account balance ${id}:`, error);
+      res.status(500).json({ 
+        error: "Failed to delete account balance",
+        message: error.message 
+      });
+    }
+  });
+
+  // Repayments routes
+  app.get("/api/repayments", async (_req, res) => {
+    console.log('[API] GET /api/repayments - Fetching all repayments');
+    try {
+      const repayments = await storage.getRepayments();
+      console.log(`[API] Successfully fetched ${repayments.length} repayments`);
+      res.json(repayments);
+    } catch (error) {
+      console.error('[API] Error fetching repayments:', error);
+      res.status(500).json({ error: "Failed to fetch repayments" });
+    }
+  });
+
+  app.get("/api/repayments/:id", async (req, res) => {
+    const { id } = req.params;
+    console.log(`[API] GET /api/repayments/${id} - Fetching repayment`);
+    try {
+      const repayment = await storage.getRepayment(Number(id));
+      if (!repayment) {
+        console.log(`[API] Repayment ${id} not found`);
+        return res.status(404).json({ error: "Repayment not found" });
+      }
+      console.log(`[API] Successfully fetched repayment ${id}`);
+      res.json(repayment);
+    } catch (error) {
+      console.error(`[API] Error fetching repayment ${id}:`, error);
+      res.status(500).json({ error: "Failed to fetch repayment" });
+    }
+  });
+
+  app.post("/api/repayments", async (req, res) => {
+    console.log('[API] POST /api/repayments - Creating repayment');
+    try {
+      const result = insertRepaymentSchema.safeParse(req.body);
+      if (!result.success) {
+        console.error('[API] Invalid repayment data:', result.error);
+        return res.status(400).json({ error: "Invalid repayment data", details: result.error });
+      }
+      
+      const newRepayment = await storage.createRepayment(result.data);
+      console.log('[API] Repayment created successfully:', newRepayment);
+      res.status(201).json(newRepayment);
+    } catch (error) {
+      console.error('[API] Error creating repayment:', error);
+      res.status(500).json({ error: "Failed to create repayment" });
+    }
+  });
+
+  app.put("/api/repayments/:id", async (req, res) => {
+    const { id } = req.params;
+    console.log(`[API] PUT /api/repayments/${id} - Updating repayment`);
+    try {
+      const result = insertRepaymentSchema.partial().safeParse(req.body);
+      if (!result.success) {
+        console.error('[API] Invalid repayment update data:', result.error);
+        return res.status(400).json({ error: "Invalid repayment data", details: result.error });
+      }
+      
+      const updatedRepayment = await storage.updateRepayment(Number(id), result.data);
+      if (!updatedRepayment) {
+        console.log(`[API] Repayment ${id} not found for update`);
+        return res.status(404).json({ error: "Repayment not found" });
+      }
+      
+      console.log(`[API] Repayment ${id} updated successfully:`, updatedRepayment);
+      res.json(updatedRepayment);
+    } catch (error) {
+      console.error(`[API] Error updating repayment ${id}:`, error);
+      res.status(500).json({ error: "Failed to update repayment" });
+    }
+  });
+
+  app.delete("/api/repayments/:id", async (req, res) => {
+    const { id } = req.params;
+    console.log(`[API] DELETE /api/repayments/${id} - Deleting repayment`);
+    
+    try {
+      const deleted = await storage.deleteRepayment(Number(id));
+      if (!deleted) {
+        console.log(`[API] Repayment ${id} not found for deletion`);
+        return res.status(404).json({ error: "Repayment not found" });
+      }
+      
+      console.log(`[API] Repayment ${id} deleted successfully`);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error(`[API] Error deleting repayment ${id}:`, error);
+      res.status(500).json({ 
+        error: "Failed to delete repayment",
+        message: error.message 
       });
     }
   });

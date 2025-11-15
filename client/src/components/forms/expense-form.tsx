@@ -22,7 +22,7 @@ const expenseFormSchema = z.object({
   type: z.string(),
   fromAccount: z.string(),
   description: z.union([z.string(), z.null()]).optional(),
-  amount: z.union([z.string(), z.number()]),
+  amount: z.string(),
   contributor: z.array(z.string()),
   contribution: z.array(z.number()),
   contributionStatus: z.array(z.string()),
@@ -195,7 +195,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       amount: '',
       category: '',
       description: '',
-      status: 'Unpaid',
+      status: 'Paid',
       fromAccount: 'DDC Fund',
       toAccount: null as string | null,
       splitEnabled: false,
@@ -593,6 +593,8 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/repayments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/account-balance"] });
       toast({ title: "Success", description: "Expense created successfully" });
       onSuccess?.();
     },
@@ -626,6 +628,8 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/repayments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/account-balance"] });
       toast({ title: "Success", description: "Expense updated successfully" });
       onSuccess?.();
     },
@@ -653,10 +657,10 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       fromAccount: data.fromAccount,
       toAccount: data.toAccount || null,
       // Ensure amount is sent as a string to match server expectations
-      amount: typeof data.amount === 'number' ? data.amount.toString() : data.amount || '0',
+      amount: String(data.amount || '0'),
       category: data.category || null,
       description: data.description || null,
-      status: data.status || "Unpaid",
+      status: data.status || "Paid",
       splitType: data.splitEnabled ? data.splitType || null : null,
       splitEnabled: data.splitEnabled || false,
       contributor: data.splitEnabled ? data.contributor || [] : [],
@@ -1285,6 +1289,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                     min="0.01"
                     placeholder="Enter amount"
                     disabled={contributorsRef.current.length > 0}
+                    onChange={(e) => field.onChange(e.target.value)}
                   />
                 </FormControl>
                 {contributorsRef.current.length > 0 && (
@@ -1337,31 +1342,6 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
             )}
           />
 
-          {/* Status */}
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Status</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {config?.paymentStatuses?.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
         </div>
 
         <div className="flex justify-end gap-3">

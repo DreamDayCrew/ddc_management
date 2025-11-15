@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, date, timestamp, check } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, date, timestamp, check, serial } from "drizzle-orm/pg-core";
 import { v4 as uuidv4 } from 'uuid';
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -76,6 +76,24 @@ export const expenses = pgTable("expenses", {
   contributor: text("contributor").array().notNull().default(sql`ARRAY[]::text[]`),
   contribution: decimal("contribution", { precision: 10, scale: 2 }).array().notNull().default(sql`ARRAY[]::numeric[]`),
   contribution_status: text("contribution_status").array().notNull().default(sql`ARRAY[]::text[]`),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Account Balance Schema
+export const accountBalance = pgTable("account_balance", {
+  id: serial("id").primaryKey(),
+  name: text("name").default('DDC Fund'),
+  balance: decimal("balance", { precision: 12, scale: 2 }).notNull().default("0"),
+});
+
+// Repayments Schema
+export const repayments = pgTable("repayments", {
+  id: serial("id").primaryKey(),
+  source_name: text("source_name").notNull(),
+  allocated_amount: decimal("allocated_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  repaid_amount: decimal("repaid_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  pending_amount: decimal("pending_amount", { precision: 12, scale: 2 }).notNull().default("0"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -186,6 +204,9 @@ export const insertExpenseSchema = createInsertSchema(expenses)
         message: 'Invalid date',
       }),
   });
+
+export const insertAccountBalanceSchema = createInsertSchema(accountBalance).omit({ id: true });
+export const insertRepaymentSchema = createInsertSchema(repayments).omit({ id: true, created_at: true, updated_at: true });
 export const insertEventSchema = createInsertSchema(events)
   .omit({ id: true })
   .extend({
@@ -219,6 +240,10 @@ export type TeamMember = typeof teamMembers.$inferSelect;
 export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
 export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
+export type AccountBalance = typeof accountBalance.$inferSelect;
+export type InsertAccountBalance = z.infer<typeof insertAccountBalanceSchema>;
+export type Repayment = typeof repayments.$inferSelect;
+export type InsertRepayment = z.infer<typeof insertRepaymentSchema>;
 export type Event = typeof events.$inferSelect;
 export type InsertEvent = Omit<typeof events.$inferInsert, 'id'> & {
   eventDate: Date | string;

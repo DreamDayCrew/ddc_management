@@ -1,0 +1,271 @@
+
+> dream-day-crew@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+Storage initialization: {
+  hasDatabaseUrl: true,
+  databaseUrl: '[REDACTED]',
+  storageType: 'DatabaseStorage'
+}
+9:58:34 AM [express] Database seeding disabled - ready for production data
+9:58:34 AM [express] 🚀 Server running on port 5000
+9:58:34 AM [express] 🌍 Environment: development
+Database connection test successful with HTTP
+9:58:35 AM [express] 💾 Database: Connected (Neon)
+[API] GET /api/account-balance - Fetching all account balances
+[DB] Fetching all account balances
+[DB] Found 1 account balances
+[API] Successfully fetched 1 account balances
+9:58:41 AM [express] GET /api/account-balance 200 in 627ms :: [{"id":1,"name":"DDC Fund","balance":"0.00"}]…
+[API] POST /api/expenses - Creating new expense
+Request body: {
+  "type": "credit",
+  "category": "Event",
+  "amount": "1000.00",
+  "date": "2025-11-15",
+  "description": "Test credit"
+}
+Validating expense data...
+Validation successful, creating expense...
+[DB] Creating new expense with data: {
+  "type": "credit",
+  "category": "Event",
+  "description": "Test credit",
+  "amount": "1000.00",
+  "date": "2025-11-15T00:00:00.000Z",
+  "contributor": [],
+  "contribution": [],
+  "contribution_status": []
+}
+[DB] Processed expense data: {
+  "type": "credit",
+  "category": "Event",
+  "description": "Test credit",
+  "amount": "1000.00",
+  "date": "2025-11-15",
+  "contributor": [],
+  "contribution": [],
+  "contribution_status": [],
+  "split_type": null,
+  "created_at": "2025-11-15T09:58:46.769Z",
+  "updated_at": "2025-11-15T09:58:46.769Z"
+}
+[DB] Successfully created expense: {
+  id: 'e6c04be2-9971-4141-9d89-bcea5e27f853',
+  type: 'credit',
+  category: 'Event',
+  from_account: 'DDC Fund',
+  to_account: null,
+  description: 'Test credit',
+  amount: '1000.00',
+  date: '2025-11-15',
+  status: 'Pending',
+  split_type: null,
+  contributor: [],
+  contribution: [],
+  contribution_status: [],
+  created_at: 2025-11-15T09:58:46.769Z,
+  updated_at: 2025-11-15T09:58:46.769Z
+}
+[DB] Processing balance update for transaction type: credit, amount: 1000
+[DB] Updating account balance by amount: 1000
+[DB] Updating balance from 0 to 1000
+[API] Successfully created expense e6c04be2-9971-4141-9d89-bcea5e27f853
+9:58:50 AM [express] POST /api/expenses 201 in 4158ms :: {"id":"e6c04be2-9971-4141-9d89-bcea5e27f853","type":"credit","category":"Event","from_account":"DDC Fund","to_account":null,"description":"Test credit","amount":"1…
+[API] GET /api/account-balance - Fetching all account balances
+[DB] Fetching all account balances
+[DB] Found 1 account balances
+[API] Successfully fetched 1 account balances
+9:59:00 AM [express] GET /api/account-balance 200 in 599ms :: [{"id":1,"name":"DDC Fund","balance":"1000.00"}]…
+[API] POST /api/expenses - Creating new expense
+Request body: {
+  "type": "debit",
+  "category": "Event",
+  "amount": "300.00",
+  "date": "2025-11-15",
+  "description": "Test debit"
+}
+Validating expense data...
+Validation successful, creating expense...
+[DB] Creating new expense with data: {
+  "type": "debit",
+  "category": "Event",
+  "description": "Test debit",
+  "amount": "300.00",
+  "date": "2025-11-15T00:00:00.000Z",
+  "contributor": [],
+  "contribution": [],
+  "contribution_status": []
+}
+[DB] Processed expense data: {
+  "type": "debit",
+  "category": "Event",
+  "description": "Test debit",
+  "amount": "300.00",
+  "date": "2025-11-15",
+  "contributor": [],
+  "contribution": [],
+  "contribution_status": [],
+  "split_type": null,
+  "created_at": "2025-11-15T09:59:06.330Z",
+  "updated_at": "2025-11-15T09:59:06.330Z"
+}
+[DB] Successfully created expense: {
+  id: '90129dd6-6dd5-42e1-9799-2ddab6a631e6',
+  type: 'debit',
+  category: 'Event',
+  from_account: 'DDC Fund',
+  to_account: null,
+  description: 'Test debit',
+  amount: '300.00',
+  date: '2025-11-15',
+  status: 'Pending',
+  split_type: null,
+  contributor: [],
+  contribution: [],
+  contribution_status: [],
+  created_at: 2025-11-15T09:59:06.330Z,
+  updated_at: 2025-11-15T09:59:06.330Z
+}
+[DB] Processing balance update for transaction type: debit, amount: 300
+[DB] Updating account balance by amount: -300
+[DB] Updating balance from 1000 to 700
+[API] Successfully created expense 90129dd6-6dd5-42e1-9799-2ddab6a631e6
+9:59:07 AM [express] POST /api/expenses 201 in 1432ms :: {"id":"90129dd6-6dd5-42e1-9799-2ddab6a631e6","type":"debit","category":"Event","from_account":"DDC Fund","to_account":null,"description":"Test debit","amount":"300…
+[API] GET /api/account-balance - Fetching all account balances
+[DB] Fetching all account balances
+[DB] Found 1 account balances
+[API] Successfully fetched 1 account balances
+9:59:13 AM [express] GET /api/account-balance 200 in 622ms :: [{"id":1,"name":"DDC Fund","balance":"700.00"}]…
+[API] POST /api/expenses - Creating new expense
+Request body: {
+  "type": "Transfer",
+  "category": "Event",
+  "amount": "200.00",
+  "date": "2025-11-15",
+  "description": "Transfer from DDC",
+  "from_account": "DDC Fund",
+  "to_account": "Other Account"
+}
+Validating expense data...
+Validation successful, creating expense...
+[DB] Creating new expense with data: {
+  "type": "Transfer",
+  "category": "Event",
+  "from_account": "DDC Fund",
+  "to_account": "Other Account",
+  "description": "Transfer from DDC",
+  "amount": "200.00",
+  "date": "2025-11-15T00:00:00.000Z",
+  "contributor": [],
+  "contribution": [],
+  "contribution_status": []
+}
+[DB] Processed expense data: {
+  "type": "Transfer",
+  "category": "Event",
+  "from_account": "DDC Fund",
+  "to_account": "Other Account",
+  "description": "Transfer from DDC",
+  "amount": "200.00",
+  "date": "2025-11-15",
+  "contributor": [],
+  "contribution": [],
+  "contribution_status": [],
+  "split_type": null,
+  "created_at": "2025-11-15T09:59:16.995Z",
+  "updated_at": "2025-11-15T09:59:16.995Z"
+}
+[DB] Successfully created expense: {
+  id: 'ee7aa8d0-edf2-470a-b310-e46cb3047ee4',
+  type: 'Transfer',
+  category: 'Event',
+  from_account: 'DDC Fund',
+  to_account: 'Other Account',
+  description: 'Transfer from DDC',
+  amount: '200.00',
+  date: '2025-11-15',
+  status: 'Pending',
+  split_type: null,
+  contributor: [],
+  contribution: [],
+  contribution_status: [],
+  created_at: 2025-11-15T09:59:16.995Z,
+  updated_at: 2025-11-15T09:59:16.995Z
+}
+[DB] Processing balance update for transaction type: Transfer, amount: 200
+[DB] Updating account balance by amount: -200
+[DB] Updating balance from 700 to 500
+[API] Successfully created expense ee7aa8d0-edf2-470a-b310-e46cb3047ee4
+9:59:18 AM [express] POST /api/expenses 201 in 1011ms :: {"id":"ee7aa8d0-edf2-470a-b310-e46cb3047ee4","type":"Transfer","category":"Event","from_account":"DDC Fund","to_account":"Other Account","description":"Transfer fr…
+[API] GET /api/account-balance - Fetching all account balances
+[DB] Fetching all account balances
+[DB] Found 1 account balances
+[API] Successfully fetched 1 account balances
+9:59:24 AM [express] GET /api/account-balance 200 in 201ms :: [{"id":1,"name":"DDC Fund","balance":"500.00"}]…
+[API] POST /api/expenses - Creating new expense
+Request body: {
+  "type": "Transfer",
+  "category": "Event",
+  "amount": "150.00",
+  "date": "2025-11-15",
+  "description": "Transfer to DDC",
+  "from_account": "Other Account",
+  "to_account": "DDC Fund"
+}
+Validating expense data...
+Validation successful, creating expense...
+[DB] Creating new expense with data: {
+  "type": "Transfer",
+  "category": "Event",
+  "from_account": "Other Account",
+  "to_account": "DDC Fund",
+  "description": "Transfer to DDC",
+  "amount": "150.00",
+  "date": "2025-11-15T00:00:00.000Z",
+  "contributor": [],
+  "contribution": [],
+  "contribution_status": []
+}
+[DB] Processed expense data: {
+  "type": "Transfer",
+  "category": "Event",
+  "from_account": "Other Account",
+  "to_account": "DDC Fund",
+  "description": "Transfer to DDC",
+  "amount": "150.00",
+  "date": "2025-11-15",
+  "contributor": [],
+  "contribution": [],
+  "contribution_status": [],
+  "split_type": null,
+  "created_at": "2025-11-15T09:59:29.372Z",
+  "updated_at": "2025-11-15T09:59:29.372Z"
+}
+[DB] Successfully created expense: {
+  id: 'cfb037de-a67f-4e8a-b379-7d4cd14c6c45',
+  type: 'Transfer',
+  category: 'Event',
+  from_account: 'Other Account',
+  to_account: 'DDC Fund',
+  description: 'Transfer to DDC',
+  amount: '150.00',
+  date: '2025-11-15',
+  status: 'Pending',
+  split_type: null,
+  contributor: [],
+  contribution: [],
+  contribution_status: [],
+  created_at: 2025-11-15T09:59:29.372Z,
+  updated_at: 2025-11-15T09:59:29.372Z
+}
+[DB] Processing balance update for transaction type: Transfer, amount: 150
+[DB] Updating account balance by amount: 150
+[DB] Updating balance from 500 to 650
+[API] Successfully created expense cfb037de-a67f-4e8a-b379-7d4cd14c6c45
+9:59:30 AM [express] POST /api/expenses 201 in 1457ms :: {"id":"cfb037de-a67f-4e8a-b379-7d4cd14c6c45","type":"Transfer","category":"Event","from_account":"Other Account","to_account":"DDC Fund","description":"Transfer to…
+[API] GET /api/account-balance - Fetching all account balances
+[DB] Fetching all account balances
+[DB] Found 1 account balances
+[API] Successfully fetched 1 account balances
+9:59:36 AM [express] GET /api/account-balance 200 in 612ms :: [{"id":1,"name":"DDC Fund","balance":"650.00"}]…

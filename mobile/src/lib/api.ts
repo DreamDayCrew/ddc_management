@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import type { ApiError, Event, Expense, TeamMember, Asset, Requirement, Configuration, Vendor, FulfillmentPlan, InsertEvent, InsertExpense, InsertTeamMember, InsertAsset, InsertRequirement, InsertFulfillmentPlan, InsertVendor } from '../types';
+import type { ApiError, Event, Expense, TeamMember, Asset, Requirement, Configuration, Vendor, FulfillmentPlan, AccountBalance, Repayment, InsertEvent, InsertExpense, InsertTeamMember, InsertAsset, InsertRequirement, InsertFulfillmentPlan, InsertVendor } from '../types';
 import { config } from '../config/environment';
 
 // API Configuration from environment
@@ -94,6 +94,9 @@ export const api = {
   createExpense: (data: InsertExpense) => apiClient.post<Expense>('/api/expenses', data),
   updateExpense: (id: string, data: Partial<InsertExpense>) => apiClient.patch<Expense>(`/api/expenses/${id}`, data),
   deleteExpense: (id: string) => apiClient.delete<void>(`/api/expenses/${id}`),
+
+  getAccountBalance: () => apiClient.get<AccountBalance[]>('/api/account-balance'),
+  getRepayments: () => apiClient.get<Repayment[]>('/api/repayments'),
   
   // Team Members
   getTeamMembers: () => apiClient.get<TeamMember[]>('/api/team'),
