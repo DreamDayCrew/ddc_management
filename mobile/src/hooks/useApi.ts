@@ -59,10 +59,10 @@ export function useEventRequirements(eventId: string) {
 }
 
 // Expenses hooks
-export function useExpenses() {
+export function useExpenses(params?: { startDate?: string; endDate?: string }) {
   return useQuery<Expense[]>({
-    queryKey: ['/api/expenses'],
-    queryFn: api.getExpenses,
+    queryKey: ['/api/expenses', params],
+    queryFn: () => api.getExpenses(params),
   });
 }
 

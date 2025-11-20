@@ -256,7 +256,7 @@ export default function AppConfigurationScreen({ navigation }: any) {
         </Text>
       </View>
 
-      <View style={styles.section}>
+        {/*<View style={styles.section}>
         <Text style={styles.sectionTitle}>Settings Status</Text>
         
         <View style={styles.statusCard}>
@@ -287,7 +287,7 @@ export default function AppConfigurationScreen({ navigation }: any) {
             <Text style={styles.statusText}>PIN: {securitySettings.pinEnabled ? 'Enabled' : 'Disabled'}</Text>
           </View>
         </View>
-      </View>
+      </View> */}
     </ScrollView>
   );
 }

@@ -1,20 +1,68 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { View, Text, ScrollView, TouchableOpacity, Modal, Alert, StyleSheet, ActivityIndicator, FlatList } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useExpenses, useAccountBalance, useRepayments } from "../hooks/useApi";
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '../lib/api';
 import type { Expense } from '../types';
 import AddExpenseModal from '../components/AddExpenseModal';
 import RepaymentDetailsModal from '../components/RepaymentDetailsModal';
 
 const BRAND_MAROON = '#800020';
 
+// Helper function to get first and last day of current month in YYYY-MM-DD format
+const getCurrentMonthRange = () => {
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  
+  return {
+    startDate: firstDay.toISOString().split('T')[0],
+    endDate: lastDay.toISOString().split('T')[0]
+  };
+};
+
 export default function ExpensesScreen() {
-  const { data: expenses, isLoading, error } = useExpenses();
+  const queryClient = useQueryClient();
+  const currentMonthRange = useMemo(getCurrentMonthRange, []);
+  const { data: expenses, isLoading, error } = useExpenses(currentMonthRange);
   const { data: accountBalances } = useAccountBalance();
   const { data: repayments } = useRepayments();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<any>(null);
   const [repaymentModalVisible, setRepaymentModalVisible] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.deleteExpense(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/repayments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/account-balance'] });
+      Alert.alert('Success', 'Expense deleted successfully');
+    },
+    onError: (error: Error) => {
+      Alert.alert('Error', `Failed to delete expense: ${error.message}`);
+    },
+  });
+
+  const handleDelete = (expense: Expense) => {
+    setExpenseToDelete(expense);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (!expenseToDelete) return;
+    deleteMutation.mutate(expenseToDelete.id);
+    setShowDeleteConfirm(false);
+    setExpenseToDelete(null);
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setExpenseToDelete(null);
+  };
 
   const { totalIncome, totalExpense, accountBalance, pendingRepayment } = useMemo(() => {
     let income = 0;
@@ -122,19 +170,29 @@ export default function ExpensesScreen() {
                   <Text style={styles.expenseCategory}>{item.category} • {new Date(item.date).toLocaleDateString()}</Text>
                 </View>
               </View>
-              <Text style={[styles.expenseAmount, { color: item.type === 'Credit' ? '#10b981' : '#ef4444' }]}>
-                {item.type === 'Credit' ? '+' : '-'}₹{parseFloat(item.amount as any).toFixed(2)}
-              </Text>
+              <View style={styles.amountContainer}>
+                <Text style={[styles.expenseAmount, { color: item.type === 'Credit' ? '#10b981' : '#ef4444' }]}>
+                  {item.type === 'Credit' ? '+' : '-'}₹{parseFloat(item.amount as any).toFixed(2)}
+                </Text>
+              </View>
             </View>
             <View style={styles.expenseFooter}>
               <Text style={styles.expenseAccount}>
-                {item.type === 'Transfer' ? `${item.from_account} → ${item.to_account}` : item.from_account}
+                {item.to_account ? `${item.from_account} → ${item.to_account}` : item.from_account}
               </Text>
-              <View style={[styles.statusBadge, {
-                backgroundColor: item.status === 'Completed' ? '#10b981' : item.status === 'Pending' ? '#f59e0b' : '#6b7280'
-              }]}>
-                <Text style={styles.statusText}>{item.status}</Text>
-              </View>
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleDelete(item);
+                }}
+              >
+                {deleteMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#dc2626" />
+                ) : (
+                  <Ionicons name="trash-outline" size={20} color="#dc2626" />
+                )}
+              </TouchableOpacity>
             </View>
           </TouchableOpacity>
         )}
@@ -165,6 +223,36 @@ export default function ExpensesScreen() {
         onClose={() => setRepaymentModalVisible(false)}
         repayments={repayments || []}
       />
+
+      <Modal
+        visible={showDeleteConfirm}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={cancelDelete}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmationBox}>
+            <Text style={styles.confirmTitle}>Delete Expense</Text>
+            <Text style={styles.confirmMessage}>
+              Are you sure you want to delete this expense?
+            </Text>
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity 
+                style={[styles.confirmButton, styles.cancelButton]}
+                onPress={cancelDelete}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.confirmButton, styles.deleteConfirmButton]}
+                onPress={confirmDelete}
+              >
+                <Text style={styles.deleteButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -245,9 +333,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6b7280',
   },
+  amountContainer: {
+    alignItems: 'flex-end',
+  },
   expenseAmount: {
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  closingBalance: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
   },
   expenseFooter: {
     flexDirection: 'row',
@@ -259,15 +355,12 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     flex: 1,
   },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 11,
-    color: '#fff',
-    fontWeight: '600',
+  deleteButton: {
+    padding: 8,
+    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyContainer: {
     padding: 40,
@@ -296,5 +389,55 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  confirmationBox: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  confirmMessage: {
+    fontSize: 16,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  confirmButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  confirmButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#e5e7eb',
+  },
+  deleteConfirmButton: {
+    backgroundColor: '#ef4444',
+  },
+  cancelButtonText: {
+    color: '#4b5563',
+    fontWeight: '600',
+  },
+  deleteButtonText: {
+    color: 'white',
+    fontWeight: '600',
   },
 });

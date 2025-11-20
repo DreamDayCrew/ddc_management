@@ -337,7 +337,7 @@ export class MemStorage implements IStorage {
       contribution_status,
       split_type: expense.split_type || null,
       created_at: new Date(), 
-      updated_at: new Date() 
+      updated_at: new Date(),
     };
     
     // Update account balance based on transaction type
@@ -364,6 +364,7 @@ export class MemStorage implements IStorage {
         break;
     }
     
+
     this.expenses.set(newExpense.id, newExpense);
     return newExpense;
   }

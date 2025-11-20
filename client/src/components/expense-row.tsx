@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowDownRight, ArrowUpRight, ArrowLeftRight, Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
@@ -89,18 +88,14 @@ export function ExpenseRow({
         </div>
       </div>
       <div className="flex items-center gap-4">
-        <span 
-          className={`font-mono font-semibold ${config.color}`}
-          data-testid={`expense-amount-${id}`}
-        >
-          {type === "Debit" ? "-" : "+"}₹{amount}
-        </span>
-        <Badge 
-          variant={status === "Completed" ? "default" : "secondary"}
-          data-testid={`expense-status-${id}`}
-        >
-          {status}
-        </Badge>
+        <div className="flex flex-col items-end">
+          <span 
+            className={`font-mono font-semibold ${config.color}`}
+            data-testid={`expense-amount-${id}`}
+          >
+            {type === "Debit" ? "-" : "+"}₹{amount}
+          </span>
+        </div>
         {(onEdit || onDelete) && (
           <div className="flex items-center gap-1">
             {onEdit && (

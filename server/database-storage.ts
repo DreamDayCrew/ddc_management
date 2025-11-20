@@ -35,6 +35,7 @@ import {
 } from "@shared/schema";
 import { eq } from 'drizzle-orm';
 import { type IStorage } from './storage';
+import { c } from 'node_modules/vite/dist/node/types.d-aGj9QkWt';
 
 // Configure Neon HTTP connection
 const sql = neon(process.env.DATABASE_URL!);
@@ -231,11 +232,16 @@ export class DatabaseStorage implements IStorage {
 
   // Expenses
   async getExpenses(): Promise<Expense[]> {
-    console.log('[DB] Fetching all expenses');
+    console.log('[DB] Fetching all expenses with closing balance from view');
     try {
-      const result = await db.select().from(expenses).orderBy(desc(expenses.created_at));
+      // Using Drizzle's query builder for type safety
+      const result = await db
+        .select()
+        .from(expenses)
+        .orderBy(desc(expenses.date), desc(expenses.created_at), desc(expenses.id));
+      
       console.log(`[DB] Successfully fetched ${result ? result.length : 0} expenses`);
-      return result || [];
+      return result;
     } catch (error) {
       console.error('[DB] Error fetching expenses, returning empty array:', error);
       return [];
@@ -263,36 +269,35 @@ export class DatabaseStorage implements IStorage {
         throw new Error('Missing required expense fields');
       }
 
-      // Process the expense data for database insertion
-      const processedExpense = {
-        ...expense,
-        // Ensure amount is a string for the database
-        amount: (typeof expense.amount === 'number' 
-          ? expense.amount 
-          : expense.amount) as string,
-        // Ensure date is in the correct format
-        date: new Date(expense.date).toISOString().split('T')[0], // Format as YYYY-MM-DD
-        // Handle array fields with proper type conversion
-        contributor: Array.isArray(expense.contributor) ? expense.contributor : [],
-        contribution: (Array.isArray(expense.contribution) 
-          ? expense.contribution.map(c => 
-              typeof c === 'number' ? c.toString() : c
-            ) 
-          : []) as string[],
-        contribution_status: (Array.isArray(expense.contribution_status) 
-          ? expense.contribution_status 
-          : []) as string[],
-        // Ensure split_type is a string or null
+      // Explicitly define the fields we want to insert
+      const insertData = {
+        type: expense.type,
+        category: expense.category || 'Event',
+        from_account: expense.from_account || 'DDC Fund',
+        to_account: expense.to_account || null,
+        description: expense.description || null,
+        amount: (() => {
+          const numAmount = typeof expense.amount === 'number' ? expense.amount : Number(expense.amount);
+          return isNaN(numAmount) ? '0.00' : numAmount.toFixed(2);
+        })(),
+        date: new Date(expense.date).toISOString().split('T')[0],
+        status: expense.status || 'Pending',
         split_type: expense.split_type || null,
-        // Set timestamps - using Date objects as expected by the database
+        contributor: Array.isArray(expense.contributor) ? expense.contributor : [],
+        contribution: Array.isArray(expense.contribution) 
+          ? expense.contribution.map(c => (typeof c === 'number' ? c.toString() : c)) 
+          : [],
+        contribution_status: Array.isArray(expense.contribution_status) 
+          ? expense.contribution_status 
+          : [],
         created_at: new Date(),
-        updated_at: new Date(),
+        updated_at: new Date()
       };
       
-      console.log('[DB] Processed expense data:', JSON.stringify(processedExpense, null, 2));
+      console.log('[DB] Processed expense data for insert:', JSON.stringify(insertData, null, 2));
       
       const result = await db.insert(expenses)
-        .values(processedExpense)
+        .values(insertData)
         .returning();
         
       console.log('[DB] Successfully created expense:', result[0]);
@@ -322,7 +327,6 @@ export class DatabaseStorage implements IStorage {
           await this.updateRepaymentForTransfer(expense);
           break;
       }
-        
       return result[0];
     } catch (error) {
       console.error('[DB] Error creating expense:', error);
@@ -526,6 +530,25 @@ export class DatabaseStorage implements IStorage {
   async deleteExpense(id: string): Promise<boolean> {
     console.log(`[DB] Deleting expense with ID: ${id}`);
     try {
+      // First, get the existing expense to retrieve its details
+      const existingExpenses = await db.select().from(expenses).where(eq(expenses.id, id));
+      if (existingExpenses.length === 0) {
+        console.log(`[DB] Expense ${id} not found`);
+        return false;
+      }
+      
+      const existing = existingExpenses[0];
+      const type = existing.type;
+      const amount = Number(existing.amount);
+      const fromAccount = existing.from_account;
+      const toAccount = existing.to_account;
+      
+      console.log(`[DB] Expense details before deletion: type=${type}, amount=${amount}, from=${fromAccount}, to=${toAccount}`);
+      
+      // Revert the transaction's effect on balance and repayment
+      await this.revertTransactionEffect(type, amount, fromAccount, toAccount);
+      
+      // Now delete the expense
       const result = await db.delete(expenses).where(eq(expenses.id, id)).returning();
       const success = result.length > 0;
       console.log(`[DB] Delete expense ${id} result:`, success ? 'Success' : 'Not found');
@@ -625,7 +648,7 @@ export class DatabaseStorage implements IStorage {
   async getRepayments(): Promise<Repayment[]> {
     console.log('[DB] Fetching all repayments');
     try {
-      const result = await db.select().from(repayments);
+      const result = await db.select().from(repayments) as Repayment[];
       console.log(`[DB] Found ${result.length} repayments`);
       return result;
     } catch (error) {

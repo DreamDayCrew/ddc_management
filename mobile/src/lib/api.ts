@@ -89,7 +89,13 @@ export const api = {
     apiClient.delete<void>(`/api/events/${eventId}/requirements/${id}`),
   
   // Expenses
-  getExpenses: () => apiClient.get<Expense[]>('/api/expenses'),
+  getExpenses: (params?: { startDate?: string; endDate?: string }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    const queryString = queryParams.toString();
+    return apiClient.get<Expense[]>(`/api/expenses${queryString ? `?${queryString}` : ''}`);
+  },
   getExpense: (id: string) => apiClient.get<Expense>(`/api/expenses/${id}`),
   createExpense: (data: InsertExpense) => apiClient.post<Expense>('/api/expenses', data),
   updateExpense: (id: string, data: Partial<InsertExpense>) => apiClient.patch<Expense>(`/api/expenses/${id}`, data),

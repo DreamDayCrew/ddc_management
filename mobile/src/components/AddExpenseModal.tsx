@@ -16,6 +16,7 @@ import { api } from '../lib/api';
 import { useConfiguration, useTeamMembers } from '../hooks/useApi';
 import { DatePicker } from './DatePicker';
 import { Picker } from './Picker';
+import { AccountPicker } from './AccountPicker';
 
 interface AddExpenseModalProps {
   visible: boolean;
@@ -81,31 +82,6 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: () => api.deleteExpense(expense.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/repayments'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/account-balance'] });
-      Alert.alert('Success', 'Expense deleted successfully');
-      onClose();
-    },
-    onError: (error: Error) => {
-      Alert.alert('Error', `Failed to delete expense: ${error.message}`);
-    },
-  });
-
-  const handleDelete = () => {
-    if (!expense) return;
-    Alert.alert(
-      'Delete Expense',
-      'Are you sure you want to delete this expense?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate() },
-      ]
-    );
-  };
 
   const resetForm = () => {
     setFormData({
@@ -135,9 +111,6 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
   };
 
   const categories = config?.expenseCategories || ['Event', 'Office', 'Asset', 'Vendor', 'Team', 'Miscellaneous'];
-  
-  // Account options: DDC Fund + all team member names
-  const accountOptions = ['DDC Fund', ...(teamMembers?.map(m => m.name) || [])];
 
   return (
     <Modal
@@ -170,22 +143,20 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
               options={categories}
             />
 
-            <Picker
+            <AccountPicker
               label="From Account *"
               value={formData.from_account}
               onChange={(value) => setFormData({ ...formData, from_account: value })}
-              options={accountOptions}
+              teamMembers={teamMembers || []}
             />
 
-            {formData.type === 'Transfer' && (
-              <Picker
-                label="To Account"
-                value={formData.to_account}
-                onChange={(value) => setFormData({ ...formData, to_account: value })}
-                options={accountOptions}
-                placeholder="Select destination account"
-              />
-            )}
+            <AccountPicker
+              label="To Account *"
+              value={formData.to_account}
+              onChange={(value) => setFormData({ ...formData, to_account: value })}
+              teamMembers={teamMembers || []}
+              placeholder="Select destination account"
+            />
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Description *</Text>
@@ -232,23 +203,6 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
                 </>
               )}
             </TouchableOpacity>
-
-            {expense && (
-              <TouchableOpacity
-                style={[styles.deleteButton, deleteMutation.isPending && styles.submitButtonDisabled]}
-                onPress={handleDelete}
-                disabled={deleteMutation.isPending}
-              >
-                {deleteMutation.isPending ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons name="trash" size={20} color="#fff" style={{ marginRight: 8 }} />
-                    <Text style={styles.deleteButtonText}>Delete Expense</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
           </ScrollView>
         </View>
       </View>
@@ -324,21 +278,6 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  deleteButton: {
-    backgroundColor: '#ef4444',
-    borderRadius: 10,
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  deleteButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',

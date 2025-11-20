@@ -18,7 +18,7 @@ export const config = {
 };
 
 // Validation helper - warn if production URL not configured
-if (!__DEV__ && config.API_URL === 'REPLACE_WITH_YOUR_REPLIT_URL') {
+if (!__DEV__ && config.API_URL === PRODUCTION_API_URL) {
   console.error(
     '⚠️ PRODUCTION API URL NOT CONFIGURED!\n' +
     'Update PRODUCTION_API_URL in mobile/src/config/environment.ts\n' +

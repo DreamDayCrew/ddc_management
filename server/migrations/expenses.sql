@@ -13,7 +13,8 @@ CREATE TABLE expenses (
     contribution NUMERIC[] DEFAULT '{}',
     contribution_status TEXT[] DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    split_type TEXT
 );
 
 -- Function to auto-update updated_at
@@ -30,3 +31,21 @@ CREATE TRIGGER trigger_update_expenses_updated_at
 BEFORE UPDATE ON expenses
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
+
+CREATE OR REPLACE VIEW expenses_with_balance AS
+SELECT
+    e.*,
+    SUM(
+        CASE
+            -- Money added to DDC Fund
+            WHEN e.to_account = 'DDC Fund' THEN e.amount
+
+            -- Money leaving DDC Fund
+            WHEN e.from_account = 'DDC Fund' AND e.to_account <> 'DDC Fund' THEN -e.amount
+
+            ELSE 0
+        END
+    ) OVER (
+        ORDER BY e.date, e.created_at, e.id
+    ) AS closing_balance
+FROM expenses e;
