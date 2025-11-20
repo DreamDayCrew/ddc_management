@@ -338,6 +338,8 @@ export class MemStorage implements IStorage {
       split_type: expense.split_type || null,
       created_at: new Date(), 
       updated_at: new Date(),
+      // closing_balance will be set after updating the account balance
+      closing_balance: null,
     };
     
     // Update account balance based on transaction type
@@ -364,6 +366,10 @@ export class MemStorage implements IStorage {
         break;
     }
     
+    // After updating account balance(s), capture the current closing balance
+    const balances = Array.from(this.accountBalance.values());
+    const currentBalance = balances.length > 0 ? balances[0].balance : null;
+    newExpense.closing_balance = currentBalance as any;
 
     this.expenses.set(newExpense.id, newExpense);
     return newExpense;

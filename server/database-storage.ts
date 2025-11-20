@@ -7,6 +7,7 @@ import {
   vendors,
   teamMembers,
   expenses,
+  expensesWithBalance,
   accountBalance,
   repayments,
   events,
@@ -234,16 +235,16 @@ export class DatabaseStorage implements IStorage {
   async getExpenses(): Promise<Expense[]> {
     console.log('[DB] Fetching all expenses with closing balance from view');
     try {
-      // Using Drizzle's query builder for type safety
+      // Query the expenses_with_balance view to get running balance calculations
       const result = await db
         .select()
-        .from(expenses)
-        .orderBy(desc(expenses.date), desc(expenses.created_at), desc(expenses.id));
+        .from(expensesWithBalance)
+        .orderBy(desc(expensesWithBalance.date), desc(expensesWithBalance.created_at), desc(expensesWithBalance.id));
       
-      console.log(`[DB] Successfully fetched ${result ? result.length : 0} expenses`);
+      console.log(`[DB] Successfully fetched ${result ? result.length : 0} expenses with closing balance`);
       return result;
     } catch (error) {
-      console.error('[DB] Error fetching expenses, returning empty array:', error);
+      console.error('[DB] Error fetching expenses from view, returning empty array:', error);
       return [];
     }
   }
@@ -303,25 +304,25 @@ export class DatabaseStorage implements IStorage {
       console.log('[DB] Successfully created expense:', result[0]);
       
       // Update account balance based on transaction type
-      const amount = Number(expense.amount);
-      console.log(`[DB] Processing balance update for transaction type: ${expense.type}, amount: ${amount}`);
+      const balanceUpdateAmount = Number(expense.amount);
+      console.log(`[DB] Processing balance update for transaction type: ${expense.type}, amount: ${balanceUpdateAmount}`);
       
       switch (expense.type) {
         case 'Credit':
           // Add amount to balance
-          await this.updateAccountBalanceAmount(amount);
+          await this.updateAccountBalanceAmount(balanceUpdateAmount);
           break;
         case 'Debit':
           // Subtract amount from balance
-          await this.updateAccountBalanceAmount(-amount);
+          await this.updateAccountBalanceAmount(-balanceUpdateAmount);
           break;
         case 'Transfer':
           if (expense.from_account === 'DDC Fund') {
             // Subtract amount from balance
-            await this.updateAccountBalanceAmount(-amount);
+            await this.updateAccountBalanceAmount(-balanceUpdateAmount);
           } else if (expense.to_account === 'DDC Fund') {
             // Add amount to balance
-            await this.updateAccountBalanceAmount(amount);
+            await this.updateAccountBalanceAmount(balanceUpdateAmount);
           }
           // Update repayment records for Transfer transactions
           await this.updateRepaymentForTransfer(expense);
@@ -807,6 +808,23 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('[DB] Error updating repayment for transfer:', error);
       throw error;
+    }
+  }
+
+  // Helper method to get current account balance
+  private async getCurrentAccountBalance(): Promise<number> {
+    try {
+      const balances = await db.select().from(accountBalance).limit(1);
+      
+      if (balances.length === 0) {
+        // Return 0 if no balance record exists
+        return 0;
+      } else {
+        return Number(balances[0].balance);
+      }
+    } catch (error) {
+      console.error('[DB] Error getting current account balance:', error);
+      return 0;
     }
   }
 

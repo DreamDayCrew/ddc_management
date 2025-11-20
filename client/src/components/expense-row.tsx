@@ -11,6 +11,7 @@ interface ExpenseRowProps {
   mode?: string | null;
   date: string;
   status: string;
+  closing_balance?: string | null;
   onEdit?: () => void;
   onDelete?: () => void;
 }
@@ -24,6 +25,7 @@ export function ExpenseRow({
   mode,
   date,
   status,
+  closing_balance,
   onEdit,
   onDelete,
 }: ExpenseRowProps) {
@@ -95,6 +97,14 @@ export function ExpenseRow({
           >
             {type === "Debit" ? "-" : "+"}₹{amount}
           </span>
+          {closing_balance && (
+            <span 
+              className="text-sm text-muted-foreground mt-1"
+              data-testid={`expense-closing-balance-${id}`}
+            >
+              Balance: ₹{parseFloat(closing_balance).toFixed(2)}
+            </span>
+          )}
         </div>
         {(onEdit || onDelete) && (
           <div className="flex items-center gap-1">

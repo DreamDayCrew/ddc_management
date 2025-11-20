@@ -80,6 +80,26 @@ export const expenses = pgTable("expenses", {
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Expenses with Balance View Schema
+export const expensesWithBalance = pgTable("expenses_with_balance", {
+  id: varchar("id").primaryKey(),
+  type: text("type").notNull(),
+  category: text("category").notNull(),
+  from_account: text("from_account").notNull(),
+  to_account: text("to_account"),
+  description: text("description"),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  date: date("date").notNull(),
+  status: text("status").notNull(),
+  split_type: text("split_type"),
+  contributor: text("contributor").array().notNull().default(sql`ARRAY[]::text[]`),
+  contribution: decimal("contribution", { precision: 10, scale: 2 }).array().notNull().default(sql`ARRAY[]::numeric[]`),
+  contribution_status: text("contribution_status").array().notNull().default(sql`ARRAY[]::text[]`),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull(),
+  closing_balance: decimal("closing_balance", { precision: 10, scale: 2 }),
+});
+
 // Account Balance Schema
 export const accountBalance = pgTable("account_balance", {
   id: serial("id").primaryKey(),

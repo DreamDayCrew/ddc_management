@@ -37,15 +37,27 @@ SELECT
     e.*,
     SUM(
         CASE
-            -- Money added to DDC Fund
-            WHEN e.to_account = 'DDC Fund' THEN e.amount
-
-            -- Money leaving DDC Fund
-            WHEN e.from_account = 'DDC Fund' AND e.to_account <> 'DDC Fund' THEN -e.amount
-
+            -- Credit: Money coming into DDC Fund (positive)
+            WHEN e.type = 'Credit' THEN e.amount
+            
+            -- Debit: Money going out of DDC Fund (negative)
+            WHEN e.type = 'Debit' THEN -e.amount
+            
+            -- Transfer: Check account directions
+            WHEN e.type = 'Transfer' THEN
+                CASE
+                    -- Money coming into DDC Fund
+                    WHEN e.to_account = 'DDC Fund' THEN e.amount
+                    -- Money leaving DDC Fund
+                    WHEN e.from_account = 'DDC Fund' THEN -e.amount
+                    -- Transfer between other accounts (no effect on DDC Fund)
+                    ELSE 0
+                END
+                
             ELSE 0
         END
     ) OVER (
-        ORDER BY e.date, e.created_at, e.id
+        ORDER BY e.date ASC, e.created_at ASC, e.id ASC
     ) AS closing_balance
-FROM expenses e;
+FROM expenses e
+ORDER BY e.date DESC, e.created_at DESC, e.id DESC;
