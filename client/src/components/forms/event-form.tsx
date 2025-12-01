@@ -1,11 +1,23 @@
+import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { insertEventSchema, type Event, type InsertEvent, type Configuration } from "@shared/schema";
+import { insertEventSchema, type Event, type InsertEvent, type Configuration, type Requirement } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Form,
   FormControl,
@@ -29,7 +41,7 @@ import {
 } from "@/components/ui/accordion";
 import { format } from "date-fns";
 import { z } from "zod";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 
 interface EventFormProps {
@@ -38,11 +50,26 @@ interface EventFormProps {
   onSuccess?: () => void;
 }
 
-const eventFormSchema = insertEventSchema.extend({
+const eventFormSchema = z.object({
+  providedService: z.string(),
+  eventName: z.string(),
+  eventDate: z.string(),
+  venue: z.string(),
+  source: z.string().optional(),
+  clientName: z.string().nullable().optional(),
+  clientPhone: z.string().nullable().optional(),
+  clientAddress: z.string().nullable().optional(),
+  clientEmail: z.string().nullable().optional(),
+  eventStatus: z.string().optional(),
+  paymentMode: z.string().nullable().optional(),
+  paymentStatus: z.string().optional(),
+  notes: z.string().nullable().optional(),
+  registeredOn: z.string(),
   finalizedQuote: z.string().optional(),
   ddcCost: z.string().optional(),
   initialQuote: z.string().optional(),
-  source: z.string().optional(),
+  discount: z.string().optional(),
+  discountAmount: z.string().optional(),
 });
 
 type EventFormData = z.infer<typeof eventFormSchema>;
@@ -50,9 +77,17 @@ type EventFormData = z.infer<typeof eventFormSchema>;
 export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) {
   const { toast } = useToast();
   const isEditing = !!event;
+  const [showDiscountAlert, setShowDiscountAlert] = useState(false);
+  const [pendingDiscountChange, setPendingDiscountChange] = useState<boolean | null>(null);
 
   const { data: config } = useQuery<Configuration>({
     queryKey: ["/api/configuration"],
+  });
+
+  // Fetch requirements for this event to check for existing discounts
+  const { data: requirements = [] } = useQuery<Requirement[]>({
+    queryKey: ["/api/requirements", event?.id],
+    enabled: !!event?.id,
   });
 
   const form = useForm<EventFormData>({
@@ -72,19 +107,54 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
       paymentMode: event?.paymentMode || "",
       paymentStatus: event?.paymentStatus || "Pending",
       finalizedQuote: invoiceAmount?.toString() || "",
+      discount: event?.discount || "false",
+      discountAmount: event?.discount_amount || "0",
     },
   });
 
   const finalizedQuote = form.watch("finalizedQuote");
   const ddcCost = form.watch("ddcCost");
 
-  useEffect(() => {
-    const finalized = parseFloat(finalizedQuote as string) || 0;
-    const ddc = parseFloat(ddcCost as string) || 0;
-    const profitLoss = finalized - ddc;
-    
-    form.setValue("profitLoss", profitLoss.toString());
-  }, [finalizedQuote, ddcCost, form]);
+  // Note: profitLoss calculation removed as it's not in the form schema
+
+  // Handler for event discount toggle
+  const handleEventDiscountToggle = (checked: boolean) => {
+    if (checked) {
+      // Check if any requirements have discounts
+      const requirementsWithDiscount = requirements.filter(req => 
+        req.req_discount === 'true' && req.req_discount_amount && parseFloat(req.req_discount_amount) > 0
+      );
+      
+      if (requirementsWithDiscount.length > 0) {
+        setPendingDiscountChange(checked);
+        setShowDiscountAlert(true);
+      } else {
+        // No conflict, enable discount directly
+        form.setValue('discount', 'true');
+      }
+    } else {
+      // Disable discount without confirmation
+      form.setValue('discount', 'false');
+      form.setValue('discountAmount', '0');
+    }
+  };
+
+  // Handler for discount alert confirmation
+  const handleDiscountAlertConfirm = () => {
+    if (pendingDiscountChange) {
+      form.setValue('discount', 'true');
+      // Note: In a real implementation, you might also need to remove discounts from requirements
+      // This would require additional API calls to update the requirements
+    }
+    setShowDiscountAlert(false);
+    setPendingDiscountChange(null);
+  };
+
+  const handleDiscountAlertCancel = () => {
+    setShowDiscountAlert(false);
+    setPendingDiscountChange(null);
+    // Keep the current discount state
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertEvent) => {
@@ -133,18 +203,26 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
   });
 
   const onSubmit = (data: EventFormData) => {
+    // Map discount fields to match backend schema
+    const submitData = {
+      ...data,
+      discount: data.discount || 'false',
+      discount_amount: data.discountAmount || '0',
+    };
+    
     if (isEditing) {
-      updateMutation.mutate(data as InsertEvent);
+      updateMutation.mutate(submitData as InsertEvent);
     } else {
-      createMutation.mutate(data as InsertEvent);
+      createMutation.mutate(submitData as InsertEvent);
     }
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <React.Fragment>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <Accordion type="multiple" defaultValue={['basic-info', 'client-info', 'payment-info']} className="space-y-4">
           {/* Basic Information Section */}
           <Card className="overflow-hidden border border-gray-200 dark:border-gray-800">
@@ -200,7 +278,12 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
                       <FormItem>
                         <FormLabel>Registered On</FormLabel>
                         <FormControl>
-                          <Input {...field} type="date" data-testid="input-registered-on" />
+                          <Input 
+                            {...field} 
+                            type="date" 
+                            value={field.value || ''} 
+                            data-testid="input-registered-on" 
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -276,6 +359,52 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
                       </FormItem>
                     )}
                   />
+
+                  {/* Event Discount Toggle and Amount in same row */}
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                      <FormField
+                        control={form.control}
+                        name="discount"
+                        render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Event Discount</FormLabel>
+                            <FormControl>
+                              <Switch
+                                checked={field.value === 'true'}
+                                onCheckedChange={(checked) => handleEventDiscountToggle(checked)}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="discountAmount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Discount Amount</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="Enter discount amount"
+                                disabled={form.watch('discount') !== 'true'}
+                                onChange={(e) => field.onChange(e.target.value)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      The amount discounted from the invoice price
+                    </div>
+                  </div>
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -452,5 +581,23 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
         </div>
       </form>
     </Form>
+
+    {/* Discount Conflict Alert Dialog */}
+    <AlertDialog open={showDiscountAlert} onOpenChange={setShowDiscountAlert}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Discount Conflict</AlertDialogTitle>
+          <AlertDialogDescription>
+            Already discount is applied for {requirements.filter(req => req.req_discount === 'true' && req.req_discount_amount && parseFloat(req.req_discount_amount) > 0).length} requirement(s). 
+            Enabling discount for the event might remove discount at requirement level. Do you want to continue?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={handleDiscountAlertCancel}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDiscountAlertConfirm}>Continue</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </React.Fragment>
   );
 }

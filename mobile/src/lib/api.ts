@@ -56,6 +56,10 @@ class ApiClient {
     return response.data;
   }
 
+  getBaseUrl(): string {
+    return this.client.defaults.baseURL || '';
+  }
+
   // Update base URL (useful for switching between dev/prod)
   setBaseURL(url: string) {
     this.client.defaults.baseURL = url;

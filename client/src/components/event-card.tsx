@@ -9,14 +9,17 @@ interface EventCardProps {
   eventName: string;
   eventDate: string;
   venue: string;
-  clientName: string;
+  clientName?: string | null;
   eventStatus: string;
   providedService: string;
   requirementCount?: number;
-  source?: string;
-  ddcCost?: number | null;
-  finalizedQuote?: boolean;
+  source?: string | null;
+  ddcCost?: string | null;
+  finalizedQuote?: string | null;
   onClick?: () => void;
+  discount?: string | null | undefined;
+  discount_amount?: string | null | undefined;
+  [key: string]: any; // Allow any additional props
 }
 
 export function EventCard({
@@ -28,9 +31,11 @@ export function EventCard({
   eventStatus,
   providedService,
   requirementCount = 0,
-  source = "",
-  ddcCost = null,
-  finalizedQuote = false,
+  source,
+  ddcCost,
+  finalizedQuote,
+  discount,
+  discount_amount,
   onClick,
 }: EventCardProps) {
   // Debug logs
@@ -134,12 +139,20 @@ export function EventCard({
         </div>
         <div className="flex items-center gap-2 text-sm">
           <User className="h-4 w-4 text-muted-foreground" />
-          <span className="truncate" data-testid={`event-client-${id}`}>{clientName}</span>
+          <span className="truncate" data-testid={`event-client-${id}`}>{clientName || 'No client'}</span>
         </div>
         <div className="flex items-center gap-2 text-sm">
           <Link className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium" data-testid={`event-source-${id}`}>{source}</span>
+          <span className="font-medium" data-testid={`event-source-${id}`}>{source || 'Direct'}</span>
         </div>
+        {discount === 'true' && discount_amount && parseFloat(discount_amount) > 0 && (
+          <div className="flex items-center gap-2 text-sm">
+            <DollarSign className="h-4 w-4 text-orange-600" />
+            <span className="text-orange-600 font-medium">
+              Discount: ₹{parseFloat(discount_amount).toFixed(2)}
+            </span>
+          </div>
+        )}
         <div className="flex items-center justify-between pt-2">
           <span className="text-xs text-muted-foreground">
             {requirementCount} requirement{requirementCount !== 1 ? "s" : ""}

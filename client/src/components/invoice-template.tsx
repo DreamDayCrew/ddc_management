@@ -141,15 +141,33 @@ const styles = StyleSheet.create({
   
   // Table Columns
   colDescription: {
+    width: '40%',
+    paddingRight: 10,
+  },
+  colDescriptionWide: {
     width: '48%',
     paddingRight: 10,
   },
   colQty: {
+    width: '10%',
+    textAlign: 'center',
+  },
+  colQtyWide: {
     width: '12%',
     textAlign: 'center',
   },
   colPrice: {
+    width: '15%',
+    textAlign: 'right',
+    paddingRight: 5,
+  },
+  colPriceWide: {
     width: '20%',
+    textAlign: 'right',
+    paddingRight: 5,
+  },
+  colDiscount: {
+    width: '15%',
     textAlign: 'right',
     paddingRight: 5,
   },
@@ -368,14 +386,10 @@ export const InvoiceTemplate = ({
   let subtotal = 0;
   
   if (requirements && requirements.length > 0) {
-    // Sum up all requirement amounts (price × quantity)
+    // Sum up all requirement amounts using order field (which includes requirement-level discounts)
     subtotal = requirements.reduce((sum, req) => {
-      const price = Number(req.price ?? 0);
-      const quantity = Number(req.quantity ?? 1);
-      // Guard against NaN
-      const validPrice = isNaN(price) ? 0 : price;
-      const validQuantity = isNaN(quantity) ? 1 : quantity;
-      return sum + (validPrice * validQuantity);
+      const amount = Number(req.order ?? 0);
+      return sum + (isNaN(amount) ? 0 : amount);
     }, 0);
   } else {
     // If no requirements, use the finalized or initial quote
@@ -383,11 +397,21 @@ export const InvoiceTemplate = ({
     subtotal = isNaN(fallbackQuote) ? 0 : fallbackQuote;
   }
   
+  // Apply event-level discount to subtotal
+  const eventDiscountAmount = event?.discount === 'true' && event.discount_amount ? 
+    Number(event.discount_amount) : 0;
+  const discountedSubtotal = subtotal - (isNaN(eventDiscountAmount) ? 0 : eventDiscountAmount);
+  
+  // Check if any requirements have discounts to conditionally show discount column
+  const hasRequirementDiscounts = requirements && requirements.some(req => 
+    req.req_discount === 'true' && req.req_discount_amount && Number(req.req_discount_amount) > 0
+  );
+  
   // GST calculations - includeGst is stored as text in database
   const includeGst = config.includeGst === 'true';
   const gstRate = 0.18; // 18% GST
-  const gstAmount = includeGst ? subtotal * gstRate : 0;
-  const grandTotal = subtotal + gstAmount;
+  const gstAmount = includeGst ? discountedSubtotal * gstRate : 0;
+  const grandTotal = discountedSubtotal + gstAmount;
   
   return (
     <Document>
@@ -458,9 +482,12 @@ export const InvoiceTemplate = ({
         <View style={styles.table}>
           {/* Table Header */}
           <View style={styles.tableHeader}>
-            <Text style={[styles.colDescription, styles.tableHeaderText]}>Description</Text>
-            <Text style={[styles.colQty, styles.tableHeaderText]}>Qty</Text>
-            <Text style={[styles.colPrice, styles.tableHeaderText]}>Unit Price</Text>
+            <Text style={[hasRequirementDiscounts ? styles.colDescription : styles.colDescriptionWide, styles.tableHeaderText]}>Description</Text>
+            <Text style={[hasRequirementDiscounts ? styles.colQty : styles.colQtyWide, styles.tableHeaderText]}>Qty</Text>
+            <Text style={[hasRequirementDiscounts ? styles.colPrice : styles.colPriceWide, styles.tableHeaderText]}>Unit Price</Text>
+            {hasRequirementDiscounts && (
+              <Text style={[styles.colDiscount, styles.tableHeaderText]}>Discount</Text>
+            )}
             <Text style={[styles.colAmount, styles.tableHeaderText]}>Amount</Text>
           </View>
           
@@ -469,10 +496,15 @@ export const InvoiceTemplate = ({
             requirements.map((req, index) => {
               const price = Number(req.price ?? 0);
               const quantity = Number(req.quantity ?? 1);
+              const discountAmount = req.req_discount === 'true' && req.req_discount_amount ? 
+                Number(req.req_discount_amount) : 0;
+              const finalAmount = Number(req.order ?? 0);
+              
               // Guard against NaN
               const validPrice = isNaN(price) ? 0 : price;
               const validQuantity = isNaN(quantity) ? 1 : quantity;
-              const amount = validPrice * validQuantity;
+              const validDiscount = isNaN(discountAmount) ? 0 : discountAmount;
+              const validAmount = isNaN(finalAmount) ? 0 : finalAmount;
               
               return (
                 <View 
@@ -482,27 +514,33 @@ export const InvoiceTemplate = ({
                     ...(index % 2 === 1 ? [styles.tableRowAlt] : [])
                   ]}
                 >
-                  <View style={styles.colDescription}>
+                  <View style={hasRequirementDiscounts ? styles.colDescription : styles.colDescriptionWide}>
                     <Text style={styles.itemName}>{req.requirement}</Text>
                     {req.description && (
                       <Text style={styles.itemDescription}>{req.description}</Text>
                     )}
                   </View>
-                  <Text style={styles.colQty}>{validQuantity}</Text>
-                  <Text style={styles.colPrice}>{formatCurrency(validPrice)}</Text>
-                  <Text style={styles.colAmount}>{formatCurrency(amount)}</Text>
+                  <Text style={hasRequirementDiscounts ? styles.colQty : styles.colQtyWide}>{validQuantity}</Text>
+                  <Text style={hasRequirementDiscounts ? styles.colPrice : styles.colPriceWide}>{formatCurrency(validPrice)}</Text>
+                  {hasRequirementDiscounts && (
+                    <Text style={styles.colDiscount}>{formatCurrency(validDiscount)}</Text>
+                  )}
+                  <Text style={styles.colAmount}>{formatCurrency(validAmount)}</Text>
                 </View>
               );
             })
           ) : (
             // Fallback: Show event as single line item
             <View style={styles.tableRow}>
-              <View style={styles.colDescription}>
+              <View style={hasRequirementDiscounts ? styles.colDescription : styles.colDescriptionWide}>
                 <Text style={styles.itemName}>{event.eventName}</Text>
                 <Text style={styles.itemDescription}>{event.providedService}</Text>
               </View>
-              <Text style={styles.colQty}>1</Text>
-              <Text style={styles.colPrice}>{formatCurrency(subtotal)}</Text>
+              <Text style={hasRequirementDiscounts ? styles.colQty : styles.colQtyWide}>1</Text>
+              <Text style={hasRequirementDiscounts ? styles.colPrice : styles.colPriceWide}>{formatCurrency(subtotal)}</Text>
+              {hasRequirementDiscounts && (
+                <Text style={styles.colDiscount}>{formatCurrency(0)}</Text>
+              )}
               <Text style={styles.colAmount}>{formatCurrency(subtotal)}</Text>
             </View>
           )}
@@ -515,6 +553,13 @@ export const InvoiceTemplate = ({
               <Text style={styles.totalLabel}>Subtotal:</Text>
               <Text style={styles.totalValue}>{formatCurrency(subtotal)}</Text>
             </View>
+            
+            {eventDiscountAmount > 0 && (
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Event Discount:</Text>
+                <Text style={styles.totalValue}>-{formatCurrency(eventDiscountAmount)}</Text>
+              </View>
+            )}
             
             {includeGst && (
               <>

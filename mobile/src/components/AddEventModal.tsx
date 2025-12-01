@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -67,12 +68,18 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
       return await api.createEvent(data as any);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/events'] });
       if (event) {
-        queryClient.invalidateQueries({ queryKey: ['event', event.id] });
+        queryClient.invalidateQueries({ queryKey: ['/api/events', event.id] });
+        Alert.alert('Success', 'Event updated successfully!');
+      } else {
+        Alert.alert('Success', 'Event created successfully!');
       }
       resetForm();
       onClose();
+    },
+    onError: (error: Error) => {
+      Alert.alert('Error', `Failed to ${event ? 'update' : 'create'} event: ${error.message}`);
     },
   });
 

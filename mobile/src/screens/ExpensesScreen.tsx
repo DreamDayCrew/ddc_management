@@ -174,11 +174,6 @@ export default function ExpensesScreen() {
                 <Text style={[styles.expenseAmount, { color: item.type === 'Credit' ? '#10b981' : '#ef4444' }]}>
                   {item.type === 'Credit' ? '+' : '-'}₹{parseFloat(item.amount as any).toFixed(2)}
                 </Text>
-                {item.closing_balance && (
-                  <Text style={styles.closingBalanceText}>
-                    Balance: ₹{parseFloat(item.closing_balance as any).toFixed(2)}
-                  </Text>
-                )}
               </View>
             </View>
             <View style={styles.expenseFooter}>
@@ -345,10 +340,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  closingBalance: {
+  closingBalanceText: {
     fontSize: 12,
     color: '#6b7280',
     marginTop: 4,
+    textAlign: 'right',
   },
   expenseFooter: {
     flexDirection: 'row',
@@ -444,11 +440,5 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: 'white',
     fontWeight: '600',
-  },
-  closingBalanceText: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 4,
-    textAlign: 'right',
   },
 });

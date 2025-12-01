@@ -149,6 +149,16 @@ export function RequirementItem({
                 <IndianRupee className="h-3 w-3" />
                 <span>{requirement.order || 0}</span>
               </div>
+              {requirement.req_discount === "true" && requirement.req_discount_amount && parseFloat(requirement.req_discount_amount) > 0 && (
+                <>
+                  <span>•</span>
+                  <div className="flex items-center text-orange-600">
+                    <span className="mr-1">Discount:</span>
+                    <IndianRupee className="h-3 w-3" />
+                    <span>{parseFloat(requirement.req_discount_amount).toFixed(2)}</span>
+                  </div>
+                </>
+              )}
               <span>•</span>
               <div className="flex items-center">
                 <span className="mr-1">Total Spent:</span>
@@ -157,8 +167,7 @@ export function RequirementItem({
                   {plans?.reduce((sum, plan) => {
                     const payment = Number(plan.payment || 0);
                     return sum + payment;
-                  }, 0) || 0}
-                </span>
+                  }, 0) || 0}</span>
               </div>
             </div>
           </div>

@@ -136,6 +136,8 @@ export const events = pgTable("events", {
   notes: text("notes"),
   registeredOn: date("registered_on").notNull().default(sql`CURRENT_DATE`),
   finalizedQuote: decimal("finalized_quote", { precision: 10, scale: 2 }),
+  discount: text("discount").default("false"),
+  discount_amount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0"),
   initialQuote: decimal("initial_quote", { precision: 10, scale: 2 }),
   ddcCost: decimal("ddc_cost", { precision: 10, scale: 2 }),
   profitLoss: decimal("profit_loss", { precision: 10, scale: 2 }),
@@ -152,6 +154,8 @@ export const requirements = pgTable("requirements", {
   order: integer("order").notNull().default(0),
   price: integer("price").notNull().default(0),
   quantity: integer("quantity").notNull().default(1),
+  req_discount: text("req_discount").default("false"),
+  req_discount_amount: decimal("req_discount_amount", { precision: 10, scale: 2 }).default("0"),
 });
 
 // Fulfillment Plans Schema (nested under Requirements)

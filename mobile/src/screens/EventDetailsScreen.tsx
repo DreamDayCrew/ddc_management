@@ -97,21 +97,32 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     }, 0);
   }, [requirements]);
 
+  // Calculate total discount amount from all requirements
+  const calculateDiscountAmount = useCallback(() => {
+    if (!requirements || requirements.length === 0) return 0;
+    return requirements.reduce((total, req) => {
+      const discount = parseFloat(String(req.req_discount_amount ?? '0'));
+      return total + (isNaN(discount) ? 0 : discount);
+    }, 0);
+  }, [requirements]);
+
   // Check if there are changes to either invoice value or DDC cost
   const hasChanges = useMemo(() => {
     if (!event) return false;
     
     const currentInvoiceValue = calculateInvoiceValue();
+    const currentDiscountAmount = calculateDiscountAmount();
+    const currentFinalInvoiceValue = currentInvoiceValue - currentDiscountAmount;
     const currentDDCCost = calculateDDCCost();
     
     const dbInvoiceValue = parseFloat(event.finalizedQuote || '0');
     const dbDDCCost = parseFloat(event.ddcCost || '0');
     
-    const invoiceChanged = Math.abs(currentInvoiceValue - dbInvoiceValue) > 0.01;
+    const invoiceChanged = Math.abs(currentFinalInvoiceValue - dbInvoiceValue) > 0.01;
     const ddcCostChanged = Math.abs(currentDDCCost - dbDDCCost) > 0.01;
     
     return invoiceChanged || ddcCostChanged;
-  }, [event, calculateInvoiceValue, calculateDDCCost]);
+  }, [event, calculateInvoiceValue, calculateDiscountAmount, calculateDDCCost]);
 
   // Update budget mutation
   const updateBudgetMutation = useMutation({
@@ -129,18 +140,20 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
 
   const handleUpdateBudget = () => {
     const invoiceValue = calculateInvoiceValue();
+    const discountAmount = calculateDiscountAmount();
+    const finalInvoiceValue = invoiceValue - discountAmount;
     const ddcCost = calculateDDCCost();
 
     Alert.alert(
       'Confirm Update',
-      `Update budget with these values?\n\nInvoice Value: ₹${invoiceValue.toLocaleString()}\nDDC Spent: ₹${ddcCost.toLocaleString()}`,
+      `Update budget with these values?\n\nGross Invoice: ₹${invoiceValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Invoice: ₹${finalInvoiceValue.toLocaleString()}\nDDC Spent: ₹${ddcCost.toLocaleString()}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Update',
           onPress: () => {
             updateBudgetMutation.mutate({
-              finalizedQuote: invoiceValue.toString(),
+              finalizedQuote: finalInvoiceValue.toString(),
               ddcCost: ddcCost.toString(),
             });
           },
@@ -208,6 +221,58 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     setEventModalVisible(true);
   };
 
+  const handleDownloadInvoice = async () => {
+    try {
+      // Validate invoice requirements
+      if (!event || !config) {
+        Alert.alert('Error', 'Event data or configuration not loaded');
+        return;
+      }
+
+      if (!requirements || requirements.length === 0) {
+        Alert.alert('Cannot Generate Invoice', 'No requirements found for this event');
+        return;
+      }
+
+      const invoiceValue = calculateInvoiceValue();
+      const discountAmount = calculateDiscountAmount();
+      const finalInvoiceValue = invoiceValue - discountAmount;
+      
+      if (finalInvoiceValue <= 0) {
+        Alert.alert('Cannot Generate Invoice', 'Final invoice amount must be greater than zero');
+        return;
+      }
+
+      // Generate invoice number
+      const invoiceNumber = `INV${event.id.slice(-5).toUpperCase()}${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      
+      // Create download URL for the invoice
+      // Note: Replace with your actual API base URL or use an environment variable
+      const baseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+      const downloadUrl = `${baseUrl}/api/events/${eventId}/invoice?invoice_number=${invoiceNumber}`;
+      
+      Alert.alert(
+        'Download Invoice',
+        `Invoice ${invoiceNumber}\nGross Amount: ₹${invoiceValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalInvoiceValue.toLocaleString()}\n\nThis will open your browser to download the PDF.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Download', 
+            onPress: () => {
+              // Open the download URL in the browser
+              import('expo-linking').then(({ default: Linking }) => {
+                Linking.openURL(downloadUrl);
+              });
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      Alert.alert('Error', 'Failed to download invoice');
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([refetchEvent(), refetchRequirements(), refetchPlans()]);
@@ -251,8 +316,10 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
   }
 
   const invoiceValue = calculateInvoiceValue();
+  const discountAmount = calculateDiscountAmount();
   const ddcCost = calculateDDCCost();
-  const profitLoss = invoiceValue - ddcCost;
+  const finalInvoiceValue = invoiceValue - discountAmount;
+  const profitLoss = finalInvoiceValue - ddcCost;
   const isProfitable = profitLoss >= 0;
 
   return (
@@ -271,6 +338,13 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
             <Text style={styles.eventService}>{event.providedService}</Text>
           </View>
           <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={handleDownloadInvoice}
+              data-testid="button-download-invoice"
+            >
+              <Ionicons name="download-outline" size={22} color={BRAND_MAROON} />
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.iconButton}
               onPress={handleEditEvent}
@@ -298,19 +372,29 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       {/* Budget Summary */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Budget Summary</Text>
-        <View style={styles.budgetGrid}>
-          <View style={styles.budgetCard}>
-            <Text style={styles.budgetLabel}>Invoice Value</Text>
+        <View style={styles.budgetSummary}>
+          <View style={styles.budgetItem}>
+            <Text style={styles.budgetLabel}>Invoice Value:</Text>
             <Text style={styles.budgetValue}>₹{invoiceValue.toLocaleString()}</Text>
           </View>
-          <View style={styles.budgetCard}>
-            <Text style={styles.budgetLabel}>DDC Spent</Text>
+          
+          <View style={styles.budgetItem}>
+            <Text style={styles.budgetLabel}>Discount:</Text>
+            <Text style={styles.budgetValue}>₹{discountAmount.toLocaleString()}</Text>
+          </View>
+          
+          <View style={styles.budgetItem}>
+            <Text style={styles.budgetLabel}>Final Invoice:</Text>
+            <Text style={styles.budgetValue}>₹{finalInvoiceValue.toLocaleString()}</Text>
+          </View>
+          
+          <View style={styles.budgetItem}>
+            <Text style={styles.budgetLabel}>DDC Spent:</Text>
             <Text style={styles.budgetValue}>₹{ddcCost.toLocaleString()}</Text>
           </View>
-          <View style={[styles.budgetCard, isProfitable ? styles.profitCard : styles.lossCard]}>
-            <Text style={styles.budgetLabel}>
-              {isProfitable ? 'Profit' : 'Loss'}
-            </Text>
+          
+          <View style={[styles.budgetItem, styles.profitLossItem]}>
+            <Text style={styles.budgetLabel}>{isProfitable ? 'Profit' : 'Loss'}:</Text>
             <Text style={[styles.budgetValue, isProfitable ? styles.profitText : styles.lossText]}>
               ₹{Math.abs(profitLoss).toLocaleString()}
             </Text>
@@ -616,34 +700,31 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     marginBottom: 12,
   },
-  budgetGrid: {
-    flexDirection: 'row',
-    gap: 12,
+  budgetSummary: {
     marginBottom: 12,
   },
-  budgetCard: {
-    flex: 1,
-    backgroundColor: '#f9fafb',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+  budgetItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
   },
-  profitCard: {
-    backgroundColor: '#d1fae5',
-    borderColor: '#10b981',
-  },
-  lossCard: {
-    backgroundColor: '#fee2e2',
-    borderColor: '#ef4444',
+  profitLossItem: {
+    borderBottomWidth: 0,
+    paddingTop: 12,
+    borderTopWidth: 2,
+    borderTopColor: '#d1d5db',
   },
   budgetLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#6b7280',
-    marginBottom: 4,
+    fontWeight: '500',
   },
   budgetValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#1f2937',
   },

@@ -963,6 +963,8 @@ export class DatabaseStorage implements IStorage {
         price: requirement.price,
         quantity: requirement.quantity,
         order: requirement.order,
+        req_discount: requirement.req_discount,
+        req_discount_amount: requirement.req_discount_amount,
         // Don't update the eventId as it shouldn't change
       };
       

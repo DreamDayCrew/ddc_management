@@ -51,7 +51,7 @@ import { RequirementForm } from "@/components/forms/requirement-form";
 import { FulfillmentForm } from "@/components/forms/fulfillment-form";
 import { RequirementItem } from "@/components/requirement-item";
 import { InvoiceTemplate } from "@/components/invoice-template";
-import { RefreshCcwDot, ArrowLeft, FileDown, Upload, Calendar, MapPin, Link, User, Plus, Edit, SquareUserRound, Mail, MapPinHouse, BadgeIndianRupee, ChartColumn, HeartHandshake, HeartCrack, Meh, Smile, SmilePlus } from "lucide-react";
+import { RefreshCcwDot, ArrowLeft, FileDown, Upload, Calendar, MapPin, Link, User, Plus, Edit, Trash2, SquareUserRound, Mail, MapPinHouse, BadgeIndianRupee, ChartColumn, HeartHandshake, HeartCrack, Meh, Smile, SmilePlus } from "lucide-react";
 import { format } from "date-fns";
 
 
@@ -67,6 +67,7 @@ export default function EventDetails() {
   const [editPlan, setEditPlan] = useState<{ plan: FulfillmentPlan; requirementId: string } | null>(null);
   const [deletePlan, setDeletePlan] = useState<FulfillmentPlan | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showDeleteEventDialog, setShowDeleteEventDialog] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   
   // Handle refresh invoice value button click
@@ -134,6 +135,66 @@ export default function EventDetails() {
     enabled: !!id,
   });
 
+  // Calculate total discount amounts
+  const calculateDiscountInfo = useCallback(() => {
+    let isDiscountEnabled = false;
+    let enabledAt = '';
+    let totalDiscount = 0;
+    
+    // Check event-level discount
+    const hasEventDiscount = event?.discount === 'true' && event.discount_amount;
+    if (hasEventDiscount) {
+      isDiscountEnabled = true;
+      enabledAt = enabledAt ? 'Event, Requirement' : 'Event';
+      totalDiscount += parseFloat(event.discount_amount || '0');
+    }
+    
+    // Check requirement-level discounts
+    const requirementDiscounts = requirements.filter(req => 
+      req.req_discount === 'true' && req.req_discount_amount
+    );
+    
+    if (requirementDiscounts.length > 0) {
+      isDiscountEnabled = true;
+      enabledAt = enabledAt ? 'Event, Requirement' : 'Requirement';
+      
+      const reqDiscountTotal = requirementDiscounts.reduce((total, req) => {
+        const discountAmount = parseFloat(req.req_discount_amount || '0');
+        return total + (isNaN(discountAmount) ? 0 : discountAmount);
+      }, 0);
+      
+      totalDiscount += reqDiscountTotal;
+    }
+    
+    return {
+      isDiscountEnabled,
+      enabledAt: enabledAt || 'None',
+      totalDiscount,
+      hasEventDiscount,
+      requirementDiscountCount: requirementDiscounts.length
+    };
+  }, [event, requirements]);
+
+  // Handle refresh discount information
+  const handleRefreshDiscount = async () => {
+    try {
+      await refetchRequirements();
+      // Force a re-render to update the discount info
+      setRefreshKey(prev => prev + 1);
+      
+      toast({
+        title: "Refreshed",
+        description: "Discount information has been updated with the latest data.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to refresh discount information: " + (error as Error).message,
+        variant: "destructive",
+      });
+    }
+  };
+
   // Calculate DDC cost based on current event's plans
   const calculateDDCCost = useCallback(() => {
     if (!allPlans || allPlans.length === 0 || !requirements || requirements.length === 0) return 0;
@@ -150,14 +211,25 @@ export default function EventDetails() {
     }, 0);
   }, [allPlans, requirements]);
 
-  // Calculate invoice value based on requirements
+  // Calculate invoice value based on requirements with discount logic
   const calculateInvoiceValue = useCallback(() => {
     if (!requirements || requirements.length === 0) return 0;
-    return requirements.reduce((total, req) => {
-      const price = parseFloat(String(req.order ?? '0'));
-      return total + (isNaN(price) ? 0 : price);
+    
+    // Since requirement-level discounts are now included in the order field,
+    // we just sum all requirement orders and apply event-level discount
+    const requirementTotal = requirements.reduce((total, req) => {
+      const amount = parseFloat(String(req.order ?? '0'));
+      return total + (isNaN(amount) ? 0 : amount);
     }, 0);
-  }, [requirements]);
+    
+    // Apply event-level discount if enabled
+    if (event?.discount === 'true' && event.discount_amount) {
+      const eventDiscount = parseFloat(event.discount_amount);
+      return requirementTotal - (isNaN(eventDiscount) ? 0 : eventDiscount);
+    }
+    
+    return requirementTotal;
+  }, [requirements, event]);
 
   // Set initial values when event data is loaded and check for matches
   useEffect(() => {
@@ -321,6 +393,30 @@ export default function EventDetails() {
         title: "Success",
         description: "Event status updated successfully",
       });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteEventMutation = useMutation({
+    mutationFn: async () => {
+      // Delete event (this should cascade delete requirements and plans on backend)
+      return await apiRequest("DELETE", `/api/events/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({
+        title: "Success",
+        description: "Event and all associated data deleted successfully",
+      });
+      setShowDeleteEventDialog(false);
+      // Navigate back to events list
+      setLocation("/events");
     },
     onError: (error: Error) => {
       toast({
@@ -594,12 +690,21 @@ export default function EventDetails() {
               />
             </DialogContent>
           </Dialog>
+          
+          <Button 
+            variant="destructive" 
+            onClick={() => setShowDeleteEventDialog(true)}
+            data-testid="button-delete-event"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete Event
+          </Button>
         </div>
       </div>
 
       <div className="space-y-4">
         <Card className="overflow-hidden border border-gray-200 dark:border-gray-800">
-          <Accordion type="multiple" defaultValue={['basic-info', 'client-info', 'payment-info']}>
+          <Accordion type="multiple" defaultValue={['basic-info', 'client-info', 'discount-info', 'payment-info']}>
             {/* Basic Information Section */}
             <AccordionItem value="basic-info" className="border-b-0">
               <AccordionTrigger className="px-6 py-4 hover:no-underline bg-gray-50 dark:bg-gray-800">
@@ -697,6 +802,91 @@ export default function EventDetails() {
                     <p className="font-medium" data-testid="client-address">{event.clientAddress || "N/A"}</p>
                   </div>
                 </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* Discount Information Section */}
+            <AccordionItem value="discount-info" className="border-b-0">
+              <AccordionTrigger className="px-6 py-4 hover:no-underline bg-gray-50 dark:bg-gray-800">
+                <h3 className="text-lg font-medium">Discount Information</h3>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pt-2 pb-6">
+                {(() => {
+                  const discountInfo = calculateDiscountInfo();
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <BadgeIndianRupee className="h-4 w-4" />
+                          <span>Discount Enabled</span>
+                        </div>
+                        <Badge 
+                          variant={discountInfo.isDiscountEnabled ? "default" : "outline"}
+                          className={discountInfo.isDiscountEnabled ? "bg-green-500 hover:bg-green-600" : ""}
+                        >
+                          {discountInfo.isDiscountEnabled ? "True" : "False"}
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <ChartColumn className="h-4 w-4" />
+                          <span>Enabled At</span>
+                        </div>
+                        <p className="font-medium" data-testid="discount-enabled-at">
+                          {discountInfo.enabledAt}
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <BadgeIndianRupee className="h-4 w-4" />
+                          <span>Total Discount</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium" data-testid="total-discount">
+                            ₹{discountInfo.totalDiscount}
+                          </span>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 w-6 p-0"
+                            onClick={handleRefreshDiscount}
+                            disabled={updateBudgetMutation.isPending}
+                            title="Refresh Discount Information"
+                            aria-label="Refresh Discount Information"
+                          >
+                            <RefreshCcwDot className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <ChartColumn className="h-4 w-4" />
+                          <span>Breakdown</span>
+                        </div>
+                        <div className="text-sm space-y-1">
+                          {discountInfo.hasEventDiscount && (
+                            <div>Event: ₹{event?.discount_amount || 0}</div>
+                          )}
+                          {discountInfo.requirementDiscountCount > 0 && (
+                            <div>
+                              Requirements ({discountInfo.requirementDiscountCount}): ₹
+                              {requirements
+                                .filter(req => req.req_discount === 'true' && req.req_discount_amount)
+                                .reduce((total, req) => total + parseFloat(req.req_discount_amount || '0'), 0)
+                              }
+                            </div>
+                          )}
+                          {!discountInfo.isDiscountEnabled && (
+                            <div className="text-muted-foreground">No discounts applied</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </AccordionContent>
             </AccordionItem>
 
@@ -911,6 +1101,53 @@ export default function EventDetails() {
               disabled={updateBudgetMutation.isPending}
             >
               {updateBudgetMutation.isPending ? 'Updating...' : 'Update'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Event Confirmation Dialog */}
+      <AlertDialog open={showDeleteEventDialog} onOpenChange={setShowDeleteEventDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Event</AlertDialogTitle>
+            <AlertDialogDescription>
+              <div className="space-y-3">
+                <p className="font-medium text-destructive">
+                  ⚠️ This action cannot be undone!
+                </p>
+                <p>
+                  Are you sure you want to delete the event "{event?.eventName}"?
+                </p>
+                <div className="bg-muted p-3 rounded-md">
+                  <p className="font-medium mb-2">This will permanently delete:</p>
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    <li>The event and all its information</li>
+                    <li>All {requirements.length} requirement(s)</li>
+                    <li>All associated fulfillment plans</li>
+                    <li>All related invoicing data</li>
+                  </ul>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Click Delete Event button to confirm deletion:
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => setShowDeleteEventDialog(false)}
+              disabled={deleteEventMutation.isPending}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => deleteEventMutation.mutate()}
+              disabled={deleteEventMutation.isPending}
+              className="bg-destructive hover:bg-destructive/90"
+              data-testid="confirm-delete-event"
+            >
+              {deleteEventMutation.isPending ? 'Deleting...' : 'Delete Event'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
