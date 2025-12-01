@@ -1,5 +1,6 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSecurity } from '../contexts/SecurityContext';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 const BRAND_MAROON = '#800020';
@@ -54,6 +55,29 @@ const settingsMenu: MenuItem[] = [
 ];
 
 export default function MoreScreen({ navigation }: any) {
+  const { securitySettings, logout } = useSecurity();
+
+  const handleLogout = () => {
+    console.log('Lock App button pressed'); // Debug log
+    console.log('Security settings:', securitySettings); // Debug log
+    
+    if (securitySettings.pinEnabled || securitySettings.biometricEnabled) {
+      // Direct logout for testing - remove alert temporarily
+      console.log('Calling logout directly'); // Debug log
+      logout();
+      
+      // Show alert after logout to confirm it worked
+      setTimeout(() => {
+        Alert.alert('Debug', 'Logout function was called. Check if authentication screen appeared.');
+      }, 500);
+    } else {
+      Alert.alert(
+        'No Security Enabled', 
+        'Please enable PIN or biometric authentication in App Configuration to use this feature.',
+        [{ text: 'OK', style: 'default' }]
+      );
+    }
+  };
   const renderMenuItem = (item: MenuItem) => (
     <TouchableOpacity
       key={item.id}
@@ -74,13 +98,13 @@ export default function MoreScreen({ navigation }: any) {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
+      {/*<View style={styles.header}>
         <Image 
           source={require('../../assets/ddc-logo.jpeg')}
           style={styles.logo}
           resizeMode="contain"
         />
-      </View>
+      </View> */}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Resources</Text>
@@ -96,9 +120,31 @@ export default function MoreScreen({ navigation }: any) {
         </View>
       </View>
 
+      {/* Security Section */}
+      {(securitySettings.pinEnabled || securitySettings.biometricEnabled) && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Security</Text>
+          <View style={styles.menuList}>
+            <TouchableOpacity
+              style={[styles.menuItem, styles.logoutItem]}
+              onPress={handleLogout}
+            >
+              <View style={styles.menuIconContainer}>
+                <Ionicons name="log-out-outline" size={24} color="#ef4444" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={[styles.menuTitle, { color: '#ef4444' }]}>Lock App</Text>
+                <Text style={styles.menuDescription}>Lock the app and require authentication</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       <View style={styles.footer}>
         <Text style={styles.footerText}>Dream Day Crew</Text>
-        <Text style={styles.footerSubtext}>Event Management System v1.7</Text>
+        <Text style={styles.footerSubtext}>Event Management System v1.0.8</Text>
       </View>
     </ScrollView>
   );
@@ -171,6 +217,10 @@ const styles = StyleSheet.create({
   menuDescription: {
     fontSize: 13,
     color: '#6b7280',
+  },
+  logoutItem: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#ef4444',
   },
   footer: {
     padding: 32,

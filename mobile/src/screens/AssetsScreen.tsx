@@ -36,6 +36,9 @@ export default function AssetsScreen() {
       const matchesSearch = asset.name.toLowerCase().includes(searchName.toLowerCase());
       const matchesCategory = !selectedCategory || asset.category === selectedCategory;
       return matchesSearch && matchesCategory;
+    }).sort((a, b) => {
+      // Sort by id or creation order (latest first)
+      return b.id.localeCompare(a.id);
     });
   }, [assets, searchName, selectedCategory]);
 

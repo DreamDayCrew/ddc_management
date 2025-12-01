@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Picker as RNPicker } from '@react-native-picker/picker';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import ConfirmDialog from './ConfirmDialog';
 import { api } from '../lib/api';
 
 interface AddPlanModalProps {
@@ -64,9 +65,14 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
   useEffect(() => {
     if (plan && visible) {
       setPlanType(plan.planType);
+      
+      // Set vendor category first to ensure filtering works
+      const vendorCategory = plan.vendorCategory || '';
+      const vendorId = plan.vendorId || '';
+      
       setFormData({
-        vendorId: plan.vendorId || '',
-        vendorCategory: plan.vendorCategory || '',
+        vendorId,
+        vendorCategory,
         teamMemberId: plan.teamMemberId || '',
         teamRole: plan.teamRole || '',
         assetId: plan.assetId || '',
@@ -83,29 +89,50 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      if (plan) {
-        return await api.updatePlan(plan.id, data);
+      try {
+        if (plan) {
+          return await api.updatePlan(plan.id, data);
+        }
+        return await api.createPlan(requirementId, data);
+      } catch (error) {
+        throw error;
       }
-      return await api.createPlan(requirementId, data);
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['plans'] });
+      queryClient.invalidateQueries({ queryKey: ['requirements', requirementId.split('/')[0]] });
       resetForm();
       onClose();
     },
-    onError: (error: Error) => {
-      Alert.alert('Error', error.message || 'Failed to save plan');
+    onError: (error: any) => {
+      // Handle error silently or show user-friendly message
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => api.deletePlan(plan.id),
+    mutationFn: async () => {
+      if (!plan?.id) {
+        throw new Error('No plan ID provided for deletion');
+      }
+      
+      try {
+        const result = await api.deletePlan(plan.id);
+        return result;
+      } catch (error) {
+        throw error;
+      }
+    },
     onSuccess: () => {
+      // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['plans'] });
+      queryClient.invalidateQueries({ queryKey: ['requirements'] });
+      if (requirementId) {
+        queryClient.invalidateQueries({ queryKey: ['requirements', requirementId, 'plans'] });
+      }
       onClose();
     },
-    onError: (error: Error) => {
-      Alert.alert('Error', error.message || 'Failed to delete plan');
+    onError: (error: any) => {
+      // Handle error silently or show user-friendly message
     },
   });
 
@@ -134,22 +161,25 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
     };
 
     if (planType === 'Vendor') {
+      if (!formData.vendorCategory) {
+        return;
+      }
       if (!formData.vendorId) {
-        Alert.alert('Error', 'Please select a vendor');
         return;
       }
       submitData.vendorId = formData.vendorId;
       submitData.vendorCategory = formData.vendorCategory;
     } else if (planType === 'Team') {
       if (!formData.teamMemberId) {
-        Alert.alert('Error', 'Please select a team member');
         return;
       }
       submitData.teamMemberId = formData.teamMemberId;
       submitData.teamRole = formData.teamRole;
     } else if (planType === 'Asset') {
+      if (!formData.assetCategory) {
+        return;
+      }
       if (!formData.assetId) {
-        Alert.alert('Error', 'Please select an asset');
         return;
       }
       submitData.assetId = formData.assetId;
@@ -157,24 +187,28 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
       submitData.assetCategory = formData.assetCategory;
     }
 
+    if (createMutation.isPending) {
+      return;
+    }
+
     createMutation.mutate(submitData);
   };
 
   const handleDelete = () => {
-    if (!plan) return;
+    if (!plan) {
+      return;
+    }
 
-    Alert.alert(
-      'Delete Plan',
-      'Are you sure you want to delete this fulfillment plan?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => deleteMutation.mutate(),
-        },
-      ]
-    );
+    setShowDeleteConfirm(true);
+  };
+  
+  const confirmDelete = () => {
+    try {
+      deleteMutation.mutate();
+    } catch (error) {
+      // Handle error silently
+    }
+    setShowDeleteConfirm(false);
   };
 
   const planStatuses = config?.planStatuses || ['To Do', 'In Progress', 'Completed'];
@@ -183,6 +217,89 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
   const roles = config?.roles || [];
   const assetCategories = config?.assetCategories || [];
   const assetPurchaseStatuses = config?.assetPurchaseStatus || ['Existing', 'New'];
+  
+  // Filter vendors based on selected category
+  // During editing, ensure the currently selected vendor is always available
+  const filteredVendors = useMemo(() => {
+    if (!formData.vendorCategory) {
+      // If editing and no category but has vendorId, find and include that vendor
+      if (plan && formData.vendorId) {
+        const currentVendor = vendors.find(v => v.id === formData.vendorId);
+        return currentVendor ? [currentVendor] : [];
+      }
+      return [];
+    }
+    
+    const filtered = vendors.filter(vendor => vendor.category === formData.vendorCategory);
+    
+    // When editing, ensure the current vendor is included even if category mismatch
+    if (plan && formData.vendorId && !filtered.some(v => v.id === formData.vendorId)) {
+      const currentVendor = vendors.find(v => v.id === formData.vendorId);
+      if (currentVendor) {
+        filtered.unshift(currentVendor);
+      }
+    }
+    
+    return filtered;
+  }, [formData.vendorCategory, formData.vendorId, vendors, plan]);
+  
+  // Filter assets based on selected category
+  const filteredAssets = useMemo(() => {
+    if (!formData.assetCategory) {
+      // If editing and no category but has assetId, find and include that asset
+      if (plan && formData.assetId) {
+        const currentAsset = assets.find(a => a.id === formData.assetId);
+        return currentAsset ? [currentAsset] : [];
+      }
+      return [];
+    }
+    
+    const filtered = assets.filter(asset => asset.category === formData.assetCategory);
+    
+    // When editing, ensure the current asset is included even if category mismatch
+    if (plan && formData.assetId && !filtered.some(a => a.id === formData.assetId)) {
+      const currentAsset = assets.find(a => a.id === formData.assetId);
+      if (currentAsset) {
+        filtered.unshift(currentAsset);
+      }
+    }
+    
+    return filtered;
+  }, [formData.assetCategory, formData.assetId, assets, plan]);
+  
+  // Track if we're in initial loading state
+  const [isInitialLoad, setIsInitialLoad] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  // Reset vendorId when vendorCategory changes (but not during initial load)
+  useEffect(() => {
+    // Only reset if not initial load and not editing mode, or if user manually changed category
+    if (formData.vendorCategory && planType === 'Vendor' && !isInitialLoad && !plan) {
+      setFormData(prev => ({ ...prev, vendorId: '' }));
+    }
+  }, [formData.vendorCategory, planType, isInitialLoad, plan]);
+  
+  // Reset assetId when assetCategory changes (but not during initial load)
+  useEffect(() => {
+    // Only reset if not initial load and not editing mode, or if user manually changed category
+    if (formData.assetCategory && planType === 'Asset' && !isInitialLoad && !plan) {
+      setFormData(prev => ({ ...prev, assetId: '' }));
+    }
+  }, [formData.assetCategory, planType, isInitialLoad, plan]);
+  
+  // Track initial loading state
+  useEffect(() => {
+    if (plan && visible) {
+      setIsInitialLoad(true);
+      // Allow some time for data to settle, then enable category change detection
+      const timer = setTimeout(() => {
+        setIsInitialLoad(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    } else if (!visible) {
+      setIsInitialLoad(false);
+    }
+  }, [plan, visible]);
   
   const isPending = createMutation.isPending || deleteMutation.isPending;
 
@@ -236,23 +353,7 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
             {planType === 'Vendor' && (
               <>
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Vendor *</Text>
-                  <View style={styles.pickerContainer}>
-                    <RNPicker
-                      selectedValue={formData.vendorId}
-                      onValueChange={(value: string) => setFormData({ ...formData, vendorId: value })}
-                      style={styles.picker}
-                      data-testid="picker-vendor"
-                    >
-                      <RNPicker.Item label="Select vendor" value="" />
-                      {vendors.map(v => (
-                        <RNPicker.Item key={v.id} label={v.name} value={v.id} />
-                      ))}
-                    </RNPicker>
-                  </View>
-                </View>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Category</Text>
+                  <Text style={styles.label}>Category *</Text>
                   <View style={styles.pickerContainer}>
                     <RNPicker
                       selectedValue={formData.vendorCategory}
@@ -263,6 +364,34 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
                       <RNPicker.Item label="Select category" value="" />
                       {vendorCategories.map(c => (
                         <RNPicker.Item key={c} label={c} value={c} />
+                      ))}
+                    </RNPicker>
+                  </View>
+                </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Vendor *</Text>
+                  <View style={[styles.pickerContainer, !formData.vendorCategory && styles.disabledPicker]}>
+                    <RNPicker
+                      selectedValue={formData.vendorId}
+                      onValueChange={(value: string) => setFormData({ ...formData, vendorId: value })}
+                      style={styles.picker}
+                      enabled={!!formData.vendorCategory}
+                      data-testid="picker-vendor"
+                    >
+                      {!formData.vendorId && (
+                        <RNPicker.Item 
+                          label={
+                            !formData.vendorCategory 
+                              ? "Select a category first" 
+                              : filteredVendors.length === 0 
+                                ? "No vendors available for this category"
+                                : "Select vendor"
+                          } 
+                          value="" 
+                        />
+                      )}
+                      {filteredVendors.map(v => (
+                        <RNPicker.Item key={v.id} label={v.name} value={v.id} />
                       ))}
                     </RNPicker>
                   </View>
@@ -310,16 +439,44 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
             {planType === 'Asset' && (
               <>
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Asset *</Text>
+                  <Text style={styles.label}>Category *</Text>
                   <View style={styles.pickerContainer}>
+                    <RNPicker
+                      selectedValue={formData.assetCategory}
+                      onValueChange={(value: string) => setFormData({ ...formData, assetCategory: value })}
+                      style={styles.picker}
+                      data-testid="picker-asset-category"
+                    >
+                      <RNPicker.Item label="Select category" value="" />
+                      {assetCategories.map(c => (
+                        <RNPicker.Item key={c} label={c} value={c} />
+                      ))}
+                    </RNPicker>
+                  </View>
+                </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Asset *</Text>
+                  <View style={[styles.pickerContainer, !formData.assetCategory && styles.disabledPicker]}>
                     <RNPicker
                       selectedValue={formData.assetId}
                       onValueChange={(value: string) => setFormData({ ...formData, assetId: value })}
                       style={styles.picker}
+                      enabled={!!formData.assetCategory}
                       data-testid="picker-asset"
                     >
-                      <RNPicker.Item label="Select asset" value="" />
-                      {assets.map(a => (
+                      {!formData.assetId && (
+                        <RNPicker.Item 
+                          label={
+                            !formData.assetCategory 
+                              ? "Select a category first" 
+                              : filteredAssets.length === 0 
+                                ? "No assets available for this category"
+                                : "Select asset"
+                          } 
+                          value="" 
+                        />
+                      )}
+                      {filteredAssets.map(a => (
                         <RNPicker.Item key={a.id} label={a.name} value={a.id} />
                       ))}
                     </RNPicker>
@@ -341,52 +498,42 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
                     </RNPicker>
                   </View>
                 </View>
+              </>
+            )}
+
+            {/* Payment fields - only show for Asset plans with 'New' purchase status or other plan types */}
+            {((planType === 'Asset' && formData.assetPurchaseStatus === 'New') || planType !== 'Asset') && (
+              <>
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Category</Text>
+                  <Text style={styles.label}>Payment Amount (₹)</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={formData.payment}
+                    onChangeText={(text) => setFormData({ ...formData, payment: text })}
+                    placeholder="0"
+                    keyboardType="numeric"
+                    data-testid="input-payment"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Payment Status</Text>
                   <View style={styles.pickerContainer}>
                     <RNPicker
-                      selectedValue={formData.assetCategory}
-                      onValueChange={(value: string) => setFormData({ ...formData, assetCategory: value })}
+                      selectedValue={formData.paymentStatus}
+                      onValueChange={(value: string) => setFormData({ ...formData, paymentStatus: value })}
                       style={styles.picker}
-                      data-testid="picker-asset-category"
+                      data-testid="picker-payment-status"
                     >
-                      <RNPicker.Item label="Select category" value="" />
-                      {assetCategories.map(c => (
-                        <RNPicker.Item key={c} label={c} value={c} />
+                      <RNPicker.Item label="Select status" value="" />
+                      {paymentStatuses.map(status => (
+                        <RNPicker.Item key={status} label={status} value={status} />
                       ))}
                     </RNPicker>
                   </View>
                 </View>
               </>
             )}
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Payment Amount (₹)</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.payment}
-                onChangeText={(text) => setFormData({ ...formData, payment: text })}
-                placeholder="0"
-                keyboardType="numeric"
-                data-testid="input-payment"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Payment Status</Text>
-              <View style={styles.pickerContainer}>
-                <RNPicker
-                  selectedValue={formData.paymentStatus}
-                  onValueChange={(value: string) => setFormData({ ...formData, paymentStatus: value })}
-                  style={styles.picker}
-                  data-testid="picker-payment-status"
-                >
-                  {paymentStatuses.map(s => (
-                    <RNPicker.Item key={s} label={s} value={s} />
-                  ))}
-                </RNPicker>
-              </View>
-            </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Plan Status</Text>
@@ -408,19 +555,17 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
           <View style={styles.modalFooter}>
             {plan && (
               <TouchableOpacity
-                style={[styles.deleteButton, isPending && styles.buttonDisabled]}
+                style={{
+                  backgroundColor: '#ef4444',
+                  padding: 15,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  margin: 10
+                }}
                 onPress={handleDelete}
-                disabled={isPending}
-                data-testid="button-delete-plan"
+                activeOpacity={0.7}
               >
-                {deleteMutation.isPending ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="trash-outline" size={18} color="#ffffff" />
-                    <Text style={styles.buttonText}>Delete</Text>
-                  </>
-                )}
+                <Text style={{ color: 'white', fontWeight: 'bold' }}>Delet Plan</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -440,6 +585,15 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
           </View>
         </View>
       </View>
+      
+      <ConfirmDialog
+        visible={showDeleteConfirm}
+        title="Delete Plan"
+        message="Are you sure you want to delete this fulfillment plan?"
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+        confirmText="Delete"
+      />
     </Modal>
   );
 }
@@ -557,6 +711,10 @@ const styles = StyleSheet.create({
     borderColor: '#d1d5db',
     borderRadius: 8,
     backgroundColor: '#ffffff',
+  },
+  disabledPicker: {
+    backgroundColor: '#f9fafb',
+    opacity: 0.6,
   },
   picker: {
     height: 50,

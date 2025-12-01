@@ -4,10 +4,10 @@ import { api } from '../lib/api';
 import type { Event, Expense, TeamMember, Asset, Requirement, AccountBalance, Repayment } from '../types';
 
 // Events hooks
-export function useEvents() {
+export function useEvents(params?: { startDate?: string; endDate?: string }) {
   return useQuery<Event[]>({
-    queryKey: ['/api/events'],
-    queryFn: api.getEvents,
+    queryKey: ['/api/events', params],
+    queryFn: () => api.getEvents(params),
   });
 }
 

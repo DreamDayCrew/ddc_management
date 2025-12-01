@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Picker as RNPicker } from '@react-native-picker/picker';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { Switch } from './Switch';
 
 interface AddRequirementModalProps {
   visible: boolean;
@@ -31,6 +32,12 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
     queryFn: () => api.getConfiguration(),
   });
 
+  // Fetch team members for owner dropdown
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ['team'],
+    queryFn: () => api.getTeamMembers(),
+  });
+
   const [formData, setFormData] = useState({
     requirement: '',
     description: '',
@@ -38,6 +45,8 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
     requirementStatus: 'To Do',
     price: '',
     quantity: '1',
+    req_discount: false,
+    req_discount_amount: '',
   });
 
   useEffect(() => {
@@ -49,6 +58,8 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
         requirementStatus: requirement.requirementStatus || 'To Do',
         price: String(requirement.price || 0),
         quantity: String(requirement.quantity || 1),
+        req_discount: requirement.req_discount === 'true' || requirement.req_discount === true,
+        req_discount_amount: String(requirement.req_discount_amount || 0),
       });
     } else if (!visible) {
       resetForm();
@@ -57,33 +68,27 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      if (requirement) {
-        return await api.updateRequirement(eventId, requirement.id, data);
+      try {
+        if (requirement) {
+          return await api.updateRequirement(eventId, requirement.id, data);
+        }
+        return await api.createRequirement(eventId, data);
+      } catch (error) {
+        throw error;
       }
-      return await api.createRequirement(eventId, data);
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['requirements', eventId] });
       queryClient.invalidateQueries({ queryKey: ['event', eventId] });
       resetForm();
       onClose();
     },
-    onError: (error: Error) => {
-      Alert.alert('Error', error.message || 'Failed to save requirement');
+    onError: (error: any) => {
+      // Handle error silently or show user-friendly message
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: () => api.deleteRequirement(eventId, requirement.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['requirements', eventId] });
-      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
-      onClose();
-    },
-    onError: (error: Error) => {
-      Alert.alert('Error', error.message || 'Failed to delete requirement');
-    },
-  });
+
 
   const resetForm = () => {
     setFormData({
@@ -93,6 +98,8 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
       requirementStatus: 'To Do',
       price: '',
       quantity: '1',
+      req_discount: false,
+      req_discount_amount: '',
     });
   };
 
@@ -105,35 +112,28 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
     const price = parseInt(formData.price) || 0;
     const quantity = parseInt(formData.quantity) || 1;
 
+    const discountAmount = parseFloat(formData.req_discount_amount) || 0;
+    
     const submitData = {
       ...formData,
       price: price,
       quantity: quantity,
       order: price * quantity, // order = price * quantity for invoice calculation
+      req_discount: formData.req_discount ? 'true' : 'false',
+      req_discount_amount: discountAmount.toString(), // Convert to string for schema
     };
-
+    
+    if (createMutation.isPending) {
+      return;
+    }
+    
     createMutation.mutate(submitData);
   };
 
-  const handleDelete = () => {
-    if (!requirement) return;
 
-    Alert.alert(
-      'Delete Requirement',
-      'Are you sure you want to delete this requirement? All associated plans will also be deleted.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => deleteMutation.mutate(),
-        },
-      ]
-    );
-  };
 
   const statuses = config?.planStatuses || ['To Do', 'In Progress', 'Completed'];
-  const isPending = createMutation.isPending || deleteMutation.isPending;
+  const isPending = createMutation.isPending;
 
   return (
     <Modal
@@ -180,13 +180,23 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Owner</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.requirementOwner}
-                onChangeText={(text) => setFormData({ ...formData, requirementOwner: text })}
-                placeholder="Enter owner name"
-                data-testid="input-owner"
-              />
+              <View style={styles.pickerContainer}>
+                <RNPicker
+                  selectedValue={formData.requirementOwner}
+                  onValueChange={(value: string) => setFormData({ ...formData, requirementOwner: value })}
+                  style={styles.picker}
+                  data-testid="picker-owner"
+                >
+                  <RNPicker.Item label="Select team member" value="" />
+                  {teamMembers.map(member => (
+                    <RNPicker.Item 
+                      key={member.id} 
+                      label={member.name} 
+                      value={member.name} 
+                    />
+                  ))}
+                </RNPicker>
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
@@ -230,28 +240,42 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
                 />
               </View>
             </View>
+
+            {/* Discount Section */}
+            <View style={styles.inputGroup}>
+              <View style={styles.switchContainer}>
+                <Text style={styles.label}>Apply Discount</Text>
+                <Switch
+                  value={formData.req_discount}
+                  onValueChange={(value) => {
+                    setFormData({ 
+                      ...formData, 
+                      req_discount: value,
+                      req_discount_amount: value ? formData.req_discount_amount : '0'
+                    });
+                  }}
+                />
+              </View>
+            </View>
+
+            {formData.req_discount && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Discount Amount (₹)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.req_discount_amount}
+                  onChangeText={(text) => setFormData({ ...formData, req_discount_amount: text })}
+                  placeholder="0"
+                  keyboardType="numeric"
+                  data-testid="input-discount-amount"
+                />
+              </View>
+            )}
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            {requirement && (
-              <TouchableOpacity
-                style={[styles.deleteButton, isPending && styles.buttonDisabled]}
-                onPress={handleDelete}
-                disabled={isPending}
-                data-testid="button-delete-requirement"
-              >
-                {deleteMutation.isPending ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="trash-outline" size={18} color="#ffffff" />
-                    <Text style={styles.buttonText}>Delete</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
             <TouchableOpacity
-              style={[styles.submitButton, isPending && styles.buttonDisabled, !requirement && styles.submitButtonFull]}
+              style={[styles.submitButton, styles.submitButtonFull, isPending && styles.buttonDisabled]}
               onPress={handleSubmit}
               disabled={isPending}
               data-testid="button-submit"
@@ -347,16 +371,7 @@ const styles = StyleSheet.create({
   submitButtonFull: {
     flex: 1,
   },
-  deleteButton: {
-    backgroundColor: '#ef4444',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
+
   buttonDisabled: {
     opacity: 0.6,
   },
@@ -373,5 +388,10 @@ const styles = StyleSheet.create({
   },
   picker: {
     height: 50,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 });

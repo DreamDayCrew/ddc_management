@@ -68,6 +68,9 @@ export default function VendorsScreen() {
       const matchesSearch = vendor.name.toLowerCase().includes(searchName.toLowerCase());
       const matchesCategory = !selectedCategory || vendor.category === selectedCategory;
       return matchesSearch && matchesCategory;
+    }).sort((a, b) => {
+      // Sort by id or creation order (latest first)
+      return b.id.localeCompare(a.id);
     }) || [];
   }, [vendors, searchName, selectedCategory]);
 

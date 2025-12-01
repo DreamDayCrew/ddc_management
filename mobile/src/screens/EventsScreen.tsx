@@ -15,8 +15,21 @@ type Props = NativeStackScreenProps<EventsStackParamList, 'EventsList'>;
 
 const BRAND_MAROON = '#800020';
 
+// Helper function to get last 3 months range for events
+const getLast3MonthsRange = () => {
+  const now = new Date();
+  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+  const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  
+  return {
+    startDate: threeMonthsAgo.toISOString().split('T')[0],
+    endDate: endOfCurrentMonth.toISOString().split('T')[0]
+  };
+};
+
 export default function EventsScreen({ navigation }: Props) {
-  const { data: events, isLoading, error, refetch } = useEvents();
+  const last3MonthsRange = useMemo(getLast3MonthsRange, []);
+  const { data: events, isLoading, error, refetch } = useEvents(last3MonthsRange);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -56,16 +69,18 @@ export default function EventsScreen({ navigation }: Props) {
       let matchesDateFilter = true;
       
       if (startDate || endDate) {
-        // Use date range filter
+        // Use date range filter - comparing with eventDate
         if (startDate && endDate) {
           const start = new Date(startDate);
           const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999); // Include the entire end date
           matchesDateFilter = eventDate >= start && eventDate <= end;
         } else if (startDate) {
           const start = new Date(startDate);
           matchesDateFilter = eventDate >= start;
         } else if (endDate) {
           const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999); // Include the entire end date
           matchesDateFilter = eventDate <= end;
         }
       } else {
@@ -76,6 +91,11 @@ export default function EventsScreen({ navigation }: Props) {
       }
       
       return matchesSearch && matchesDateFilter;
+    }).sort((a, b) => {
+      // Sort by registeredOn date (latest first), fallback to eventDate
+      const aDate = new Date(a.registeredOn || a.eventDate);
+      const bDate = new Date(b.registeredOn || b.eventDate);
+      return bDate.getTime() - aDate.getTime();
     });
   }, [events, searchText, selectedYear, selectedMonth, startDate, endDate]);
   

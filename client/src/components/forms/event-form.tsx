@@ -1,4 +1,4 @@
-import React from "react";
+import { Fragment } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -220,7 +220,7 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <React.Fragment>
+    <Fragment>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <Accordion type="multiple" defaultValue={['basic-info', 'client-info', 'payment-info']} className="space-y-4">
@@ -598,6 +598,6 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-    </React.Fragment>
+    </Fragment>
   );
 }

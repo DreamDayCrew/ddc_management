@@ -708,14 +708,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `INV${event.id.slice(-5).toUpperCase()}${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
       
       // Generate PDF
-      const pdfBuffer = await renderToBuffer(
-        React.createElement(ServerInvoiceTemplate, {
-          event,
-          requirements,
-          config,
-          invoiceNumber
-        })
-      );
+      const invoiceElement = ServerInvoiceTemplate({
+        event,
+        requirements,
+        config,
+        invoiceNumber
+      });
+      
+      if (!invoiceElement) {
+        return res.status(500).json({ error: "Failed to generate invoice template" });
+      }
+      
+      const pdfBuffer = await renderToBuffer(invoiceElement as React.ReactElement);
       
       // Set response headers for PDF download
       const fileName = `Invoice_${event.eventName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
@@ -741,6 +745,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/events/:eventId/requirements", async (req, res) => {
     const requirements = await storage.getRequirements(req.params.eventId);
     res.json(requirements);
+  });
+
+  // Create requirement for a specific event
+  app.post("/api/events/:eventId/requirements", async (req, res) => {
+    try {
+      const eventId = req.params.eventId;
+      const validatedData = insertRequirementSchema.parse({
+        ...req.body,
+        eventId: eventId  // Ensure eventId is included
+      });
+      const requirement = await storage.createRequirement(validatedData);
+      res.status(201).json(requirement);
+    } catch (error: any) {
+      console.error("Error creating requirement for event:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Update requirement for a specific event
+  app.patch("/api/events/:eventId/requirements/:id", async (req, res) => {
+    try {
+      const validatedData = insertRequirementSchema.partial().parse(req.body);
+      const requirement = await storage.updateRequirement(req.params.id, validatedData);
+      
+      if (!requirement) {
+        return res.status(404).json({ error: "Requirement not found" });
+      }
+      
+      res.json(requirement);
+    } catch (error: any) {
+      console.error("Error updating requirement:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Delete requirement for a specific event
+  app.delete("/api/events/:eventId/requirements/:id", async (req, res) => {
+    try {
+      await storage.deleteRequirement(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting requirement:", error);
+      res.status(400).json({ error: error.message });
+    }
   });
 
   app.get("/api/requirements/:id", async (req, res) => {
@@ -836,10 +884,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Handle different plan types
       if (planData.planType === 'Vendor') {
-        // For vendor plans, ensure team_member_id is null
+        // For vendor plans, ensure teamMemberId is null
         planData.teamMemberId = null;
       } else if (planData.planType === 'Team') {
-        // For team plans, ensure vendor_id is null
+        // For team plans, ensure vendorId is null
         planData.vendorId = null;
       }
       
@@ -867,6 +915,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(plans);
   });
 
+  // Create plan for a specific requirement
+  app.post("/api/requirements/:requirementId/plans", async (req, res) => {
+    try {
+      const requirementId = req.params.requirementId;
+      
+      // Prepare plan data ensuring requirementId is set
+      let planData = { ...req.body, requirementId: requirementId };
+      
+      // Data validation based on plan type
+      if (planData.planType === 'Vendor' && planData.vendorId) {
+        // For vendor plans, ensure teamMemberId is null
+        planData.teamMemberId = null;
+      } else if (planData.planType === 'Team' && planData.teamMemberId) {
+        // For team plans, ensure vendorId is null
+        planData.vendorId = null;
+      }
+      
+      const validatedData = insertFulfillmentPlanSchema.parse(planData);
+      const plan = await storage.createFulfillmentPlan(validatedData);
+      res.status(201).json(plan);
+    } catch (error: any) {
+      console.error("Error creating plan for requirement:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   app.get("/api/plans/:id", async (req, res) => {
     const plan = await storage.getFulfillmentPlan(req.params.id);
     if (!plan) {
@@ -879,9 +953,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('Updating plan with data:', JSON.stringify(req.body, null, 2));
       
+      // Create a clean copy of the request body
+      const planData = { ...req.body };
+      
+      // Remove fields that shouldn't be updated
+      delete planData.id;
+      delete planData.requirementId;
+      delete planData.createdAt;
+      delete planData.planType; // Don't allow changing plan type during update
+      
       // Validate and parse the request body
       const validatedData = insertFulfillmentPlanSchema.partial().parse({
-        ...req.body,
+        ...planData,
         // Always update the updatedAt timestamp
         updatedAt: new Date()
       });
@@ -902,25 +985,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/plans", async (req, res) => {
-    try {
-      console.log('Creating plan with data:', JSON.stringify(req.body, null, 2));
-      const validatedData = insertFulfillmentPlanSchema.parse(req.body);
-      console.log('Validation passed, creating plan with:', JSON.stringify(validatedData, null, 2));
-      const plan = await storage.createFulfillmentPlan(validatedData);
-      res.status(201).json(plan);
-    } catch (error: any) {
-      console.error('Plan creation failed:', error.message);
-      console.error('Full error:', error);
-      if (error.issues) {
-        console.error('Validation issues:', JSON.stringify(error.issues, null, 2));
-      }
-      res.status(400).json({ error: error.message });
-      return res.status(404).json({ error: "Fulfillment plan not found" });
-    }
-    res.status(204).send();
-  });
-
   // Budget Reports route
   app.get("/api/reports/budget", async (_req, res) => {
     try {
@@ -933,15 +997,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Get all requirements for this event
           const requirements = await storage.getRequirements(event.id);
 
-          // Calculate total invoice value (sum of all requirement invoice values)
-          const totalRequirementInvoiceValue = requirements.reduce(
-            (sum: number, req) => sum + Number(req.order || 0),
+          // Calculate total invoice value (sum of all requirement invoice values minus discounts)
+          // First calculate requirement-level invoice values minus their discounts
+          const requirementInvoiceAmounts = requirements.map(req => {
+            const invoiceAmount = Number(req.order || 0);
+            const reqDiscountAmount = req.req_discount === 'true' ? Number(req.req_discount_amount || 0) : 0;
+            return invoiceAmount - reqDiscountAmount;
+          });
+          
+          const totalRequirementInvoiceValue = requirementInvoiceAmounts.reduce(
+            (sum: number, amount) => sum + amount,
             0
           );
+          
+          // Get event-level discount
+          const eventDiscountAmount = event.discount === 'true' ? Number(event.discount_amount || 0) : 0;
+          
+          // Final invoice value after all discounts
+          const finalInvoiceValue = totalRequirementInvoiceValue - eventDiscountAmount;
 
           // Calculate actual spent for each requirement
           const requirementBreakdown = await Promise.all(
-            requirements.map(async (req) => {
+            requirements.map(async (req, index) => {
               const plans = await storage.getFulfillmentPlans(req.id);
               
               // Sum all costs from plans
@@ -950,7 +1027,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 return sum + payment;
               }, 0);
 
-              const invoiceValue = Number(req.order || 0);
+              // Use the discounted invoice amount for this requirement
+              const invoiceValue = requirementInvoiceAmounts[index];
               const variance = invoiceValue - actualSpent;
 
               return {
@@ -969,11 +1047,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             0
           );
 
-          // Calculate overall variance
-          const finalizedQuote = Number(event.finalizedQuote || event.initialQuote || 0);
-          const variance = finalizedQuote - totalActualSpent;
-          const variancePercentage = finalizedQuote > 0
-            ? (variance / finalizedQuote) * 100
+          // Calculate overall variance using the final invoice value after discounts
+          const variance = finalInvoiceValue - totalActualSpent;
+          const variancePercentage = finalInvoiceValue > 0
+            ? (variance / finalInvoiceValue) * 100
             : 0;
 
           return {
@@ -981,8 +1058,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             eventName: event.eventName,
             eventDate: event.eventDate,
             venue: event.venue,
-            finalizedQuote,
-            totalRequirementInvoiceValue,
+            finalizedQuote: finalInvoiceValue, // Use final invoice value after discounts
+            totalRequirementInvoiceValue: finalInvoiceValue, // This should now reflect discounted value
             totalActualSpent,
             variance,
             variancePercentage,

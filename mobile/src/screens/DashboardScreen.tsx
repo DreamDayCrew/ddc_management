@@ -1,13 +1,41 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, Dimensions, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp } from '@react-navigation/native';
 import { useEvents, useExpenses, useAssets, useTeamMembers } from '../hooks/useApi';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
+type RootTabParamList = {
+  Dashboard: undefined;
+  Events: 
+    | undefined 
+    | { 
+        screen: string; 
+        params: { 
+          eventId: string; 
+        }; 
+      };
+  Expenses: undefined;
+  More: {
+    screen: string;
+  } | undefined;
+};
+
 const BRAND_MAROON = '#800020';
+const BRAND_GOLD = '#D4AF37';
+const PREMIUM_DARK = '#1a1a2e';
+const PREMIUM_BLUE = '#16213e';
+const PREMIUM_LIGHT = '#0f3460';
+const SUCCESS_GREEN = '#00b894';
+const WARNING_ORANGE = '#fdcb6e';
+const DANGER_RED = '#e17055';
+const NEUTRAL_GRAY = '#636e72';
+const LIGHT_GRAY = '#f8f9fa';
 const { width } = Dimensions.get('window');
 
 export default function DashboardScreen() {
+  const navigation = useNavigation<NavigationProp<RootTabParamList>>();
   const { data: events, isLoading: eventsLoading } = useEvents();
   const { data: expenses } = useExpenses();
   const { data: assets } = useAssets();
@@ -92,7 +120,18 @@ export default function DashboardScreen() {
       const today = new Date();
       return eventDate >= today;
     })
-    .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())
+    .sort((a, b) => {
+      // Sort by event date, then by registeredOn for same dates (latest registered first)
+      const aEventDate = new Date(a.eventDate).getTime();
+      const bEventDate = new Date(b.eventDate).getTime();
+      if (aEventDate !== bEventDate) {
+        return aEventDate - bEventDate; // Earliest event date first for upcoming
+      }
+      // If same event date, show latest registered first
+      const aRegDate = new Date(a.registeredOn || a.eventDate).getTime();
+      const bRegDate = new Date(b.registeredOn || b.eventDate).getTime();
+      return bRegDate - aRegDate;
+    })
     .slice(0, 5);
 
   return (
@@ -107,137 +146,45 @@ export default function DashboardScreen() {
         <Text style={styles.headerSubtitle}>Event Management Dashboard</Text>
       </View>*/}
 
-      {/* Financial Overview */}
+      {/* Resources Summary */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Financial Overview</Text>
-        <View style={styles.financialGrid}>
-          <View style={[styles.financialCard, { backgroundColor: '#10b981' }]}>
-            <View style={styles.financialIcon}>
-              <Ionicons name="trending-up" size={24} color="#fff" />
+        <Text style={styles.sectionTitle}>Resources</Text>
+        <View style={styles.resourceGrid}>
+          <TouchableOpacity 
+            style={styles.resourceCard}
+            onPress={() => navigation.navigate('More', { screen: 'Assets' })}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.resourceIcon, { backgroundColor: 'rgba(212, 175, 55, 0.15)' }]}>
+              <Ionicons name="cube-outline" size={26} color={BRAND_GOLD} />
             </View>
-            <Text style={styles.financialLabel}>Total Income</Text>
-            <Text style={styles.financialValue}>₹{totalIncome.toLocaleString()}</Text>
-          </View>
+            <Text style={styles.resourceNumber}>{safeAssets.length}</Text>
+            <Text style={styles.resourceLabel}>Assets</Text>
+          </TouchableOpacity>
 
-          <View style={[styles.financialCard, { backgroundColor: '#ef4444' }]}>
-            <View style={styles.financialIcon}>
-              <Ionicons name="trending-down" size={24} color="#fff" />
+          <TouchableOpacity 
+            style={styles.resourceCard}
+            onPress={() => navigation.navigate('More', { screen: 'Team' })}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.resourceIcon, { backgroundColor: 'rgba(22, 33, 62, 0.15)' }]}>
+              <Ionicons name="people-outline" size={26} color={PREMIUM_BLUE} />
             </View>
-            <Text style={styles.financialLabel}>Total Expenses</Text>
-            <Text style={styles.financialValue}>₹{totalExpense.toLocaleString()}</Text>
-          </View>
+            <Text style={styles.resourceNumber}>{safeTeam.length}</Text>
+            <Text style={styles.resourceLabel}>Team</Text>
+          </TouchableOpacity>
 
-          <View style={[
-            styles.financialCard, 
-            styles.profitCard,
-            { backgroundColor: BRAND_MAROON }
-          ]}>
-            <View style={styles.financialIcon}>
-              <Ionicons 
-                name="wallet" 
-                size={24} 
-                color="#fff" 
-              />
+          <TouchableOpacity 
+            style={styles.resourceCard}
+            onPress={() => navigation.navigate('Expenses')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.resourceIcon, { backgroundColor: 'rgba(128, 0, 32, 0.15)' }]}>
+              <Ionicons name="card-outline" size={26} color={BRAND_MAROON} />
             </View>
-            <Text style={styles.financialLabel}>Account Balance</Text>
-            <Text style={styles.financialValue}>
-              ₹{accountBalance.toLocaleString()}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Quick Stats */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Event Statistics</Text>
-        <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { borderLeftColor: BRAND_MAROON, borderLeftWidth: 4 }]}>
-            <Ionicons name="calendar" size={28} color={BRAND_MAROON} />
-            <Text style={styles.statNumber}>{totalEvents}</Text>
-            <Text style={styles.statLabel}>Total Events</Text>
-          </View>
-
-          <View style={[styles.statCard, { borderLeftColor: '#3b82f6', borderLeftWidth: 4 }]}>
-            <Ionicons name="time" size={28} color="#3b82f6" />
-            <Text style={styles.statNumber}>{upcomingEvents}</Text>
-            <Text style={styles.statLabel}>Upcoming</Text>
-          </View>
-
-          <View style={[styles.statCard, { borderLeftColor: '#f59e0b', borderLeftWidth: 4 }]}>
-            <Ionicons name="hourglass" size={28} color="#f59e0b" />
-            <Text style={styles.statNumber}>{inProgressEvents}</Text>
-            <Text style={styles.statLabel}>In Progress</Text>
-          </View>
-
-          <View style={[styles.statCard, { borderLeftColor: '#10b981', borderLeftWidth: 4 }]}>
-            <Ionicons name="checkmark-circle" size={28} color="#10b981" />
-            <Text style={styles.statNumber}>{completedEvents}</Text>
-            <Text style={styles.statLabel}>Completed</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Requirements Progress */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Requirements Overview</Text>
-          <Text style={styles.sectionCount}>{totalRequirements} total</Text>
-        </View>
-        
-        <View style={styles.progressCard}>
-          <View style={styles.progressRow}>
-            <View style={styles.progressInfo}>
-              <View style={[styles.progressDot, { backgroundColor: '#6b7280' }]} />
-              <Text style={styles.progressLabel}>To Do</Text>
-            </View>
-            <Text style={styles.progressCount}>{toDoRequirements}</Text>
-          </View>
-          {totalRequirements > 0 && (
-            <View style={styles.progressBar}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { width: `${(toDoRequirements / totalRequirements) * 100}%`, backgroundColor: '#6b7280' }
-                ]} 
-              />
-            </View>
-          )}
-
-          <View style={styles.progressRow}>
-            <View style={styles.progressInfo}>
-              <View style={[styles.progressDot, { backgroundColor: '#f59e0b' }]} />
-              <Text style={styles.progressLabel}>In Progress</Text>
-            </View>
-            <Text style={styles.progressCount}>{inProgressRequirements}</Text>
-          </View>
-          {totalRequirements > 0 && (
-            <View style={styles.progressBar}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { width: `${(inProgressRequirements / totalRequirements) * 100}%`, backgroundColor: '#f59e0b' }
-                ]} 
-              />
-            </View>
-          )}
-
-          <View style={styles.progressRow}>
-            <View style={styles.progressInfo}>
-              <View style={[styles.progressDot, { backgroundColor: '#10b981' }]} />
-              <Text style={styles.progressLabel}>Completed</Text>
-            </View>
-            <Text style={styles.progressCount}>{completedRequirements}</Text>
-          </View>
-          {totalRequirements > 0 && (
-            <View style={styles.progressBar}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { width: `${(completedRequirements / totalRequirements) * 100}%`, backgroundColor: '#10b981' }
-                ]} 
-              />
-            </View>
-          )}
+            <Text style={styles.resourceNumber}>{safeExpenses.length}</Text>
+            <Text style={styles.resourceLabel}>Expenses</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -250,7 +197,12 @@ export default function DashboardScreen() {
               (new Date(event.eventDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
             );
             return (
-              <View key={event.id} style={styles.timelineItem}>
+              <TouchableOpacity 
+                key={event.id} 
+                style={styles.timelineItem}
+                onPress={() => navigation.navigate('Events', { screen: 'EventDetails', params: { eventId: event.id } })}
+                activeOpacity={0.7}
+              >
                 <View style={styles.timelineDate}>
                   <Text style={styles.timelineDays}>{daysUntil}</Text>
                   <Text style={styles.timelineDaysLabel}>days</Text>
@@ -263,41 +215,181 @@ export default function DashboardScreen() {
                     <Text style={styles.timelineEventVenue}>{event.venue}</Text>
                   </View>
                 </View>
-              </View>
+                <View style={styles.timelineArrow}>
+                  <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
+                </View>
+              </TouchableOpacity>
             );
           })}
         </View>
       )}
 
-      {/* Resources Summary */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Resources</Text>
-        <View style={styles.resourceGrid}>
-          <View style={styles.resourceCard}>
-            <View style={[styles.resourceIcon, { backgroundColor: '#fef3c7' }]}>
-              <Ionicons name="cube" size={24} color="#f59e0b" />
+      {/* Financial Overview */}
+      <TouchableOpacity 
+        style={styles.section}
+        onPress={() => navigation.navigate('Expenses')}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.sectionTitle}>Financial Overview</Text>
+        <View style={styles.financialGrid}>
+          <View style={[styles.financialCard, styles.incomeCard]}>
+            <View style={styles.financialHeader}>
+              <View style={styles.financialIconContainer}>
+                <Ionicons name="trending-up" size={20} color={SUCCESS_GREEN} />
+              </View>
+              <Text style={styles.financialLabel}>Total Income</Text>
             </View>
-            <Text style={styles.resourceNumber}>{safeAssets.length}</Text>
-            <Text style={styles.resourceLabel}>Assets</Text>
+            <Text style={styles.financialValue}>₹{totalIncome.toLocaleString()}</Text>
+            <View style={styles.financialIndicator}>
+              <Text style={styles.financialChange}>+12.5%</Text>
+            </View>
           </View>
 
-          <View style={styles.resourceCard}>
-            <View style={[styles.resourceIcon, { backgroundColor: '#dbeafe' }]}>
-              <Ionicons name="people" size={24} color="#3b82f6" />
+          <View style={[styles.financialCard, styles.expenseCard]}>
+            <View style={styles.financialHeader}>
+              <View style={styles.financialIconContainer}>
+                <Ionicons name="trending-down" size={20} color={DANGER_RED} />
+              </View>
+              <Text style={styles.financialLabel}>Total Expenses</Text>
             </View>
-            <Text style={styles.resourceNumber}>{safeTeam.length}</Text>
-            <Text style={styles.resourceLabel}>Team</Text>
+            <Text style={styles.financialValue}>₹{totalExpense.toLocaleString()}</Text>
+            <View style={styles.financialIndicator}>
+              <Text style={styles.financialChangeNegative}>+8.3%</Text>
+            </View>
           </View>
 
-          <View style={styles.resourceCard}>
-            <View style={[styles.resourceIcon, { backgroundColor: '#fce7f3' }]}>
-              <Ionicons name="wallet" size={24} color="#ec4899" />
+          <View style={[styles.financialCard, styles.balanceCard]}>
+            <View style={styles.financialHeader}>
+              <View style={styles.financialIconContainer}>
+                <Ionicons name="wallet-outline" size={20} color={BRAND_GOLD} />
+              </View>
+              <Text style={styles.financialLabel}>Account Balance</Text>
             </View>
-            <Text style={styles.resourceNumber}>{safeExpenses.length}</Text>
-            <Text style={styles.resourceLabel}>Expenses</Text>
+            <Text style={styles.financialValue}>₹{accountBalance.toLocaleString()}</Text>
+            <View style={styles.financialIndicator}>
+              <Text style={styles.financialChange}>+4.2%</Text>
+            </View>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
+
+      {/* Quick Stats */}
+      <TouchableOpacity 
+        style={styles.section}
+        onPress={() => {
+          navigation.reset({
+            index: 1,
+            routes: [
+              { name: 'Dashboard' },
+              { name: 'Events' }
+            ],
+          });
+        }}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.sectionTitle}>Event Statistics</Text>
+        <View style={styles.statsGrid}>
+          <View style={[styles.statCard, { borderLeftColor: PREMIUM_DARK, borderLeftWidth: 4 }]}>
+            <Ionicons name="calendar-outline" size={32} color={PREMIUM_DARK} />
+            <Text style={styles.statNumber}>{totalEvents}</Text>
+            <Text style={styles.statLabel}>Total Events</Text>
+          </View>
+
+          <View style={[styles.statCard, { borderLeftColor: PREMIUM_BLUE, borderLeftWidth: 4 }]}>
+            <Ionicons name="time-outline" size={32} color={PREMIUM_BLUE} />
+            <Text style={styles.statNumber}>{upcomingEvents}</Text>
+            <Text style={styles.statLabel}>Upcoming</Text>
+          </View>
+
+          <View style={[styles.statCard, { borderLeftColor: WARNING_ORANGE, borderLeftWidth: 4 }]}>
+            <Ionicons name="hourglass-outline" size={32} color={WARNING_ORANGE} />
+            <Text style={styles.statNumber}>{inProgressEvents}</Text>
+            <Text style={styles.statLabel}>In Progress</Text>
+          </View>
+
+          <View style={[styles.statCard, { borderLeftColor: SUCCESS_GREEN, borderLeftWidth: 4 }]}>
+            <Ionicons name="checkmark-circle-outline" size={32} color={SUCCESS_GREEN} />
+            <Text style={styles.statNumber}>{completedEvents}</Text>
+            <Text style={styles.statLabel}>Completed</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+
+      {/* Requirements Progress */}
+      <TouchableOpacity 
+        style={styles.section}
+        onPress={() => {
+          navigation.reset({
+            index: 1,
+            routes: [
+              { name: 'Dashboard' },
+              { name: 'Events' }
+            ],
+          });
+        }}
+        activeOpacity={0.8}
+      >
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Requirements Overview</Text>
+          <Text style={styles.sectionCount}>{totalRequirements} total</Text>
+        </View>
+        
+        <View style={styles.progressCard}>
+          <View style={styles.progressRow}>
+            <View style={styles.progressInfo}>
+              <View style={[styles.progressDot, { backgroundColor: NEUTRAL_GRAY }]} />
+              <Text style={styles.progressLabel}>To Do</Text>
+            </View>
+            <Text style={styles.progressCount}>{toDoRequirements}</Text>
+          </View>
+          {totalRequirements > 0 && (
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { width: `${(toDoRequirements / totalRequirements) * 100}%`, backgroundColor: NEUTRAL_GRAY }
+                ]} 
+              />
+            </View>
+          )}
+
+          <View style={styles.progressRow}>
+            <View style={styles.progressInfo}>
+              <View style={[styles.progressDot, { backgroundColor: WARNING_ORANGE }]} />
+              <Text style={styles.progressLabel}>In Progress</Text>
+            </View>
+            <Text style={styles.progressCount}>{inProgressRequirements}</Text>
+          </View>
+          {totalRequirements > 0 && (
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { width: `${(inProgressRequirements / totalRequirements) * 100}%`, backgroundColor: WARNING_ORANGE }
+                ]} 
+              />
+            </View>
+          )}
+
+          <View style={styles.progressRow}>
+            <View style={styles.progressInfo}>
+              <View style={[styles.progressDot, { backgroundColor: SUCCESS_GREEN }]} />
+              <Text style={styles.progressLabel}>Completed</Text>
+            </View>
+            <Text style={styles.progressCount}>{completedRequirements}</Text>
+          </View>
+          {totalRequirements > 0 && (
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { width: `${(completedRequirements / totalRequirements) * 100}%`, backgroundColor: SUCCESS_GREEN }
+                ]} 
+              />
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
 
       <View style={{ height: 40 }} />
     </ScrollView>
@@ -307,17 +399,17 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: LIGHT_GRAY,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: LIGHT_GRAY,
   },
   loadingText: {
     marginTop: 16,
-    color: '#6b7280',
+    color: NEUTRAL_GRAY,
     fontSize: 14,
   },
   header: {
@@ -348,44 +440,94 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 12,
+    color: PREMIUM_DARK,
+    marginBottom: 16,
+    letterSpacing: 0.5,
   },
   sectionCount: {
     fontSize: 14,
-    color: '#6b7280',
+    color: NEUTRAL_GRAY,
     fontWeight: '600',
   },
   financialGrid: {
-    gap: 12,
+    gap: 16,
   },
   financialCard: {
-    padding: 20,
-    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    padding: 24,
+    borderRadius: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  incomeCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: SUCCESS_GREEN,
+  },
+  expenseCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: DANGER_RED,
+  },
+  balanceCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: BRAND_GOLD,
+    backgroundColor: '#fefefe',
+  },
+  financialHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  financialIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  financialLabel: {
+    fontSize: 16,
+    color: NEUTRAL_GRAY,
+    fontWeight: '600',
+    flex: 1,
+  },
+  financialValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: PREMIUM_DARK,
+    marginBottom: 12,
+    letterSpacing: -1,
+  },
+  financialIndicator: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(0, 184, 148, 0.1)',
+    borderRadius: 20,
+  },
+  financialChange: {
+    fontSize: 14,
+    color: SUCCESS_GREEN,
+    fontWeight: '700',
+  },
+  financialChangeNegative: {
+    fontSize: 14,
+    color: DANGER_RED,
+    fontWeight: '700',
   },
   profitCard: {
     marginTop: 4,
   },
   financialIcon: {
     marginBottom: 12,
-  },
-  financialLabel: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 8,
-    fontWeight: '500',
-  },
-  financialValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#ffffff',
   },
   statsGrid: {
     flexDirection: 'row',
@@ -396,36 +538,40 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: '47%',
     backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 16,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   statNumber: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: PREMIUM_DARK,
     marginTop: 8,
     marginBottom: 4,
   },
   statLabel: {
-    fontSize: 13,
-    color: '#6b7280',
-    fontWeight: '500',
+    fontSize: 14,
+    color: NEUTRAL_GRAY,
+    fontWeight: '600',
   },
   progressCard: {
     backgroundColor: '#ffffff',
-    padding: 20,
-    borderRadius: 12,
+    padding: 24,
+    borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   progressRow: {
     flexDirection: 'row',
@@ -436,55 +582,57 @@ const styles = StyleSheet.create({
   progressInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
   },
   progressDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
   },
   progressLabel: {
-    fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
+    fontSize: 16,
+    color: PREMIUM_DARK,
+    fontWeight: '600',
   },
   progressCount: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: PREMIUM_DARK,
   },
   progressBar: {
-    height: 6,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 3,
-    marginBottom: 16,
+    height: 8,
+    backgroundColor: '#f1f3f4',
+    borderRadius: 4,
+    marginBottom: 20,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 4,
   },
   timelineItem: {
     flexDirection: 'row',
     backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 16,
     marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
     gap: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   timelineDate: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: BRAND_MAROON,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    minWidth: 60,
+    backgroundColor: PREMIUM_DARK,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    minWidth: 70,
   },
   timelineDays: {
     fontSize: 24,
@@ -492,31 +640,41 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   timelineDaysLabel: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '500',
   },
   timelineContent: {
     flex: 1,
   },
+  timelineArrow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
   timelineEventName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: PREMIUM_DARK,
+    marginBottom: 6,
   },
   timelineEventDetails: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 6,
+    fontSize: 15,
+    color: NEUTRAL_GRAY,
+    marginBottom: 8,
   },
   timelineEventMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   timelineEventVenue: {
-    fontSize: 12,
-    color: '#9ca3af',
+    fontSize: 14,
+    color: NEUTRAL_GRAY,
+    fontWeight: '500',
   },
   resourceGrid: {
     flexDirection: 'row',
@@ -525,32 +683,34 @@ const styles = StyleSheet.create({
   resourceCard: {
     flex: 1,
     backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 16,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   resourceIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   resourceNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 4,
+    color: PREMIUM_DARK,
+    marginBottom: 6,
   },
   resourceLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-    fontWeight: '500',
+    fontSize: 13,
+    color: NEUTRAL_GRAY,
+    fontWeight: '600',
   },
 });

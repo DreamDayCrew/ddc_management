@@ -7,7 +7,9 @@ import {
   ActivityIndicator, 
   TouchableOpacity,
   RefreshControl,
-  Alert
+  Alert,
+  Modal,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -18,6 +20,7 @@ import type { Event, Requirement, FulfillmentPlan, TeamMember, Vendor, Asset, Co
 import AddRequirementModal from '../components/AddRequirementModal';
 import AddPlanModal from '../components/AddPlanModal';
 import AddEventModal from '../components/AddEventModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 type Props = NativeStackScreenProps<EventsStackParamList, 'EventDetails'>;
 
@@ -32,6 +35,9 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
   const [requirementModalVisible, setRequirementModalVisible] = useState(false);
   const [planModalVisible, setPlanModalVisible] = useState(false);
   const [eventModalVisible, setEventModalVisible] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showRequirementDeleteConfirm, setShowRequirementDeleteConfirm] = useState(false);
+  const [requirementToDelete, setRequirementToDelete] = useState<Requirement | null>(null);
   const [selectedRequirement, setSelectedRequirement] = useState<Requirement | undefined>();
   const [selectedPlan, setSelectedPlan] = useState<FulfillmentPlan | undefined>();
   const [selectedRequirementId, setSelectedRequirementId] = useState<string | null>(null);
@@ -88,23 +94,35 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     }, 0);
   }, [allPlans, requirements]);
 
-  // Calculate invoice value based on requirements
+  // Calculate invoice value based on requirements (after individual requirement discounts)
   const calculateInvoiceValue = useCallback(() => {
     if (!requirements || requirements.length === 0) return 0;
+
     return requirements.reduce((total, req) => {
       const price = parseFloat(String(req.order ?? '0'));
-      return total + (isNaN(price) ? 0 : price);
+      const baseAmount = isNaN(price) ? 0 : price;
+      
+      // Subtract requirement-level discount if enabled
+      let discountAmount = 0;
+      if (req.req_discount === 'true' && req.req_discount_amount) {
+        const reqDiscount = parseFloat(String(req.req_discount_amount));
+        discountAmount = isNaN(reqDiscount) ? 0 : reqDiscount;
+      }
+      
+      return total + (baseAmount - discountAmount);
     }, 0);
   }, [requirements]);
 
-  // Calculate total discount amount from all requirements
+  // Calculate event-level discount amount (requirement discounts already applied in calculateInvoiceValue)
   const calculateDiscountAmount = useCallback(() => {
-    if (!requirements || requirements.length === 0) return 0;
-    return requirements.reduce((total, req) => {
-      const discount = parseFloat(String(req.req_discount_amount ?? '0'));
-      return total + (isNaN(discount) ? 0 : discount);
-    }, 0);
-  }, [requirements]);
+    // Only get event-level discount since requirement discounts are already subtracted in calculateInvoiceValue
+    let eventDiscount = 0;
+    if (event && event.discount === 'true' && event.discount_amount) {
+      eventDiscount = parseFloat(String(event.discount_amount)) || 0;
+    }
+    
+    return eventDiscount;
+  }, [event]);
 
   // Check if there are changes to either invoice value or DDC cost
   const hasChanges = useMemo(() => {
@@ -179,19 +197,26 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     },
   });
 
+  // Delete requirement mutation
+  const deleteRequirementMutation = useMutation({
+    mutationFn: (requirementId: string) => api.deleteRequirement(eventId, requirementId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['requirements', eventId] });
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+      Alert.alert('Success', 'Requirement deleted successfully');
+    },
+    onError: (error: Error) => {
+      Alert.alert('Error', `Failed to delete requirement: ${error.message}`);
+    },
+  });
+
   const handleDeleteEvent = () => {
-    Alert.alert(
-      'Delete Event',
-      `Are you sure you want to delete "${event?.eventName}"? This will also delete all requirements and plans.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => deleteEventMutation.mutate(),
-        },
-      ]
-    );
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    deleteEventMutation.mutate();
+    setShowDeleteConfirm(false);
   };
 
   // Modal handlers
@@ -203,6 +228,24 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
   const handleEditRequirement = (requirement: Requirement) => {
     setSelectedRequirement(requirement);
     setRequirementModalVisible(true);
+  };
+
+  const handleDeleteRequirement = (requirement: Requirement) => {
+    setRequirementToDelete(requirement);
+    setShowRequirementDeleteConfirm(true);
+  };
+
+  const confirmDeleteRequirement = () => {
+    if (requirementToDelete) {
+      deleteRequirementMutation.mutate(requirementToDelete.id);
+    }
+    setShowRequirementDeleteConfirm(false);
+    setRequirementToDelete(null);
+  };
+
+  const cancelDeleteRequirement = () => {
+    setShowRequirementDeleteConfirm(false);
+    setRequirementToDelete(null);
   };
 
   const handleAddPlan = (requirementId: string) => {
@@ -247,13 +290,12 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       const invoiceNumber = `INV${event.id.slice(-5).toUpperCase()}${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
       
       // Create download URL for the invoice
-      // Note: Replace with your actual API base URL or use an environment variable
       const baseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
       const downloadUrl = `${baseUrl}/api/events/${eventId}/invoice?invoice_number=${invoiceNumber}`;
       
       Alert.alert(
         'Download Invoice',
-        `Invoice ${invoiceNumber}\nGross Amount: ₹${invoiceValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalInvoiceValue.toLocaleString()}\n\nThis will open your browser to download the PDF.`,
+        `Invoice ${invoiceNumber}\\nGross Amount: ₹${invoiceValue.toLocaleString()}\\nDiscount: ₹${discountAmount.toLocaleString()}\\nFinal Amount: ₹${finalInvoiceValue.toLocaleString()}\\n\\nThis will open your browser to download the PDF.${Platform.OS === 'android' ? '\\n\\nFor Samsung devices: After the PDF opens, tap the download icon in your browser.' : ''}`,
         [
           { text: 'Cancel', style: 'cancel' },
           { 
@@ -261,14 +303,15 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
             onPress: () => {
               // Open the download URL in the browser
               import('expo-linking').then(({ default: Linking }) => {
-                Linking.openURL(downloadUrl);
+                Linking.openURL(downloadUrl).catch(() => {
+                  Alert.alert('Error', 'Cannot open browser. Please check your internet connection.');
+                });
               });
             }
           }
         ]
       );
     } catch (error) {
-      console.error('Error downloading invoice:', error);
       Alert.alert('Error', 'Failed to download invoice');
     }
   };
@@ -454,7 +497,16 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
             const plans = getRequirementPlans(req.id);
             const actualCost = calculateRequirementActualCost(req.id);
             const invoiceAmount = parseFloat(String(req.order ?? '0'));
-            const variance = actualCost - invoiceAmount;
+            
+            // Calculate requirement discount
+            const requirementDiscount = parseFloat(String(req.req_discount_amount ?? '0'));
+            const hasDiscount = req.req_discount === 'true' && requirementDiscount > 0;
+            
+            // Calculate effective invoice amount after discount
+            const effectiveInvoiceAmount = invoiceAmount - requirementDiscount;
+            
+            // Calculate variance using effective invoice amount
+            const variance = actualCost - effectiveInvoiceAmount;
 
             return (
               <View key={req.id} style={styles.requirementCard}>
@@ -467,8 +519,17 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                     <TouchableOpacity
                       onPress={() => handleEditRequirement(req)}
                       data-testid={`button-edit-requirement-${req.id}`}
+                      style={styles.actionButton}
                     >
                       <Ionicons name="create-outline" size={18} color={BRAND_MAROON} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteRequirement(req)}
+                      data-testid={`button-delete-requirement-${req.id}`}
+                      style={styles.actionButton}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#ef4444" />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -479,9 +540,21 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
 
                 <View style={styles.requirementFinancials}>
                   <View style={styles.financialRow}>
-                    <Text style={styles.financialLabel}>Invoice Amount:</Text>
+                    <Text style={styles.financialLabel}>Base Amount:</Text>
                     <Text style={styles.financialValue}>₹{invoiceAmount.toLocaleString()}</Text>
                   </View>
+                  {hasDiscount && (
+                    <>
+                      <View style={styles.financialRow}>
+                        <Text style={styles.financialLabel}>Discount:</Text>
+                        <Text style={[styles.financialValue, styles.discountText]}>-₹{requirementDiscount.toLocaleString()}</Text>
+                      </View>
+                      <View style={styles.financialRow}>
+                        <Text style={styles.financialLabel}>Invoice Amount:</Text>
+                        <Text style={styles.financialValue}>₹{effectiveInvoiceAmount.toLocaleString()}</Text>
+                      </View>
+                    </>
+                  )}
                   <View style={styles.financialRow}>
                     <Text style={styles.financialLabel}>Actual Cost:</Text>
                     <Text style={styles.financialValue}>₹{actualCost.toLocaleString()}</Text>
@@ -579,6 +652,63 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
         onClose={() => setEventModalVisible(false)}
         event={event}
       />
+
+      {/* Requirement Delete Confirmation Dialog */}
+      <ConfirmDialog
+        visible={showRequirementDeleteConfirm}
+        title="Delete Requirement"
+        message={requirementToDelete ? `Are you sure you want to delete "${requirementToDelete.requirement}"? All associated plans will also be deleted.` : ''}
+        confirmText="Delete"
+        cancelText="Cancel"
+        confirmStyle="destructive"
+        onConfirm={confirmDeleteRequirement}
+        onCancel={cancelDeleteRequirement}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteConfirm}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDeleteConfirm(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmationBox}>
+            <Text style={styles.confirmationTitle}>Delete Event?</Text>
+            <Text style={styles.warningText}>⚠️ This action cannot be undone!</Text>
+            <Text style={styles.confirmationMessage}>
+              Are you sure you want to delete "{event?.eventName}"?
+            </Text>
+            <View style={styles.deletionInfo}>
+              <Text style={styles.deletionInfoTitle}>This will permanently delete:</Text>
+              <Text style={styles.deletionInfoItem}>• The event and all its information</Text>
+              <Text style={styles.deletionInfoItem}>• All requirements ({requirements.length})</Text>
+              <Text style={styles.deletionInfoItem}>• All associated fulfillment plans</Text>
+              <Text style={styles.deletionInfoItem}>• All related invoicing data</Text>
+            </View>
+            <View style={styles.confirmationButtons}>
+              <TouchableOpacity 
+                style={[styles.confirmButton, styles.cancelButton]}
+                onPress={() => setShowDeleteConfirm(false)}
+                disabled={deleteEventMutation.isPending}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.confirmButton, styles.deleteConfirmButton]}
+                onPress={confirmDelete}
+                disabled={deleteEventMutation.isPending}
+              >
+                {deleteEventMutation.isPending ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.deleteButtonText}>Delete Event</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -734,6 +864,9 @@ const styles = StyleSheet.create({
   lossText: {
     color: '#ef4444',
   },
+  discountText: {
+    color: '#f59e0b',
+  },
   updateButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -812,6 +945,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  actionButton: {
+    padding: 8,
+    borderRadius: 4,
+    minWidth: 32,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   reqStatusBadge: {
     paddingHorizontal: 8,
@@ -909,5 +1050,96 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#ef4444',
     marginBottom: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  confirmationBox: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  confirmationTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#dc2626',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  warningText: {
+    fontSize: 14,
+    color: '#f59e0b',
+    textAlign: 'center',
+    marginBottom: 16,
+    fontWeight: '600',
+  },
+  confirmationMessage: {
+    fontSize: 16,
+    color: '#374151',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  deletionInfo: {
+    backgroundColor: '#fef2f2',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  deletionInfoTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#dc2626',
+    marginBottom: 8,
+  },
+  deletionInfoItem: {
+    fontSize: 14,
+    color: '#7f1d1d',
+    marginBottom: 4,
+    paddingLeft: 8,
+  },
+  confirmationButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  cancelButton: {
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  deleteConfirmButton: {
+    backgroundColor: '#dc2626',
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
   },
 });

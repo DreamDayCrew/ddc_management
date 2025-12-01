@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Modal, Alert, StyleSheet, ActivityIndicator, FlatList } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Modal, Alert, StyleSheet, ActivityIndicator, FlatList, TextInput, Platform } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useExpenses, useAccountBalance, useRepayments } from "../hooks/useApi";
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
@@ -9,6 +10,14 @@ import AddExpenseModal from '../components/AddExpenseModal';
 import RepaymentDetailsModal from '../components/RepaymentDetailsModal';
 
 const BRAND_MAROON = '#800020';
+const BRAND_GOLD = '#D4AF37';
+const PREMIUM_DARK = '#1a1a2e';
+const PREMIUM_BLUE = '#16213e';
+const SUCCESS_GREEN = '#00b894';
+const WARNING_ORANGE = '#fdcb6e';
+const DANGER_RED = '#e17055';
+const NEUTRAL_GRAY = '#636e72';
+const LIGHT_GRAY = '#f8f9fa';
 
 // Helper function to get first and last day of current month in YYYY-MM-DD format
 const getCurrentMonthRange = () => {
@@ -33,6 +42,20 @@ export default function ExpensesScreen() {
   const [repaymentModalVisible, setRepaymentModalVisible] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  // Search and Filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [showFromDatePicker, setShowFromDatePicker] = useState(false);
+  const [showToDatePicker, setShowToDatePicker] = useState(false);
+  const [filters, setFilters] = useState({
+    fromDate: "",
+    toDate: "",
+    fromAccount: "",
+    toAccount: "",
+    category: "",
+    type: ""
+  });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteExpense(id),
@@ -64,13 +87,122 @@ export default function ExpensesScreen() {
     setExpenseToDelete(null);
   };
 
+  // Filter and search expenses
+  const filteredExpenses = useMemo(() => {
+    if (!expenses) return [];
+
+    return expenses.filter((expense) => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesDescription = expense.description?.toLowerCase().includes(query);
+        const matchesAmount = expense.amount.toString().includes(query);
+        const matchesCategory = expense.category?.toLowerCase().includes(query);
+        const matchesFromAccount = expense.from_account?.toLowerCase().includes(query);
+        const matchesToAccount = expense.to_account?.toLowerCase().includes(query);
+        
+        if (!matchesDescription && !matchesAmount && !matchesCategory && !matchesFromAccount && !matchesToAccount) {
+          return false;
+        }
+      }
+
+      // Date filters - use created_at instead of date
+      if (filters.fromDate) {
+        const expenseDate = new Date(expense.created_at);
+        const fromDate = new Date(filters.fromDate);
+        if (expenseDate < fromDate) {
+          return false;
+        }
+      }
+
+      if (filters.toDate) {
+        const expenseDate = new Date(expense.created_at);
+        const toDate = new Date(filters.toDate);
+        toDate.setHours(23, 59, 59, 999); // Include the entire end date
+        if (expenseDate > toDate) {
+          return false;
+        }
+      }
+
+      // Account filters
+      if (filters.fromAccount) {
+        const query = filters.fromAccount.toLowerCase();
+        if (!expense.from_account?.toLowerCase().includes(query)) {
+          return false;
+        }
+      }
+
+      if (filters.toAccount) {
+        const query = filters.toAccount.toLowerCase();
+        if (!expense.to_account?.toLowerCase().includes(query)) {
+          return false;
+        }
+      }
+
+      // Category filter
+      if (filters.category && filters.category !== expense.category) {
+        return false;
+      }
+
+      // Type filter
+      if (filters.type && filters.type !== expense.type) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [expenses, searchQuery, filters]);
+
+  // Clear filters function
+  const clearFilters = () => {
+    setSearchQuery("");
+    setFilters({
+      fromDate: "",
+      toDate: "",
+      fromAccount: "",
+      toAccount: "",
+      category: "",
+      type: ""
+    });
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = searchQuery || filters.fromDate || filters.toDate || filters.fromAccount || filters.toAccount || filters.category || filters.type;
+
+  // Date picker handlers
+  const onFromDateChange = (event: any, selectedDate?: Date) => {
+    setShowFromDatePicker(false);
+    if (selectedDate) {
+      const dateString = selectedDate.toISOString().split('T')[0];
+      setFilters(prev => ({ ...prev, fromDate: dateString }));
+    }
+  };
+
+  const onToDateChange = (event: any, selectedDate?: Date) => {
+    setShowToDatePicker(false);
+    if (selectedDate) {
+      const dateString = selectedDate.toISOString().split('T')[0];
+      setFilters(prev => ({ ...prev, toDate: dateString }));
+    }
+  };
+
+  const formatDisplayDate = (dateString: string) => {
+    if (!dateString) return 'Select date';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
   const { totalIncome, totalExpense, accountBalance, pendingRepayment } = useMemo(() => {
     let income = 0;
     let expense = 0;
 
-    // Calculate income and expense from expenses data
-    if (expenses) {
-      expenses.forEach((t) => {
+    // Calculate income and expense from filtered expenses data
+    if (filteredExpenses) {
+      filteredExpenses.forEach((t) => {
         const amount = parseFloat(t.amount as any) || 0;
 
         if (t.type === 'Credit') {
@@ -101,7 +233,7 @@ export default function ExpensesScreen() {
       accountBalance: balance,
       pendingRepayment: Math.max(0, repayment),
     };
-  }, [expenses, accountBalances, repayments]);
+  }, [filteredExpenses, accountBalances, repayments]);
 
   const handleEdit = (expense: Expense) => {
     setSelectedExpense(expense);
@@ -133,73 +265,327 @@ export default function ExpensesScreen() {
     <View style={styles.container}>
       {/* Stats Cards */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cardsContainer}>
-        <View style={[styles.card, { backgroundColor: BRAND_MAROON }]}>
-          <Ionicons name="wallet" size={32} color="#fff" />
-          <Text style={styles.cardValue}>₹{accountBalance.toFixed(2)}</Text>
+        <View style={[styles.card, styles.balanceCard]}>
+          <View style={[styles.cardIconContainer, { backgroundColor: 'rgba(212, 175, 55, 0.2)' }]}>
+            <Ionicons name="wallet" size={24} color={BRAND_GOLD} />
+          </View>
+          <Text style={styles.cardValue}>₹{accountBalance.toLocaleString()}</Text>
           <Text style={styles.cardLabel}>Account Balance</Text>
         </View>
 
         <TouchableOpacity 
-          style={[styles.card, { backgroundColor: '#f59e0b' }]}
+          style={[styles.card, styles.repaymentCard]}
           onPress={() => setRepaymentModalVisible(true)}
+          activeOpacity={0.8}
         >
-          <Ionicons name="time" size={32} color={BRAND_MAROON} />
-          <Text style={[styles.cardValue, { color: BRAND_MAROON }]}>₹{pendingRepayment.toFixed(2)}</Text>
-          <Text style={[styles.cardLabel, { color: BRAND_MAROON }]}>Pending Repayment</Text>
+          <View style={[styles.cardIconContainer, { backgroundColor: 'rgba(253, 203, 110, 0.2)' }]}>
+            <Ionicons name="time" size={24} color={DANGER_RED} />
+          </View>
+          <Text style={styles.cardValue}>₹{pendingRepayment.toLocaleString()}</Text>
+          <Text style={styles.cardLabel}>Pending Repayment</Text>
         </TouchableOpacity>
       </ScrollView>
 
+      {/* Search and Filter Section */}
+      <View style={styles.searchFilterContainer}>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputContainer}>
+            <Ionicons name="search" size={20} color={NEUTRAL_GRAY} style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search expenses..."
+              placeholderTextColor={NEUTRAL_GRAY}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close" size={20} color={NEUTRAL_GRAY} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Filter Toggle Button */}
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setShowFilters(!showFilters)}
+          activeOpacity={0.8}
+        >
+          <Ionicons 
+            name={showFilters ? "filter" : "filter-outline"} 
+            size={20} 
+            color={hasActiveFilters ? BRAND_MAROON : NEUTRAL_GRAY} 
+          />
+          {hasActiveFilters && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>
+                {[filters.fromDate, filters.toDate, filters.fromAccount, filters.toAccount, filters.category, filters.type].filter(Boolean).length}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Filter Options */}
+      {showFilters && (
+        <View style={styles.filtersContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
+            {/* Date Range */}
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>From Date</Text>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => setShowFromDatePicker(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="calendar-outline" size={16} color={NEUTRAL_GRAY} style={styles.dateIcon} />
+                <Text style={[
+                  styles.datePickerText,
+                  !filters.fromDate && styles.datePickerPlaceholder
+                ]}>
+                  {formatDisplayDate(filters.fromDate)}
+                </Text>
+                {filters.fromDate && (
+                  <TouchableOpacity 
+                    onPress={() => setFilters(prev => ({ ...prev, fromDate: '' }))}
+                    style={styles.clearDateButton}
+                  >
+                    <Ionicons name="close-circle" size={16} color={NEUTRAL_GRAY} />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>To Date</Text>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => setShowToDatePicker(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="calendar-outline" size={16} color={NEUTRAL_GRAY} style={styles.dateIcon} />
+                <Text style={[
+                  styles.datePickerText,
+                  !filters.toDate && styles.datePickerPlaceholder
+                ]}>
+                  {formatDisplayDate(filters.toDate)}
+                </Text>
+                {filters.toDate && (
+                  <TouchableOpacity 
+                    onPress={() => setFilters(prev => ({ ...prev, toDate: '' }))}
+                    style={styles.clearDateButton}
+                  >
+                    <Ionicons name="close-circle" size={16} color={NEUTRAL_GRAY} />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Account Filters */}
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>From Account</Text>
+              <TextInput
+                style={styles.filterInput}
+                placeholder="Account name..."
+                placeholderTextColor={NEUTRAL_GRAY}
+                value={filters.fromAccount}
+                onChangeText={(text) => setFilters(prev => ({ ...prev, fromAccount: text }))}
+              />
+            </View>
+
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>To Account</Text>
+              <TextInput
+                style={styles.filterInput}
+                placeholder="Account name..."
+                placeholderTextColor={NEUTRAL_GRAY}
+                value={filters.toAccount}
+                onChangeText={(text) => setFilters(prev => ({ ...prev, toAccount: text }))}
+              />
+            </View>
+
+            {/* Category Filter */}
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>Category</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilter}>
+                {['All', 'Office', 'Event', 'Asset'].map((category) => (
+                  <TouchableOpacity
+                    key={category}
+                    style={[
+                      styles.categoryChip,
+                      (category === 'All' ? !filters.category : filters.category === category) && styles.categoryChipActive
+                    ]}
+                    onPress={() => setFilters(prev => ({ 
+                      ...prev, 
+                      category: category === 'All' ? '' : category 
+                    }))}
+                  >
+                    <Text style={[
+                      styles.categoryChipText,
+                      (category === 'All' ? !filters.category : filters.category === category) && styles.categoryChipTextActive
+                    ]}>
+                      {category}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Type Filter */}
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>Type</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilter}>
+                {['All', 'Credit', 'Debit'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.categoryChip,
+                      (type === 'All' ? !filters.type : filters.type === type) && styles.categoryChipActive
+                    ]}
+                    onPress={() => setFilters(prev => ({ 
+                      ...prev, 
+                      type: type === 'All' ? '' : type 
+                    }))}
+                  >
+                    <Text style={[
+                      styles.categoryChipText,
+                      (type === 'All' ? !filters.type : filters.type === type) && styles.categoryChipTextActive
+                    ]}>
+                      {type}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </ScrollView>
+
+          {/* Clear Filters */}
+          {hasActiveFilters && (
+            <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
+              <Ionicons name="refresh" size={16} color="#fff" />
+              <Text style={styles.clearFiltersText}>Clear Filters</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Results Count */}
+          <Text style={styles.resultsText}>
+            Showing {filteredExpenses?.length || 0} of {expenses?.length || 0} expenses
+          </Text>
+        </View>
+      )}
+
+      {/* Date Pickers */}
+      {showFromDatePicker && (
+        <DateTimePicker
+          value={filters.fromDate ? new Date(filters.fromDate) : new Date()}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={onFromDateChange}
+          maximumDate={filters.toDate ? new Date(filters.toDate) : new Date()}
+        />
+      )}
+
+      {showToDatePicker && (
+        <DateTimePicker
+          value={filters.toDate ? new Date(filters.toDate) : new Date()}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={onToDateChange}
+          minimumDate={filters.fromDate ? new Date(filters.fromDate) : undefined}
+          maximumDate={new Date()}
+        />
+      )}
+
       {/* Expenses List */}
       <FlatList
-        data={expenses}
+        data={filteredExpenses?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) || []}
         keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContainer}
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.expenseCard}
             onPress={() => handleEdit(item)}
+            activeOpacity={0.7}
           >
             <View style={styles.expenseHeader}>
-              <View style={styles.expenseTypeContainer}>
-                <Ionicons 
-                    name={item.type === 'Credit' ? 'arrow-down-circle' : item.type === 'Debit' ? 'arrow-up-circle' : 'swap-horizontal'}
-                    size={20} 
-                    color={item.type === 'Credit' ? '#10b981' : item.type === 'Debit' ? '#ef4444' : '#f59e0b'}
+              <View style={styles.expenseIconSection}>
+                <View style={[
+                  styles.expenseIconContainer,
+                  { backgroundColor: item.type === 'Credit' ? 'rgba(0, 184, 148, 0.15)' : 
+                                   item.type === 'Debit' ? 'rgba(225, 112, 85, 0.15)' : 
+                                   'rgba(253, 203, 110, 0.15)' }
+                ]}>
+                  <Ionicons 
+                    name={item.type === 'Credit' ? 'arrow-down-circle-outline' : 
+                          item.type === 'Debit' ? 'arrow-up-circle-outline' : 
+                          'swap-horizontal-outline'}
+                    size={22} 
+                    color={item.type === 'Credit' ? SUCCESS_GREEN : 
+                           item.type === 'Debit' ? DANGER_RED : WARNING_ORANGE}
                   />
-                <View style={{ marginLeft: 12 }}>
+                </View>
+                <View style={styles.expenseInfo}>
                   <Text style={styles.expenseDescription}>{item.description}</Text>
-                  <Text style={styles.expenseCategory}>{item.category} • {new Date(item.date).toLocaleDateString()}</Text>
+                  <Text style={styles.expenseCategory}>{item.category}</Text>
+                  <Text style={styles.expenseDate}>{new Date(item.date).toLocaleDateString()}</Text>
                 </View>
               </View>
-              <View style={styles.amountContainer}>
-                <Text style={[styles.expenseAmount, { color: item.type === 'Credit' ? '#10b981' : '#ef4444' }]}>
-                  {item.type === 'Credit' ? '+' : '-'}₹{parseFloat(item.amount as any).toFixed(2)}
+              <View style={styles.amountSection}>
+                <Text style={[
+                  styles.expenseAmount, 
+                  { color: item.type === 'Credit' ? SUCCESS_GREEN : DANGER_RED }
+                ]}>
+                  {item.type === 'Credit' ? '+' : '-'}₹{parseFloat(item.amount as any).toLocaleString()}
                 </Text>
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleDelete(item);
+                  }}
+                >
+                  {deleteMutation.isPending ? (
+                    <ActivityIndicator size="small" color={DANGER_RED} />
+                  ) : (
+                    <Ionicons name="trash-outline" size={18} color={DANGER_RED} />
+                  )}
+                </TouchableOpacity>
               </View>
             </View>
             <View style={styles.expenseFooter}>
-              <Text style={styles.expenseAccount}>
-                {item.to_account ? `${item.from_account} → ${item.to_account}` : item.from_account}
-              </Text>
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleDelete(item);
-                }}
-              >
-                {deleteMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#dc2626" />
-                ) : (
-                  <Ionicons name="trash-outline" size={20} color="#dc2626" />
-                )}
-              </TouchableOpacity>
+              <View style={styles.accountFlow}>
+                <Ionicons name="card-outline" size={14} color={NEUTRAL_GRAY} />
+                <Text style={styles.expenseAccount}>
+                  {item.to_account ? `${item.from_account} → ${item.to_account}` : item.from_account}
+                </Text>
+              </View>
             </View>
           </TouchableOpacity>
         )}
-        contentContainerStyle={styles.listContainer}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No expenses yet</Text>
+            <Ionicons name="receipt-outline" size={64} color={NEUTRAL_GRAY} />
+            {hasActiveFilters ? (
+              <>
+                <Text style={styles.emptyText}>No matching expenses</Text>
+                <Text style={styles.emptySubText}>Try adjusting your search or filters</Text>
+                <TouchableOpacity 
+                  style={styles.clearFiltersButton}
+                  onPress={clearFilters}
+                >
+                  <Ionicons name="refresh" size={16} color="#fff" />
+                  <Text style={styles.clearFiltersText}>Clear Filters</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.emptyText}>No expenses yet</Text>
+                <Text style={styles.emptySubText}>Tap + to add your first expense</Text>
+              </>
+            )}
           </View>
         }
       />
@@ -208,6 +594,7 @@ export default function ExpensesScreen() {
       <TouchableOpacity
         style={styles.fab}
         onPress={() => setModalVisible(true)}
+        activeOpacity={0.8}
       >
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
@@ -260,120 +647,186 @@ export default function ExpensesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: LIGHT_GRAY,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: LIGHT_GRAY,
   },
   cardsContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    maxHeight: 160,
+    paddingHorizontal: 35,
+    paddingTop: 35,
+    paddingBottom: 85,
   },
   card: {
     width: 160,
-    padding: 20,
-    borderRadius: 16,
-    marginRight: 12,
+    backgroundColor: '#ffffff',
+    padding: 35,
+    borderRadius: 10,
+    marginRight: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  balanceCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: BRAND_GOLD,
+  },
+  repaymentCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: DANGER_RED,
+  },
+  incomeCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: SUCCESS_GREEN,
+  },
+  expenseCardStyle: {
+    borderLeftWidth: 4,
+    borderLeftColor: DANGER_RED,
+  },
+  cardIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   cardValue: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 8,
+    color: PREMIUM_DARK,
+    marginBottom: 4,
+    letterSpacing: -0.5,
   },
   cardLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: 4,
+    fontSize: 10,
+    color: NEUTRAL_GRAY,
+    fontWeight: '600',
     textAlign: 'center',
   },
   listContainer: {
     padding: 16,
+    paddingBottom: 100,
   },
   expenseCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 12,
-    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   expenseHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  expenseTypeContainer: {
+  expenseIconSection: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+  },
+  expenseIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  expenseInfo: {
     flex: 1,
   },
   expenseDescription: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: PREMIUM_DARK,
+    marginBottom: 6,
+    lineHeight: 22,
   },
   expenseCategory: {
-    fontSize: 13,
-    color: '#6b7280',
+    fontSize: 14,
+    color: NEUTRAL_GRAY,
+    fontWeight: '600',
+    marginBottom: 4,
   },
-  amountContainer: {
+  expenseDate: {
+    fontSize: 13,
+    color: NEUTRAL_GRAY,
+    fontWeight: '500',
+  },
+  amountSection: {
     alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    height: 44,
   },
   expenseAmount: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-  },
-  closingBalanceText: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 4,
-    textAlign: 'right',
+    letterSpacing: -0.5,
   },
   expenseFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  accountFlow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   expenseAccount: {
-    fontSize: 13,
-    color: '#6b7280',
+    fontSize: 14,
+    color: NEUTRAL_GRAY,
+    fontWeight: '500',
+    marginLeft: 8,
     flex: 1,
   },
   deleteButton: {
-    padding: 8,
-    backgroundColor: 'rgba(220, 38, 38, 0.1)',
-    borderRadius: 8,
+    padding: 10,
+    backgroundColor: 'rgba(225, 112, 85, 0.1)',
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   emptyContainer: {
-    padding: 40,
+    padding: 60,
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 16,
-    color: '#9ca3af',
+    fontSize: 18,
+    color: NEUTRAL_GRAY,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubText: {
+    fontSize: 14,
+    color: NEUTRAL_GRAY,
+    fontWeight: '500',
   },
   errorText: {
-    fontSize: 16,
-    color: '#ef4444',
+    fontSize: 18,
+    color: DANGER_RED,
+    fontWeight: '500',
   },
   fab: {
     position: 'absolute',
@@ -400,45 +853,233 @@ const styles = StyleSheet.create({
   },
   confirmationBox: {
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 20,
+    padding: 24,
     width: '100%',
     maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 12,
   },
   confirmTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 10,
+    color: PREMIUM_DARK,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   confirmMessage: {
     fontSize: 16,
-    marginBottom: 20,
+    color: NEUTRAL_GRAY,
+    marginBottom: 24,
     textAlign: 'center',
+    lineHeight: 22,
   },
   confirmButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
+    gap: 12,
   },
   confirmButton: {
-    paddingVertical: 10,
+    flex: 1,
+    paddingVertical: 16,
     paddingHorizontal: 20,
-    borderRadius: 5,
-    minWidth: 100,
+    borderRadius: 12,
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#e5e7eb',
+    backgroundColor: '#f1f3f4',
   },
   deleteConfirmButton: {
-    backgroundColor: '#ef4444',
+    backgroundColor: DANGER_RED,
   },
   cancelButtonText: {
-    color: '#4b5563',
-    fontWeight: '600',
+    color: NEUTRAL_GRAY,
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   deleteButtonText: {
     color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  // Search and Filter Styles
+  searchFilterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  searchContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: PREMIUM_DARK,
+    fontWeight: '500',
+  },
+  filterButton: {
+    position: 'relative',
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#f8f9fa',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: BRAND_MAROON,
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  filtersContainer: {
+    backgroundColor: '#ffffff',
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 12,
+    paddingVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  filtersScroll: {
+    paddingHorizontal: 16,
+  },
+  filterGroup: {
+    marginRight: 20,
+    minWidth: 140,
+  },
+  filterLabel: {
+    fontSize: 12,
     fontWeight: '600',
+    color: NEUTRAL_GRAY,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  filterInput: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: PREMIUM_DARK,
+    fontWeight: '500',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  categoryFilter: {
+    flexDirection: 'row',
+  },
+  categoryChip: {
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  categoryChipActive: {
+    backgroundColor: BRAND_MAROON,
+    borderColor: BRAND_MAROON,
+  },
+  categoryChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: NEUTRAL_GRAY,
+  },
+  categoryChipTextActive: {
+    color: '#ffffff',
+  },
+  clearFiltersButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: BRAND_MAROON,
+    marginHorizontal: 16,
+    marginTop: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  clearFiltersText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  resultsText: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: NEUTRAL_GRAY,
+    marginTop: 12,
+    fontWeight: '500',
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+    minWidth: 140,
+  },
+  dateIcon: {
+    marginRight: 8,
+  },
+  datePickerText: {
+    flex: 1,
+    fontSize: 14,
+    color: PREMIUM_DARK,
+    fontWeight: '500',
+  },
+  datePickerPlaceholder: {
+    color: NEUTRAL_GRAY,
+  },
+  clearDateButton: {
+    padding: 4,
   },
 });

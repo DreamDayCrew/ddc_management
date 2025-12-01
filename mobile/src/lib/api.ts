@@ -73,10 +73,24 @@ class ApiClient {
 // Export singleton instance
 export const apiClient = new ApiClient(API_BASE_URL);
 
+console.log('API Client initialized with base URL:', API_BASE_URL);
+
 // Export API methods with proper typing
 export const api = {
+  // Test connection
+  testConnection: () => {
+    console.log('Testing API connection to:', API_BASE_URL);
+    return apiClient.get<{ message: string }>('/api/health');
+  },
+  
   // Events
-  getEvents: () => apiClient.get<Event[]>('/api/events'),
+  getEvents: (params?: { startDate?: string; endDate?: string }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    const queryString = queryParams.toString();
+    return apiClient.get<Event[]>(`/api/events${queryString ? `?${queryString}` : ''}`);
+  },
   getEvent: (id: string) => apiClient.get<Event>(`/api/events/${id}`),
   createEvent: (data: InsertEvent) => apiClient.post<Event>('/api/events', data),
   updateEvent: (id: string, data: Partial<InsertEvent>) => apiClient.patch<Event>(`/api/events/${id}`, data),

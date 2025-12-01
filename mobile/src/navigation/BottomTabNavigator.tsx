@@ -61,7 +61,7 @@ export default function BottomTabNavigator() {
       <Tab.Screen 
         name="Dashboard" 
         component={DashboardScreen}
-        options={{ headerTitle: 'Dashboard' }}
+        options={{ headerTitle: 'Dream Day Crew' }}
       />
       <Tab.Screen 
         name="Events" 

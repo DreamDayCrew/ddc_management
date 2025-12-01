@@ -115,7 +115,7 @@ export default function TeamScreen() {
       </View>
 
       <FlatList
-        data={team || []}
+        data={team?.sort((a, b) => b.id.localeCompare(a.id)) || []}
         renderItem={renderTeamMember}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}

@@ -3,6 +3,7 @@
 
 const PRODUCTION_API_URL = 'https://ddc-management.onrender.com';
 // Use your computer's local IP address for development on physical devices
+// Server is running on port 5000
 const LOCAL_DEV_URL = 'http://172.19.129.244:5000';
 
 export const config = {

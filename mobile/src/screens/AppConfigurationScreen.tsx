@@ -9,8 +9,12 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { useSecurity } from '../contexts';
+import { useTheme } from '../contexts';
 
 const BRAND_MAROON = '#800020';
 
@@ -20,82 +24,136 @@ interface SecuritySettings {
   pinCode?: string;
 }
 
-interface AppSettings {
-  darkModeEnabled: boolean;
-}
-
 export default function AppConfigurationScreen({ navigation }: any) {
-  const [securitySettings, setSecuritySettings] = useState<SecuritySettings>({
-    biometricEnabled: false,
-    pinEnabled: false,
-  });
-  const [appSettings, setAppSettings] = useState<AppSettings>({
-    darkModeEnabled: false,
-  });
+  const { securitySettings, updateSecuritySettings } = useSecurity();
+  const { theme, isDark, colors, setTheme } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [pinCode, setPinCode] = useState('');
   const [confirmPinCode, setConfirmPinCode] = useState('');
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [showEmergencyResetConfirm, setShowEmergencyResetConfirm] = useState(false);
 
   useEffect(() => {
-    loadSecuritySettings();
+    checkBiometricAvailability();
   }, []);
 
-  const loadSecuritySettings = async () => {
+  const checkBiometricAvailability = async () => {
     try {
-      // In a real app, you'd load this from secure storage
-      // For now, we'll use default values
-      setSecuritySettings({
-        biometricEnabled: false,
-        pinEnabled: false,
-      });
-      setAppSettings({
-        darkModeEnabled: false,
-      });
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      setBiometricAvailable(hasHardware && isEnrolled);
     } catch (error) {
-      console.error('Error loading settings:', error);
+      console.error('Error checking biometric availability:', error);
+      setBiometricAvailable(false);
     }
   };
 
+
+
   const handleDarkModeToggle = (value: boolean) => {
-    setAppSettings(prev => ({ ...prev, darkModeEnabled: value }));
+    setTheme(value ? 'dark' : 'light');
     Alert.alert('Success', `Dark mode ${value ? 'enabled' : 'disabled'}`);
-    // In a real app, you would apply the theme change here
   };
 
   const handleBiometricToggle = async (value: boolean) => {
     if (value) {
-      // Mock biometric authentication - in real app, use expo-local-authentication
-      Alert.alert(
-        'Biometric Authentication',
-        'Biometric authentication is not available in this build. This feature requires expo-local-authentication package.',
-        [
-          { text: 'OK', style: 'cancel' },
-          { 
-            text: 'Enable Anyway', 
-            onPress: () => {
-              setSecuritySettings(prev => ({ ...prev, biometricEnabled: true }));
-              Alert.alert('Success', 'Biometric authentication enabled (mock)');
-            }
-          }
-        ]
-      );
+      // Check if PIN is enabled - only one security method allowed
+      if (securitySettings.pinEnabled) {
+        Alert.alert(
+          'PIN Authentication Active',
+          'Please disable PIN authentication first. Only one security method can be enabled at a time.',
+          [{ text: 'OK', style: 'default' }]
+        );
+        return;
+      }
+
+      try {
+        // Check if device supports biometric authentication
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        if (!hasHardware) {
+          Alert.alert(
+            'Not Supported',
+            'Your device does not support biometric authentication.'
+          );
+          return;
+        }
+
+        // Check if biometric records are enrolled
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        if (!isEnrolled) {
+          Alert.alert(
+            'No Biometrics Enrolled',
+            'Please set up fingerprint or face recognition in your device settings first.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Settings', 
+                onPress: () => {
+                  Alert.alert('Setup Required', 'Please go to your device Settings to set up biometric authentication.');
+                }
+              }
+            ]
+          );
+          return;
+        }
+
+        // Get supported authentication types
+        const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
+        let authTypeText = 'biometric';
+        if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+          authTypeText = 'Face ID';
+        } else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+          authTypeText = 'fingerprint';
+        }
+
+        // Test biometric authentication
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: `Use your ${authTypeText} to enable biometric security`,
+          cancelLabel: 'Cancel',
+          disableDeviceFallback: false,
+        });
+
+        if (result.success) {
+          await updateSecuritySettings({ 
+            ...securitySettings, 
+            biometricEnabled: true,
+            pinEnabled: false, // Disable PIN
+            pinCode: undefined
+          });
+          Alert.alert('Success', `${authTypeText} authentication enabled successfully!`);
+        } else {
+          Alert.alert('Authentication Failed', 'Biometric authentication was not successful.');
+        }
+      } catch (error) {
+        console.error('Biometric authentication error:', error);
+        Alert.alert('Error', 'Failed to setup biometric authentication. Please try again.');
+      }
     } else {
-      setSecuritySettings(prev => ({ ...prev, biometricEnabled: false }));
+      await updateSecuritySettings({ ...securitySettings, biometricEnabled: false });
       Alert.alert('Success', 'Biometric authentication disabled');
     }
   };
 
   const handlePinToggle = (value: boolean) => {
     if (value) {
+      // Check if biometric is enabled - only one security method allowed
+      if (securitySettings.biometricEnabled) {
+        Alert.alert(
+          'Biometric Authentication Active',
+          'Please disable biometric authentication first. Only one security method can be enabled at a time.',
+          [{ text: 'OK', style: 'default' }]
+        );
+        return;
+      }
       setShowPinSetup(true);
     } else {
-      setSecuritySettings(prev => ({ ...prev, pinEnabled: false, pinCode: undefined }));
+      updateSecuritySettings({ ...securitySettings, pinEnabled: false, pinCode: undefined });
       Alert.alert('Success', 'PIN authentication disabled');
     }
   };
 
-  const handlePinSetup = () => {
+  const handlePinSetup = async () => {
     if (pinCode.length !== 4) {
       Alert.alert('Error', 'PIN must be 4 digits');
       return;
@@ -106,25 +164,63 @@ export default function AppConfigurationScreen({ navigation }: any) {
       return;
     }
 
-    setSecuritySettings(prev => ({ ...prev, pinEnabled: true, pinCode }));
-    setShowPinSetup(false);
-    setPinCode('');
-    setConfirmPinCode('');
-    Alert.alert('Success', 'PIN authentication enabled');
+    try {
+      await updateSecuritySettings({ 
+        ...securitySettings, 
+        pinEnabled: true, 
+        pinCode,
+        biometricEnabled: false // Disable biometric
+      });
+      setShowPinSetup(false);
+      setPinCode('');
+      setConfirmPinCode('');
+      Alert.alert('Success', 'PIN authentication enabled successfully!');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to enable PIN authentication. Please try again.');
+    }
+  };
+
+  const handleEmergencyReset = () => {
+    console.log('handleEmergencyReset function called');
+    setShowEmergencyResetConfirm(true);
+  };
+
+  const confirmEmergencyReset = async () => {
+    console.log('Emergency reset confirmed');
+    try {
+      await updateSecuritySettings({
+        pinEnabled: false,
+        biometricEnabled: false,
+        pinCode: undefined
+      });
+      setShowEmergencyResetConfirm(false);
+      Alert.alert(
+        'Security Reset Complete',
+        'All security features have been disabled. You can set up new security in App Configuration.'
+      );
+    } catch (error) {
+      console.error('Error resetting security:', error);
+      Alert.alert('Error', 'Failed to reset security. Please try again.');
+    }
+  };
+
+  const cancelEmergencyReset = () => {
+    setShowEmergencyResetConfirm(false);
   };
 
   const renderPinSetup = () => (
-    <View style={styles.pinSetupContainer}>
-      <Text style={styles.pinSetupTitle}>Setup PIN</Text>
-      <Text style={styles.pinSetupDescription}>Enter a 4-digit PIN for authentication</Text>
+    <View style={[styles.pinSetupContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <Text style={[styles.pinSetupTitle, { color: colors.text }]}>Setup PIN</Text>
+      <Text style={[styles.pinSetupDescription, { color: colors.textSecondary }]}>Enter a 4-digit PIN for authentication</Text>
       
       <View style={styles.pinInputContainer}>
-        <Text style={styles.label}>Enter PIN</Text>
+        <Text style={[styles.label, { color: colors.text }]}>Enter PIN</Text>
         <TextInput
-          style={styles.pinInput}
+          style={[styles.pinInput, { borderColor: colors.border, backgroundColor: colors.background, color: colors.text }]}
           value={pinCode}
           onChangeText={setPinCode}
           placeholder="****"
+          placeholderTextColor={colors.textSecondary}
           keyboardType="numeric"
           maxLength={4}
           secureTextEntry
@@ -132,12 +228,13 @@ export default function AppConfigurationScreen({ navigation }: any) {
       </View>
 
       <View style={styles.pinInputContainer}>
-        <Text style={styles.label}>Confirm PIN</Text>
+        <Text style={[styles.label, { color: colors.text }]}>Confirm PIN</Text>
         <TextInput
-          style={styles.pinInput}
+          style={[styles.pinInput, { borderColor: colors.border, backgroundColor: colors.background, color: colors.text }]}
           value={confirmPinCode}
           onChangeText={setConfirmPinCode}
           placeholder="****"
+          placeholderTextColor={colors.textSecondary}
           keyboardType="numeric"
           maxLength={4}
           secureTextEntry
@@ -146,18 +243,18 @@ export default function AppConfigurationScreen({ navigation }: any) {
 
       <View style={styles.pinSetupActions}>
         <TouchableOpacity
-          style={[styles.pinSetupButton, styles.cancelButton]}
+          style={[styles.pinSetupButton, styles.pinCancelButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
           onPress={() => {
             setShowPinSetup(false);
             setPinCode('');
             setConfirmPinCode('');
           }}
         >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
+          <Text style={[styles.pinCancelButtonText, { color: colors.text }]}>Cancel</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.pinSetupButton, styles.confirmButton]}
+          style={[styles.pinSetupButton, styles.confirmButton, { backgroundColor: colors.primary }]}
           onPress={handlePinSetup}
         >
           <Text style={styles.confirmButtonText}>Setup PIN</Text>
@@ -168,8 +265,8 @@ export default function AppConfigurationScreen({ navigation }: any) {
 
   if (showPinSetup) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { backgroundColor: colors.primary }]}>
           <Text style={styles.headerTitle}>PIN Setup</Text>
         </View>
         {renderPinSetup()}
@@ -178,62 +275,68 @@ export default function AppConfigurationScreen({ navigation }: any) {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Appearance</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Appearance</Text>
         
-        <View style={styles.settingItem}>
+        <View style={[styles.settingItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.settingContent}>
-            <View style={styles.settingIconContainer}>
-              <Ionicons name="moon" size={24} color={BRAND_MAROON} />
+            <View style={[styles.settingIconContainer, { backgroundColor: isDark ? colors.surface : '#fef2f2' }]}>
+              <Ionicons name="moon" size={24} color={colors.primary} />
             </View>
             <View style={styles.settingText}>
-              <Text style={styles.settingTitle}>Dark Mode</Text>
-              <Text style={styles.settingDescription}>
+              <Text style={[styles.settingTitle, { color: colors.text }]}>Dark Mode</Text>
+              <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
                 Switch between light and dark theme
               </Text>
             </View>
           </View>
           <Switch
-            value={appSettings.darkModeEnabled}
+            value={isDark}
             onValueChange={handleDarkModeToggle}
-            trackColor={{ false: '#d1d5db', true: BRAND_MAROON }}
-            thumbColor="#ffffff"
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor={colors.card}
           />
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Security Settings</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Security Settings</Text>
         
-        <View style={styles.settingItem}>
+        <View style={[styles.settingItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.settingContent}>
-            <View style={styles.settingIconContainer}>
-              <Ionicons name="finger-print" size={24} color={BRAND_MAROON} />
+            <View style={[styles.settingIconContainer, { backgroundColor: isDark ? colors.surface : '#fef2f2' }]}>
+              <Ionicons name="finger-print" size={24} color={biometricAvailable ? colors.primary : colors.textSecondary} />
             </View>
             <View style={styles.settingText}>
-              <Text style={styles.settingTitle}>Biometric Authentication</Text>
-              <Text style={styles.settingDescription}>
-                Use fingerprint or face recognition to secure the app
+              <Text style={[styles.settingTitle, { color: biometricAvailable ? colors.text : colors.textSecondary }]}>
+                Biometric Authentication
+              </Text>
+              <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                {biometricAvailable 
+                  ? 'Use fingerprint or face recognition to secure the app'
+                  : 'Not available - Please set up biometric authentication in device settings first'
+                }
               </Text>
             </View>
           </View>
           <Switch
             value={securitySettings.biometricEnabled}
             onValueChange={handleBiometricToggle}
-            trackColor={{ false: '#d1d5db', true: BRAND_MAROON }}
-            thumbColor="#ffffff"
+            disabled={!biometricAvailable}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor={colors.card}
           />
         </View>
 
-        <View style={styles.settingItem}>
+        <View style={[styles.settingItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.settingContent}>
-            <View style={styles.settingIconContainer}>
-              <Ionicons name="keypad" size={24} color={BRAND_MAROON} />
+            <View style={[styles.settingIconContainer, { backgroundColor: isDark ? colors.surface : '#fef2f2' }]}>
+              <Ionicons name="keypad" size={24} color={colors.primary} />
             </View>
             <View style={styles.settingText}>
-              <Text style={styles.settingTitle}>PIN Security</Text>
-              <Text style={styles.settingDescription}>
+              <Text style={[styles.settingTitle, { color: colors.text }]}>PIN Security</Text>
+              <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
                 Use a 4-digit PIN to secure the app
               </Text>
             </View>
@@ -241,20 +344,78 @@ export default function AppConfigurationScreen({ navigation }: any) {
           <Switch
             value={securitySettings.pinEnabled}
             onValueChange={handlePinToggle}
-            trackColor={{ false: '#d1d5db', true: BRAND_MAROON }}
-            thumbColor="#ffffff"
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor={colors.card}
           />
         </View>
       </View>
 
-      <View style={styles.infoCard}>
-        <Ionicons name="information-circle" size={20} color="#3b82f6" />
-        <Text style={styles.infoText}>
+      <View style={[styles.infoCard, { backgroundColor: isDark ? colors.surface : '#eff6ff', borderColor: colors.border }]}>
+        <View style={styles.infoHeader}>
+          <Ionicons name="information-circle" size={20} color={isDark ? colors.primary : '#3b82f6'} />
+          <Text style={[styles.infoTitle, { color: isDark ? colors.primary : '#1e40af' }]}>Security Information</Text>
+        </View>
+        <Text style={[styles.infoText, { color: isDark ? colors.textSecondary : '#1e40af' }]}>
           Customize your app experience with dark mode for comfortable viewing in low light conditions.
           Enable biometric or PIN authentication to add an extra layer of security to your app.
           You'll be asked to authenticate when opening the app or accessing sensitive features.
         </Text>
+        
+        {(securitySettings.pinEnabled || securitySettings.biometricEnabled) && (
+          <TouchableOpacity 
+            style={[styles.emergencyResetButton, { backgroundColor: isDark ? colors.surface : '#fef2f2', borderColor: isDark ? colors.error : '#fecaca' }]}
+            onPress={() => {
+              console.log('Emergency Reset button pressed');
+              console.log('Security settings:', securitySettings);
+              handleEmergencyReset();
+            }}
+          >
+            <Ionicons name="warning" size={20} color={colors.error} />
+            <Text style={[styles.emergencyResetText, { color: colors.error }]}>Emergency Reset Security</Text>
+          </TouchableOpacity>
+        )}
       </View>
+
+      {/* Emergency Reset Confirmation Dialog */}
+      <Modal
+        visible={showEmergencyResetConfirm}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={cancelEmergencyReset}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.confirmationBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.confirmationHeader}>
+              <Ionicons name="warning" size={32} color={colors.error} />
+              <Text style={[styles.confirmationTitle, { color: colors.text }]}>Emergency Security Reset</Text>
+            </View>
+            
+            <Text style={[styles.confirmationMessage, { color: colors.textSecondary }]}>
+              This will completely disable all security features. Use this only if you're locked out of your app.
+            </Text>
+            
+            <Text style={[styles.confirmationWarning, { color: colors.error }]}>
+              Are you sure you want to continue?
+            </Text>
+            
+            <View style={styles.confirmationActions}>
+              <TouchableOpacity
+                style={[styles.confirmationButton, styles.cancelButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={cancelEmergencyReset}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.confirmationButton, styles.resetButton, { backgroundColor: colors.error }]}
+                onPress={confirmEmergencyReset}
+              >
+                <Text style={styles.resetButtonText}>Reset Security</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
         {/*<View style={styles.section}>
         <Text style={styles.sectionTitle}>Settings Status</Text>
@@ -362,20 +523,116 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   infoCard: {
-    flexDirection: 'row',
     backgroundColor: '#eff6ff',
     padding: 16,
     borderRadius: 12,
     marginHorizontal: 16,
     marginTop: 16,
-    alignItems: 'flex-start',
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e40af',
+    marginLeft: 8,
   },
   infoText: {
     fontSize: 13,
     color: '#1e40af',
-    marginLeft: 8,
-    flex: 1,
     lineHeight: 18,
+    marginBottom: 16,
+  },
+  emergencyResetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  emergencyResetText: {
+    fontSize: 14,
+    color: '#ef4444',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  confirmationBox: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 24,
+    margin: 20,
+    maxWidth: 350,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  confirmationHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  confirmationTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  confirmationMessage: {
+    fontSize: 16,
+    color: '#374151',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  confirmationWarning: {
+    fontSize: 16,
+    color: '#ef4444',
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  confirmationActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  confirmationButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  resetButton: {
+    backgroundColor: '#ef4444',
+  },
+  cancelButtonText: {
+    color: '#374151',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  resetButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
   },
   statusCard: {
     backgroundColor: '#ffffff',
@@ -451,10 +708,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 8,
   },
-  cancelButton: {
+  pinCancelButton: {
     backgroundColor: '#f3f4f6',
   },
-  cancelButtonText: {
+  pinCancelButtonText: {
     color: '#374151',
     fontWeight: '600',
   },

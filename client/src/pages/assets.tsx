@@ -14,8 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export default function Assets() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | undefined>();
 
@@ -52,8 +52,8 @@ export default function Assets() {
 
   const filteredAssets = assets.filter((asset) => {
     const matchesSearch = asset.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = categoryFilter === null || asset.category === categoryFilter;
-    const matchesStatus = statusFilter === null || asset.status === statusFilter;
+      const matchesCategory = !categoryFilter || asset.category === categoryFilter;
+      const matchesStatus = !statusFilter || asset.status === statusFilter;
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
@@ -117,7 +117,7 @@ export default function Assets() {
             <SelectValue placeholder="Filter by category" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={null}>All Categories</SelectItem>
+            <SelectItem value="">All Categories</SelectItem>
             {categories.map((category) => (
               <SelectItem key={category} value={category}>
                 {category}
@@ -131,7 +131,7 @@ export default function Assets() {
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={null}>All Statuses</SelectItem>
+            <SelectItem value="">All Statuses</SelectItem>
             {statuses.map((status) => (
               <SelectItem key={status} value={status}>
                 {status}
@@ -144,8 +144,8 @@ export default function Assets() {
           <Button
             variant="outline"
             onClick={() => {
-              setCategoryFilter(null);
-              setStatusFilter(null);
+              setCategoryFilter("");
+              setStatusFilter("");
             }}
             className="h-10"
           >
