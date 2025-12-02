@@ -206,9 +206,9 @@ export default function ExpensesScreen() {
     let income = 0;
     let expense = 0;
 
-    // Calculate income and expense from filtered expenses data
-    if (filteredExpenses) {
-      filteredExpenses.forEach((t) => {
+    // Calculate income and expense from ALL expenses data (not filtered) for accurate KPI values
+    if (allExpenses) {
+      allExpenses.forEach((t) => {
         const amount = parseFloat(t.amount as any) || 0;
 
         if (t.type === 'Credit') {
@@ -239,37 +239,16 @@ export default function ExpensesScreen() {
       accountBalance: balance,
       pendingRepayment: Math.max(0, repayment),
     };
-  }, [filteredExpenses, accountBalances, repayments]);
+  }, [allExpenses, accountBalances, repayments]);
 
-  // Calculate running balance for each transaction
+  // Use the closing_balance directly from the database view (already calculated correctly)
   const expensesWithRunningBalance = useMemo(() => {
     if (!filteredExpenses) return [];
     
     // Sort by date descending (newest first) for display
-    const sortedExpenses = [...filteredExpenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    
-    let runningBalance = accountBalance;
-    
-    // Calculate running balance for each transaction from current balance backwards
-    const withBalance = sortedExpenses.map((expense) => {
-      const currentBalance = runningBalance;
-      const amount = parseFloat(expense.amount as any) || 0;
-      
-      // Update running balance for next iteration (going backwards in time)
-      if (expense.type === 'Credit') {
-        runningBalance -= amount;
-      } else if (expense.type === 'Debit') {
-        runningBalance += amount;
-      }
-      
-      return {
-        ...expense,
-        closingBalance: currentBalance
-      };
-    });
-    
-    return withBalance;
-  }, [filteredExpenses, accountBalance]);
+    // closing_balance is already provided by the database view and is accurate
+    return [...filteredExpenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [filteredExpenses]);
 
   const handleEdit = (expense: Expense) => {
     setSelectedExpense(expense);
@@ -561,7 +540,7 @@ export default function ExpensesScreen() {
                   {item.type === 'Credit' ? '+' : '-'}₹{parseFloat(item.amount as any).toLocaleString()}
                 </Text>
                 <Text style={[styles.closingBalance, { color: colors.textSecondary }]}>
-                  Closing Balance: ₹{parseFloat(item.closingBalance as any).toLocaleString()}
+                  Closing Balance: ₹{parseFloat(item.closing_balance as any).toLocaleString()}
                 </Text>
                 <TouchableOpacity
                   style={styles.deleteButton}

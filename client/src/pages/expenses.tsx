@@ -314,9 +314,9 @@ export default function Expenses() {
   }
 
 
-  // Calculate totals using the memoized function
+  // Calculate totals using ALL expenses (not filtered) for accurate KPI values
   const { totalIncome, totalExpense, netProfit, ddcBalance, repayment, byStatus, repaymentList } = useMemo(() => {
-    const totals = calculateTotals(expenses, cardStatus);
+    const totals = calculateTotals(allExpenses, cardStatus);
     
     // Calculate the filtered repayment amount based on selected members
     if (Object.keys(selectedMembers).length > 0) {
@@ -344,7 +344,7 @@ export default function Expenses() {
     }
     
     return totals;
-  }, [expenses, cardStatus, selectedMembers]);
+  }, [allExpenses, cardStatus, selectedMembers]);
 
   // Use the closing_balance directly from the database view (already calculated correctly)
   const expensesWithRunningBalance = useMemo(() => {
