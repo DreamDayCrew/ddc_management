@@ -37,15 +37,22 @@ export default function Events() {
     return acc;
   }, {} as Record<string, number>);
 
-  const filteredEvents = events.filter((event) => {
-    const query = searchQuery.toLowerCase();
-    return (
-      event.eventName.toLowerCase().includes(query) ||
-      event.venue.toLowerCase().includes(query) ||
-      (event.clientName || '').toLowerCase().includes(query) ||
-      event.providedService.toLowerCase().includes(query)
-    );
-  });
+  const filteredEvents = events
+    .filter((event) => {
+      const query = searchQuery.toLowerCase();
+      return (
+        event.eventName.toLowerCase().includes(query) ||
+        event.venue.toLowerCase().includes(query) ||
+        (event.clientName || '').toLowerCase().includes(query) ||
+        event.providedService.toLowerCase().includes(query)
+      );
+    })
+    .sort((a, b) => {
+      // Sort by registeredOn date (latest first), fallback to eventDate
+      const dateA = new Date(a.registeredOn || a.eventDate).getTime();
+      const dateB = new Date(b.registeredOn || b.eventDate).getTime();
+      return dateB - dateA;
+    });
 
   const inquiredEvents = filteredEvents.filter((e) => e.eventStatus === "Inquired");
   const inProgressEvents = filteredEvents.filter((e) => e.eventStatus === "In Progress");
