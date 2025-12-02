@@ -197,11 +197,15 @@ export default function DashboardScreen() {
                   <Text style={styles.metricLabel}>Debit</Text>
                 </View>
                 
-                <View style={styles.metricItem}>
+                <TouchableOpacity 
+                  style={styles.metricItem}
+                  onPress={() => setRepaymentModalVisible(true)}
+                  activeOpacity={0.7}
+                >
                   <MaterialCommunityIcons name="clock-outline" size={20} color="#fff" />
                   <Text style={styles.metricValue}>₹{pendingRepayment.toLocaleString()}</Text>
                   <Text style={styles.metricLabel}>Pending</Text>
-                </View>
+                </TouchableOpacity>
               </View>
             </View>
           </View>

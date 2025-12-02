@@ -8,6 +8,7 @@ import {
   Vibration,
   Dimensions,
   StatusBar,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSecurity, useTheme } from '../contexts';
@@ -24,6 +25,7 @@ export default function AuthenticationScreen() {
   const [isLocked, setIsLocked] = useState(false);
   const [lockTimeRemaining, setLockTimeRemaining] = useState(0);
   const [showForgotPin, setShowForgotPin] = useState(false);
+  const [showForgotPinModal, setShowForgotPinModal] = useState(false);
 
   const MAX_ATTEMPTS = 5;
   const LOCK_DURATION = 300; // 5 minutes in seconds
@@ -110,23 +112,8 @@ export default function AuthenticationScreen() {
   };
 
   const handleForgotPin = () => {
-    Alert.alert(
-      'Forgot PIN',
-      'What would you like to do?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Use Biometric',
-          onPress: handleBiometricReset,
-          style: 'default'
-        },
-        {
-          text: 'Disable Security',
-          onPress: handleDisableSecurity,
-          style: 'destructive'
-        }
-      ]
-    );
+    console.log('Forgot PIN button pressed'); // Debug log
+    setShowForgotPinModal(true);
   };
 
   const handleBiometricReset = async () => {
@@ -162,33 +149,6 @@ export default function AuthenticationScreen() {
       console.error('Biometric reset error:', error);
       Alert.alert('Error', 'Failed to authenticate with biometrics.');
     }
-  };
-
-  const handleDisableSecurity = () => {
-    Alert.alert(
-      'Disable Security',
-      'This will completely disable PIN and biometric security. The app will no longer require authentication.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Disable',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await updateSecuritySettings({
-                pinEnabled: false,
-                biometricEnabled: false,
-                pinCode: undefined
-              });
-              setAuthenticated(true);
-              Alert.alert('Security Disabled', 'App security has been disabled. You can re-enable it in App Configuration.');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to disable security. Please try again.');
-            }
-          }
-        }
-      ]
-    );
   };
 
   const renderForgotPinSetup = () => {
@@ -438,13 +398,49 @@ export default function AuthenticationScreen() {
       </View>
 
       <View style={styles.footer}>
-        <TouchableOpacity onPress={handleForgotPin} style={styles.forgotPinButton}>
+        <TouchableOpacity 
+          onPress={handleForgotPin} 
+          style={[styles.forgotPinButton, { backgroundColor: '#f0f0f0', borderRadius: 8 }]}
+          activeOpacity={0.7}
+        >
           <Text style={styles.forgotPinText}>Forgot PIN?</Text>
         </TouchableOpacity>
         <Text style={styles.footerText}>
           Need help? Contact support for assistance.
         </Text>
       </View>
+      
+      {/* Custom Forgot PIN Modal */}
+      <Modal
+        visible={showForgotPinModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowForgotPinModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Forgot PIN</Text>
+            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>What would you like to do?</Text>
+            
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: colors.surface }]}
+              onPress={() => {
+                setShowForgotPinModal(false);
+                handleBiometricReset();
+              }}
+            >
+              <Text style={[styles.modalButtonText, { color: colors.text }]}>Use Biometric</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalButtonCancel, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={() => setShowForgotPinModal(false)}
+            >
+              <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -582,5 +578,45 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginBottom: 16,
     textAlign: 'center',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    borderRadius: 12,
+    padding: 24,
+    margin: 20,
+    minWidth: 280,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginBottom: 12,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    borderWidth: 1,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

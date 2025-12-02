@@ -9,6 +9,8 @@ class ApiClient {
   private client: AxiosInstance;
 
   constructor(baseURL: string) {
+    console.log('🔧 ApiClient initializing with baseURL:', baseURL);
+    
     this.client = axios.create({
       baseURL,
       timeout: 10000,
@@ -17,10 +19,31 @@ class ApiClient {
       },
     });
 
-    // Response interceptor for error handling
+    // Request interceptor for logging
+    this.client.interceptors.request.use(
+      (config) => {
+        console.log(`📡 API Request: ${config.method?.toUpperCase()} ${config.url}`);
+        if (config.data) {
+          console.log('📡 Request data:', config.data);
+        }
+        return config;
+      },
+      (error) => {
+        console.error('📡 Request error:', error);
+        return Promise.reject(error);
+      }
+    );
+
+    // Response interceptor for error handling and logging
     this.client.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        console.log(`✅ API Response: ${response.status} ${response.config.url}`);
+        return response;
+      },
       (error: AxiosError) => {
+        console.error(`❌ API Error: ${error.response?.status} ${error.config?.url}`);
+        console.error('❌ Error details:', error.message);
+        
         const apiError: ApiError = {
           message: error.message || 'An unexpected error occurred',
           code: error.code,
@@ -28,6 +51,7 @@ class ApiClient {
         
         if (error.response?.data) {
           apiError.message = (error.response.data as any).message || apiError.message;
+          console.error('❌ Server error response:', error.response.data);
         }
         
         return Promise.reject(apiError);
@@ -182,5 +206,8 @@ export const api = {
   updateEventBudget: (eventId: string, data: { finalizedQuote?: string; ddcCost?: string }) =>
     apiClient.patch<Event>(`/api/events/${eventId}/budget`, data),
 };
+
+// Log final API client configuration
+console.log('🎯 API Client initialized with base URL:', API_BASE_URL);
 
 export default apiClient;

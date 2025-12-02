@@ -35,6 +35,18 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   
+  // Log component initialization
+  console.log('🚀 EventDetailsScreen initializing for eventId:', eventId);
+  console.log('🌐 Environment config:', envConfig);
+  console.log('🌐 API_URL from env:', envConfig.API_URL);
+  console.log('🌐 EXPO_PUBLIC_API_URL:', process.env.EXPO_PUBLIC_API_URL);
+  console.log('🌐 __DEV__ flag:', __DEV__);
+  
+  // Validate eventId
+  if (!eventId || typeof eventId !== 'string') {
+    console.error('❌ Invalid eventId:', eventId);
+  }
+  
   // Modal state management
   const [requirementModalVisible, setRequirementModalVisible] = useState(false);
   const [planModalVisible, setPlanModalVisible] = useState(false);
@@ -83,6 +95,16 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
   const { data: config } = useQuery({
     queryKey: ['configuration'],
     queryFn: () => api.getConfiguration(),
+  });
+  
+  // Log data loading status
+  console.log('📊 Data loading status:', {
+    eventLoading,
+    requirementsLoading,
+    plansLoading,
+    eventData: !!event,
+    requirementsCount: requirements?.length || 0,
+    configLoaded: !!config
   });
 
   // Calculate DDC cost based on current event's plans
@@ -269,21 +291,37 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
   };
 
   const handleDownloadInvoice = async () => {
+    console.log('📥 Starting invoice download process...');
+    console.log('📥 Event ID:', eventId);
+    console.log('📥 Event data available:', !!event);
+    console.log('📥 Config data available:', !!config);
+    
     try {
       // Validate invoice requirements
       if (!event || !config) {
+        console.error('❌ Missing data - Event:', !!event, 'Config:', !!config);
         Alert.alert('Error', 'Event data or configuration not loaded');
         return;
       }
 
       if (!requirements || requirements.length === 0) {
+        console.error('❌ No requirements found for event:', eventId);
         Alert.alert('Cannot Generate Invoice', 'No requirements found for this event');
         return;
       }
+      
+      console.log('📊 Requirements found:', requirements.length);
+      console.log('📊 Requirements data:', requirements.map(r => ({ id: r.id, description: r.description, order: r.order })));
 
       const invoiceValue = calculateInvoiceValue();
       const discountAmount = calculateDiscountAmount();
       const finalInvoiceValue = invoiceValue - discountAmount;
+      
+      console.log('💰 Calculated values:', {
+        invoiceValue,
+        discountAmount,
+        finalInvoiceValue
+      });
       
       if (finalInvoiceValue <= 0) {
         Alert.alert('Cannot Generate Invoice', 'Final invoice amount must be greater than zero');
@@ -297,6 +335,11 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       const baseUrl = envConfig.API_URL;
       const downloadUrl = `${baseUrl}/api/events/${eventId}/invoice?invoice_number=${invoiceNumber}`;
       
+      console.log('🌐 API Configuration:');
+      console.log('  Base URL:', baseUrl);
+      console.log('  Full download URL:', downloadUrl);
+      console.log('  Invoice number:', invoiceNumber);
+      
       Alert.alert(
         'Download Invoice',
         `Invoice ${invoiceNumber}\nGross Amount: ₹${invoiceValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalInvoiceValue.toLocaleString()}\n\nThis will open your browser to download the PDF.${Platform.OS === 'android' ? '\n\nFor Samsung devices: After the PDF opens, tap the download icon in your browser.' : ''}`,
@@ -304,67 +347,171 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
           { text: 'Cancel', style: 'cancel' },
           { 
             text: 'Download', 
-            onPress: () => {
+            onPress: async () => {
+              console.log('🔗 Attempting to open URL:', downloadUrl);
+              console.log('🔗 Current platform:', Platform.OS);
+              
+              try {
+                // Test if the API URL is reachable first
+                console.log('🧪 Testing API connectivity...');
+                
+                // First test with a simple health check
+                const healthUrl = `${envConfig.API_URL}/api/events/${eventId}/health`;
+                console.log('🏥 Testing health endpoint:', healthUrl);
+                const healthResponse = await fetch(healthUrl, { 
+                  method: 'GET',
+                  mode: 'cors',
+                  headers: {
+                    'Accept': 'application/json',
+                  }
+                });
+                console.log('🏥 Health check response:', healthResponse.status);
+                if (healthResponse.ok) {
+                  const healthData = await healthResponse.json();
+                  console.log('🏥 Health data:', healthData);
+                }
+                
+                // Then test the actual download URL
+                const testResponse = await fetch(downloadUrl, { 
+                  method: 'HEAD',
+                  mode: 'cors'
+                });
+                console.log('✅ Invoice API URL reachable, status:', testResponse.status);
+                console.log('✅ Response headers:', Object.fromEntries(testResponse.headers.entries()));
+              } catch (error) {
+                console.error('❌ Invoice API URL not reachable:', error);
+                Alert.alert('Network Error', `Cannot reach server at ${envConfig.API_URL}. Please check if the backend server is running.`);
+                return;
+              }
+              
               // Open the download URL in the browser
-              Linking.openURL(downloadUrl).catch(() => {
-                Alert.alert('Error', 'Cannot open browser. Please check your internet connection.');
-              });
+              Linking.openURL(downloadUrl)
+                .then(() => {
+                  console.log('✅ Successfully opened URL in browser');
+                })
+                .catch((error) => {
+                  console.error('❌ Failed to open URL:', error);
+                  Alert.alert('Error', 'Cannot open browser. Please check your internet connection.');
+                });
             }
           }
         ]
       );
     } catch (error) {
-      Alert.alert('Error', 'Failed to download invoice');
+      console.error('💥 Invoice download error:', error);
+      console.error('💥 Error details:', JSON.stringify(error, null, 2));
+      Alert.alert('Error', `Failed to download invoice: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
-  const handleDownloadQuotation = async () => {
+  const handleDownloadQuote = async () => {
+    console.log('📋 Starting quote download process...');
+    console.log('📋 Event ID:', eventId);
+    console.log('📋 Event data available:', !!event);
+    console.log('📋 Config data available:', !!config);
+    
     try {
-      // Validate quotation requirements
-      if (!event) {
-        Alert.alert('Error', 'Event data not loaded');
+      // Validate quote requirements
+      if (!event || !config) {
+        console.error('❌ Missing data - Event:', !!event, 'Config:', !!config);
+        Alert.alert('Error', 'Event data or configuration not loaded');
         return;
       }
 
       if (!requirements || requirements.length === 0) {
-        Alert.alert('Cannot Generate Quotation', 'No requirements found for this event');
+        Alert.alert('Cannot Generate Quote', 'No requirements found for this event');
         return;
       }
 
-      const invoiceValue = calculateInvoiceValue();
+      const quoteValue = calculateInvoiceValue();
       const discountAmount = calculateDiscountAmount();
-      const finalQuotationValue = invoiceValue - discountAmount;
+      const finalQuoteValue = quoteValue - discountAmount;
       
-      if (finalQuotationValue <= 0) {
-        Alert.alert('Cannot Generate Quotation', 'Quotation amount must be greater than zero');
+      if (finalQuoteValue <= 0) {
+        Alert.alert('Cannot Generate Quote', 'Final quote amount must be greater than zero');
         return;
       }
 
-      // Generate quotation number
-      const quotationNumber = `QTN${event.id.slice(-5).toUpperCase()}${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      // Generate quote number
+      const quoteNumber = `QUO${event.id.slice(-5).toUpperCase()}${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
       
-      // Create download URL for the quotation using the config API URL
+      // Create download URL for the quote
       const baseUrl = envConfig.API_URL;
-      const downloadUrl = `${baseUrl}/api/events/${eventId}/quotation?quotation_number=${quotationNumber}`;
+      const downloadUrl = `${baseUrl}/api/events/${eventId}/quote?quote_number=${quoteNumber}`;
+      
+      console.log('🌐 Quote API Configuration:');
+      console.log('  Base URL (env):', envConfig.API_URL);
+      console.log('  Base URL (used):', baseUrl);
+      console.log('  Full download URL:', downloadUrl);
+      console.log('  Quote number:', quoteNumber);
       
       Alert.alert(
-        'Download Quotation',
-        `Quotation ${quotationNumber}\nGross Amount: ₹${invoiceValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalQuotationValue.toLocaleString()}\n\nThis will open your browser to download the PDF.${Platform.OS === 'android' ? '\n\nFor Samsung devices: After the PDF opens, tap the download icon in your browser.' : ''}`,
+        'Download Quote',
+        `Quote ${quoteNumber}\nGross Amount: ₹${quoteValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalQuoteValue.toLocaleString()}\n\nThis will open your browser to download the PDF.${Platform.OS === 'android' ? '\n\nFor Samsung devices: After the PDF opens, tap the download icon in your browser.' : ''}`,
         [
           { text: 'Cancel', style: 'cancel' },
           { 
             text: 'Download', 
-            onPress: () => {
+            onPress: async () => {
+              console.log('🔗 Attempting to open quote URL:', downloadUrl);
+              console.log('🔗 Current platform:', Platform.OS);
+              console.log('🔗 User agent:', navigator.userAgent);
+              
+              try {
+                // Test if the API URL is reachable first
+                console.log('🧪 Testing quote API connectivity...');
+                
+                // First test with a simple health check
+                const healthUrl = `${envConfig.API_URL}/api/events/${eventId}/health`;
+                console.log('🏥 Testing quote health endpoint:', healthUrl);
+                const healthResponse = await fetch(healthUrl, { 
+                  method: 'GET',
+                  mode: 'cors',
+                  headers: {
+                    'Accept': 'application/json',
+                  }
+                });
+                console.log('🏥 Quote health check response:', healthResponse.status);
+                if (healthResponse.ok) {
+                  const healthData = await healthResponse.json();
+                  console.log('🏥 Quote health data:', healthData);
+                }
+                
+                // Then test the actual download URL
+                const testResponse = await fetch(downloadUrl, { 
+                  method: 'HEAD',
+                  mode: 'cors'
+                });
+                console.log('✅ API URL reachable, status:', testResponse.status);
+                console.log('✅ Response headers:', Object.fromEntries(testResponse.headers.entries()));
+              } catch (error) {
+                console.error('❌ Quote API URL not reachable:', error);
+                Alert.alert('Network Error', `Cannot reach server at ${envConfig.API_URL}. Please check if the backend server is running.`);
+                return;
+              }
+              
               // Open the download URL in the browser
-              Linking.openURL(downloadUrl).catch(() => {
-                Alert.alert('Error', 'Cannot open browser. Please check your internet connection.');
+              import('expo-linking').then(({ default: Linking }) => {
+                Linking.openURL(downloadUrl)
+                  .then(() => {
+                    console.log('✅ Successfully opened quote URL in browser');
+                  })
+                  .catch((error) => {
+                    console.error('❌ Failed to open quote URL:', error);
+                    Alert.alert('Error', 'Cannot open browser. Please check your internet connection.');
+                  });
+              }).catch((linkingError) => {
+                console.error('❌ Failed to import expo-linking:', linkingError);
+                Alert.alert('Error', 'Failed to load linking module');
               });
             }
           }
         ]
       );
     } catch (error) {
-      Alert.alert('Error', 'Failed to download quotation');
+      console.error('💥 Quote download error:', error);
+      console.error('💥 Error details:', JSON.stringify(error, null, 2));
+      Alert.alert('Error', `Failed to download quote: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -435,17 +582,17 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={[styles.iconButton, { backgroundColor: colors.surface }]}
+              onPress={handleDownloadQuote}
+              data-testid="button-download-quote"
+            >
+              <Ionicons name="document-text-outline" size={22} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.iconButton, { backgroundColor: colors.surface }]}
               onPress={handleDownloadInvoice}
               data-testid="button-download-invoice"
             >
               <Ionicons name="download-outline" size={22} color={colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.iconButton, { backgroundColor: colors.surface }]}
-              onPress={handleDownloadQuotation}
-              data-testid="button-download-quotation"
-            >
-              <Ionicons name="document-text-outline" size={22} color={colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.iconButton, { backgroundColor: colors.surface }]}

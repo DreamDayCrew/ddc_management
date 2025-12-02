@@ -23,6 +23,18 @@ app.use((req, res, next) => {
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
+  // Log all incoming requests
+  console.log(`🌐 ${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log(`🌐 Headers:`, {
+    'user-agent': req.headers['user-agent'],
+    'origin': req.headers.origin,
+    'referer': req.headers.referer,
+    'accept': req.headers.accept
+  });
+  if (req.query && Object.keys(req.query).length > 0) {
+    console.log(`🌐 Query params:`, req.query);
+  }
+
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
     capturedJsonResponse = bodyJson;

@@ -1,5 +1,4 @@
 // Environment configuration for mobile app
-/// <reference types="@types/react-native" />
 
 const PRODUCTION_API_URL = 'https://ddc-management.onrender.com';
 // Use your computer's local IP address for development on physical devices
