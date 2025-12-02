@@ -50,12 +50,18 @@ export default function Assets() {
     },
   });
 
-  const filteredAssets = assets.filter((asset) => {
-    const matchesSearch = asset.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = !categoryFilter || asset.category === categoryFilter;
-      const matchesStatus = !statusFilter || asset.status === statusFilter;
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  const filteredAssets = assets
+    .filter((asset) => {
+      const matchesSearch = asset.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = categoryFilter === "all" || !categoryFilter || asset.category === categoryFilter;
+      const matchesStatus = statusFilter === "all" || !statusFilter || asset.status === statusFilter;
+      return matchesSearch && matchesCategory && matchesStatus;
+    })
+    .sort((a, b) => {
+      const dateA = a.purchaseDate ? new Date(a.purchaseDate).getTime() : 0;
+      const dateB = b.purchaseDate ? new Date(b.purchaseDate).getTime() : 0;
+      return dateB - dateA;
+    });
 
   // Get unique categories and statuses from assets
   const categories = Array.from(new Set(assets.map(asset => asset.category))).filter(Boolean);
@@ -112,12 +118,12 @@ export default function Assets() {
           />
         </div>
         
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+        <Select value={categoryFilter || "all"} onValueChange={setCategoryFilter}>
           <SelectTrigger>
             <SelectValue placeholder="Filter by category" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Categories</SelectItem>
+            <SelectItem value="all">All Categories</SelectItem>
             {categories.map((category) => (
               <SelectItem key={category} value={category}>
                 {category}
@@ -126,12 +132,12 @@ export default function Assets() {
           </SelectContent>
         </Select>
 
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter || "all"} onValueChange={setStatusFilter}>
           <SelectTrigger>
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Statuses</SelectItem>
+            <SelectItem value="all">All Statuses</SelectItem>
             {statuses.map((status) => (
               <SelectItem key={status} value={status}>
                 {status}
@@ -140,18 +146,18 @@ export default function Assets() {
           </SelectContent>
         </Select>
 
-        {(categoryFilter || statusFilter) && (
+        {(categoryFilter && categoryFilter !== "all") || (statusFilter && statusFilter !== "all") ? (
           <Button
             variant="outline"
             onClick={() => {
-              setCategoryFilter("");
-              setStatusFilter("");
+              setCategoryFilter("all");
+              setStatusFilter("all");
             }}
             className="h-10"
           >
             Clear Filters
           </Button>
-        )}
+        ) : null}
       </div>
 
       {isLoading ? (
