@@ -306,18 +306,22 @@ const formatDate = (date: Date | string): string => {
   });
 };
 
+type DocumentType = 'Invoice' | 'Quotation';
+
 interface InvoiceTemplateProps {
   config: Configuration;
   event: Event;
   requirements: Requirement[];
   invoiceNumber?: string;
+  documentType?: DocumentType;
 }
 
 export const InvoiceTemplate = ({ 
   config, 
   event, 
   requirements, 
-  invoiceNumber = 'INV-001' 
+  invoiceNumber = 'INV-001',
+  documentType = 'Invoice'
 }: InvoiceTemplateProps) => {
   const invoiceDate = new Date();
   
@@ -377,7 +381,7 @@ export const InvoiceTemplate = ({
           </View>
           
           <View style={styles.invoiceTitleContainer}>
-            <Text style={styles.invoiceTitle}>Invoice</Text>
+            <Text style={styles.invoiceTitle}>{documentType}</Text>
           </View>
         </View>
         
@@ -392,7 +396,7 @@ export const InvoiceTemplate = ({
           
           <View style={styles.invoiceDetails}>
             <View style={styles.invoiceDetailRow}>
-              <Text style={styles.invoiceLabel}>Invoice#</Text>
+              <Text style={styles.invoiceLabel}>{documentType === 'Quotation' ? 'Quotation#' : 'Invoice#'}</Text>
               <Text style={styles.invoiceValue}>{invoiceNumber}</Text>
             </View>
             <View style={styles.invoiceDetailRow}>
@@ -403,7 +407,11 @@ export const InvoiceTemplate = ({
         </View>
         
         <Text style={styles.greeting}>Dear Sir/Mam,</Text>
-        <Text style={styles.introText}>Thank you for your valuable inquiry. We are pleased to invoice as below</Text>
+        <Text style={styles.introText}>
+          {documentType === 'Quotation' 
+            ? 'Thank you for your valuable inquiry. We are pleased to quote as below'
+            : 'Thank you for your valuable inquiry. We are pleased to invoice as below'}
+        </Text>
         
         <View style={styles.table}>
           <View style={styles.tableHeader}>
@@ -508,7 +516,7 @@ export const InvoiceTemplate = ({
         </Text>
         
         <View style={styles.footerSection}>
-          <View style={styles.termsColumn}>
+          <View style={documentType === 'Quotation' ? { width: '100%' } : styles.termsColumn}>
             <Text style={styles.sectionTitle}>Terms & Conditions:</Text>
             <Text style={styles.termsText}>
               {config.termsAndConditions || 
@@ -516,27 +524,29 @@ export const InvoiceTemplate = ({
             </Text>
           </View>
           
-          <View style={styles.paymentColumn}>
-            <Text style={styles.sectionTitle}>Payment Instructions</Text>
-            <View style={styles.paymentRow}>
-              <Text style={styles.paymentValue}>EBENESAR PAUL P</Text>
-            </View>
-            <View style={styles.paymentRow}>
-              <Text style={styles.paymentValue}>BANK OF MAHARASTRA</Text>
-            </View>
-            <View style={styles.paymentRow}>
-              <Text style={styles.paymentValue}>60223941368</Text>
-            </View>
-            <View style={styles.paymentRow}>
-              <Text style={styles.paymentValue}>MAHB0001206</Text>
-            </View>
-            {config.phone && (
-              <View style={[styles.paymentRow, { marginTop: 6 }]}>
-                <Text style={styles.paymentLabel}>UPI ID:</Text>
-                <Text style={styles.paymentValue}>{config.phone}@okicici</Text>
+          {documentType !== 'Quotation' && (
+            <View style={styles.paymentColumn}>
+              <Text style={styles.sectionTitle}>Payment Instructions</Text>
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentValue}>EBENESAR PAUL P</Text>
               </View>
-            )}
-          </View>
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentValue}>BANK OF MAHARASTRA</Text>
+              </View>
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentValue}>60223941368</Text>
+              </View>
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentValue}>MAHB0001206</Text>
+              </View>
+              {config.phone && (
+                <View style={[styles.paymentRow, { marginTop: 6 }]}>
+                  <Text style={styles.paymentLabel}>UPI ID:</Text>
+                  <Text style={styles.paymentValue}>{config.phone}@okicici</Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
         
         <View style={styles.signatureSection}>

@@ -51,7 +51,7 @@ import { RequirementForm } from "@/components/forms/requirement-form";
 import { FulfillmentForm } from "@/components/forms/fulfillment-form";
 import { RequirementItem } from "@/components/requirement-item";
 import { InvoiceTemplate } from "@/components/invoice-template";
-import { RefreshCcwDot, ArrowLeft, FileDown, Upload, Calendar, MapPin, Link, User, Plus, Edit, Trash2, SquareUserRound, Mail, MapPinHouse, BadgeIndianRupee, ChartColumn, HeartHandshake, HeartCrack, Meh, Smile, SmilePlus } from "lucide-react";
+import { RefreshCcwDot, ArrowLeft, FileDown, FileText, Upload, Calendar, MapPin, Link, User, Plus, Edit, Trash2, SquareUserRound, Mail, MapPinHouse, BadgeIndianRupee, ChartColumn, HeartHandshake, HeartCrack, Meh, Smile, SmilePlus } from "lucide-react";
 import { format } from "date-fns";
 
 
@@ -383,6 +383,12 @@ export default function EventDetails() {
     return `INV${shortId}`;
   };
 
+  // Generate quotation number based on event ID (same format as invoice but for quotations)
+  const generateQuotationNumber = (eventId: string) => {
+    const shortId = eventId.slice(0, 8).toUpperCase();
+    return `QTN${shortId}`;
+  };
+
   const updateEventStatusMutation = useMutation({
     mutationFn: async (status: string) => {
       return await apiRequest("PATCH", `/api/events/${id}`, { eventStatus: status });
@@ -672,6 +678,22 @@ export default function EventDetails() {
               </div>
             )
           )}
+          
+          {/* Quotation Download Button - Same format as Invoice but without payment info */}
+          {config && (
+            <PDFDownloadLink
+              document={<InvoiceTemplate config={config} event={event} requirements={requirements} invoiceNumber={generateQuotationNumber(event.id)} documentType="Quotation" />}
+              fileName={`Quotation_${event.eventName}_${format(new Date(), "yyyyMMdd")}.pdf`}
+            >
+              {({ loading }) => (
+                <Button variant="outline" disabled={loading} data-testid="button-generate-quotation">
+                  <FileText className="h-4 w-4 mr-2" />
+                  {loading ? "Generating..." : "Generate Quotation"}
+                </Button>
+              )}
+            </PDFDownloadLink>
+          )}
+          
           <Dialog open={editEventOpen} onOpenChange={setEditEventOpen}>
             <DialogTrigger asChild>
               <Button data-testid="button-edit-event">
