@@ -18,6 +18,18 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### December 2, 2025 - Unified Invoice Templates
+- **Identical PDF Output**: Web app and mobile app now generate identical invoice PDFs
+- **Invoice Layout**: Three-column header (logo left, business info center, "Invoice" title right)
+- **Currency Formatting**: Proper Indian number system (₹1,23,456.00 format with lakhs/crores)
+- **Line Item Pricing**: PRICE column shows effective unit price (lineTotal / quantity) ensuring PRICE × QTY = TOTAL consistency
+- **Discount Handling**: 
+  - Requirement-level discounts incorporated into effective unit price
+  - Event-level discounts shown as separate row
+- **GST Calculation**: 18% GST displayed as separate row with GST number
+- **Professional Elements**: "Dear Sir/Mam" greeting, closing message, payment instructions
+- **Two-Column Footer**: Terms & Conditions (left), Payment Instructions (right)
+
 ### November 14, 2025 - Critical Mobile App Fixes
 - **Dashboard Fix**: Fixed BottomTabNavigator to use full DashboardScreen instead of DashboardScreenSimple, restoring complete dashboard with financial overview, event statistics, requirements progress, and resources summary
 - **Requirement Creation Fix**: Fixed AddRequirementModal to send integers (not floats) for price/quantity/order fields, matching backend schema expectations. Corrected invoice calculation to order = price * quantity
