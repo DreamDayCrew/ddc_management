@@ -1,5 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, Dimensions, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import { useEvents, useExpenses, useAssets, useTeamMembers, useRepayments } from '../hooks/useApi';
@@ -161,6 +163,51 @@ export default function DashboardScreen() {
         <Text style={styles.headerSubtitle}>Event Management Dashboard</Text>
       </View>*/}
 
+      {/* Account Balance Summary */}
+      <View style={styles.section}>
+        <LinearGradient
+          colors={
+            isDark 
+              ? ['#0f172a', '#1e293b', '#334155'] 
+              : ['#334155', '#475569', '#64748b']
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradientCard}
+        >
+          <View style={styles.gradientContent}>
+            <View style={styles.mainBalanceSection}>
+              <Text style={styles.balanceLabel}>Account Balance</Text>
+              <Text style={[styles.mainBalance, accountBalance >= 0 ? styles.positiveBalance : styles.negativeBalance]}>
+                ₹{accountBalance.toLocaleString()}
+              </Text>
+            </View>
+            
+            <View style={styles.financialMetrics}>
+              <View style={styles.metricRow}>
+                <View style={styles.metricItem}>
+                  <MaterialCommunityIcons name="plus-circle-outline" size={20} color="#fff" />
+                  <Text style={styles.metricValue}>₹{totalIncome.toLocaleString()}</Text>
+                  <Text style={styles.metricLabel}>Credit</Text>
+                </View>
+                
+                <View style={styles.metricItem}>
+                  <MaterialCommunityIcons name="minus-circle-outline" size={20} color="#fff" />
+                  <Text style={styles.metricValue}>₹{totalExpense.toLocaleString()}</Text>
+                  <Text style={styles.metricLabel}>Debit</Text>
+                </View>
+                
+                <View style={styles.metricItem}>
+                  <MaterialCommunityIcons name="clock-outline" size={20} color="#fff" />
+                  <Text style={styles.metricValue}>₹{pendingRepayment.toLocaleString()}</Text>
+                  <Text style={styles.metricLabel}>Pending</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+
       {/* Resources Summary */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Resources</Text>
@@ -238,72 +285,6 @@ export default function DashboardScreen() {
           })}
         </View>
       )}
-
-      {/* Financial Overview */}
-      <TouchableOpacity 
-        style={styles.section}
-        onPress={() => navigation.navigate('Expenses')}
-        activeOpacity={0.8}
-      >
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Financial Overview</Text>
-        <View style={styles.financialGrid}>
-          <View style={[styles.financialCard, styles.incomeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.financialHeader}>
-              <View style={styles.financialIconContainer}>
-                <Ionicons name="trending-up" size={20} color="#00b894" />
-              </View>
-              <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Total Income</Text>
-            </View>
-            <Text style={[styles.financialValue, { color: colors.text }]}>₹{totalIncome.toLocaleString()}</Text>
-            <View style={styles.financialIndicator}>
-              <Text style={[styles.financialChange, { color: '#00b894' }]}>+12.5%</Text>
-            </View>
-          </View>
-
-          <View style={[styles.financialCard, styles.expenseCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.financialHeader}>
-              <View style={styles.financialIconContainer}>
-                <Ionicons name="trending-down" size={20} color="#e17055" />
-              </View>
-              <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Total Expenses</Text>
-            </View>
-            <Text style={[styles.financialValue, { color: colors.text }]}>₹{totalExpense.toLocaleString()}</Text>
-            <View style={styles.financialIndicator}>
-              <Text style={[styles.financialChangeNegative, { color: '#e17055' }]}>+8.3%</Text>
-            </View>
-          </View>
-
-          <View style={[styles.financialCard, styles.balanceCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.financialHeader}>
-              <View style={styles.financialIconContainer}>
-                <Ionicons name="wallet-outline" size={20} color={colors.primary} />
-              </View>
-              <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Account Balance</Text>
-            </View>
-            <Text style={[styles.financialValue, { color: colors.text }]}>₹{accountBalance.toLocaleString()}</Text>
-            <View style={styles.financialIndicator}>
-              <Text style={[styles.financialChange, { color: '#00b894' }]}>+4.2%</Text>
-            </View>
-          </View>
-
-          <TouchableOpacity 
-            style={[styles.financialCard, styles.repaymentCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => setRepaymentModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.financialHeader}>
-              <View style={styles.financialIconContainer}>
-                <Ionicons name="time-outline" size={20} color="#e17055" />
-              </View>
-              <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Pending Repayment</Text>
-            </View>
-            <Text style={[styles.financialValue, { color: colors.text }]}>₹{pendingRepayment.toLocaleString()}</Text>
-            <View style={styles.financialIndicator}>
-              <Text style={[styles.financialChange, { color: '#e17055' }]}>Due Soon</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
 
       {/* Quick Stats */}
       <TouchableOpacity 
@@ -754,6 +735,67 @@ const styles = StyleSheet.create({
   resourceLabel: {
     fontSize: 13,
     color: NEUTRAL_GRAY,
+    fontWeight: '600',
+  },
+  
+  // Gradient Card Styles
+  gradientCard: {
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  gradientContent: {
+    alignItems: 'center',
+  },
+  mainBalanceSection: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  balanceLabel: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  mainBalance: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    letterSpacing: -1,
+  },
+  positiveBalance: {
+    color: '#fff',
+  },
+  negativeBalance: {
+    color: '#ffcccb',
+  },
+  financialMetrics: {
+    width: '100%',
+  },
+  metricRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  metricItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  metricValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
     fontWeight: '600',
   },
 });
