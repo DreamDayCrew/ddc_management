@@ -18,14 +18,21 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### December 2, 2025 - Unified Invoice Templates
+### December 2, 2025 - Unified Invoice Templates with Conditional DISCOUNT Column
 - **Identical PDF Output**: Web app and mobile app now generate identical invoice PDFs
 - **Invoice Layout**: Three-column header (logo left, business info center, "Invoice" title right)
+- **Header Divider**: Horizontal line added below header section for visual separation
 - **Currency Formatting**: Proper Indian number system (₹1,23,456.00 format with lakhs/crores)
-- **Line Item Pricing**: PRICE column shows effective unit price (lineTotal / quantity) ensuring PRICE × QTY = TOTAL consistency
-- **Discount Handling**: 
-  - Requirement-level discounts incorporated into effective unit price
-  - Event-level discounts shown as separate row
+- **Conditional DISCOUNT Column**:
+  - DISCOUNT column only appears when at least one requirement has a discount
+  - Without discount: 5 columns (#, DESCRIPTION, QTY, PRICE, TOTAL)
+  - With discount: 6 columns (#, DESCRIPTION, QTY, PRICE, DISCOUNT, TOTAL)
+  - Dynamic column widths adjust based on discount presence
+- **Invoice Formula**:
+  - PRICE shows original unit price (req.price)
+  - DISCOUNT shows requirement-level discount amount or '-' if none
+  - TOTAL shows final amount: (PRICE × QTY) - DISCOUNT = TOTAL
+  - Event-level discounts shown as separate row (unchanged)
 - **GST Calculation**: 18% GST displayed as separate row with GST number
 - **Professional Elements**: "Dear Sir/Mam" greeting, closing message, payment instructions
 - **Two-Column Footer**: Terms & Conditions (left), Payment Instructions (right)
