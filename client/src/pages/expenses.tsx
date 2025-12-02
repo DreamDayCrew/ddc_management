@@ -55,8 +55,8 @@ export default function Expenses() {
     setRepaymentAmounts(initialAmounts);
   }, [selectedMembers]);
 
-  // Fetch expenses data
-  const { data: expenses = [], isLoading, error } = useQuery<Expense[]>({
+  // Fetch ALL expenses data (to preserve correct closing_balance from database view)
+  const { data: allExpenses = [], isLoading, error } = useQuery<Expense[]>({
     queryKey: ["/api/expenses"],
     select: (data: Expense[]) => {
       console.log('API Response - Expenses loaded:', data.length, 'expenses');
@@ -67,17 +67,20 @@ export default function Expenses() {
         console.error('Expected array but got:', data);
         return [];
       }
-      // Filter to only show expenses from last 1 month based on transaction date and sort by date descending
-      return [...data]
-        .filter((expense) => {
-          const transactionDate = new Date(expense.date);
-          return transactionDate >= oneMonthAgo;
-        })
-        .sort((a, b) => 
-          new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
-        );
+      // Sort by date descending but don't filter - closing_balance from DB is accurate
+      return [...data].sort((a, b) => 
+        new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
+      );
     },
   });
+
+  // Filter expenses for display (last 1 month) while preserving backend closing_balance
+  const expenses = useMemo(() => {
+    return allExpenses.filter((expense) => {
+      const transactionDate = new Date(expense.date);
+      return transactionDate >= oneMonthAgo;
+    });
+  }, [allExpenses, oneMonthAgo]);
   // Type definitions
   interface StatusAmounts {
     [key: string]: number;
@@ -343,37 +346,16 @@ export default function Expenses() {
     return totals;
   }, [expenses, cardStatus, selectedMembers]);
 
-  // Calculate running balance for each transaction
+  // Use the closing_balance directly from the database view (already calculated correctly)
   const expensesWithRunningBalance = useMemo(() => {
     if (!expenses || expenses.length === 0) return [];
     
     // Sort by date descending (newest first) for display
-    const sortedExpenses = [...expenses].sort((a, b) => 
-      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    // closing_balance is already provided by the database view and is accurate
+    return [...expenses].sort((a, b) => 
+      new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
     );
-    
-    let runningBalance = ddcBalance;
-    
-    // Calculate running balance for each transaction from current balance backwards
-    const withBalance = sortedExpenses.map((expense) => {
-      const currentBalance = runningBalance;
-      const amount = Number(expense.amount) || 0;
-      
-      // Update running balance for next iteration (going backwards in time)
-      if (expense.type === 'Credit') {
-        runningBalance -= amount;
-      } else if (expense.type === 'Debit') {
-        runningBalance += amount;
-      }
-      
-      return {
-        ...expense,
-        closing_balance: currentBalance.toString()
-      };
-    });
-    
-    return withBalance;
-  }, [expenses, ddcBalance]);
+  }, [expenses]);
 
   // Get distinct 'from' values for Transfer transactions
   const transferFromValues = useMemo((): string[] => {

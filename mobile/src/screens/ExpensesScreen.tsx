@@ -20,23 +20,27 @@ const DANGER_RED = '#e17055';
 const NEUTRAL_GRAY = '#636e72';
 const LIGHT_GRAY = '#f8f9fa';
 
-// Helper function to get first and last day of current month in YYYY-MM-DD format
-const getCurrentMonthRange = () => {
+// Helper function to get last 1 month date range
+const getLast1MonthDate = () => {
   const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  
-  return {
-    startDate: firstDay.toISOString().split('T')[0],
-    endDate: lastDay.toISOString().split('T')[0]
-  };
+  return new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
 };
 
 export default function ExpensesScreen() {
   const { colors, isDark } = useTheme();
   const queryClient = useQueryClient();
-  const currentMonthRange = useMemo(getCurrentMonthRange, []);
-  const { data: expenses, isLoading, error } = useExpenses(currentMonthRange);
+  const oneMonthAgo = useMemo(getLast1MonthDate, []);
+  // Fetch ALL expenses to preserve correct closing_balance from database view
+  const { data: allExpenses, isLoading, error } = useExpenses();
+  
+  // Filter expenses for display (last 1 month) while keeping backend closing_balance
+  const expenses = useMemo(() => {
+    if (!allExpenses) return [];
+    return allExpenses.filter((expense) => {
+      const transactionDate = new Date(expense.date);
+      return transactionDate >= oneMonthAgo;
+    });
+  }, [allExpenses, oneMonthAgo]);
   const { data: accountBalances } = useAccountBalance();
   const { data: repayments } = useRepayments();
   const [modalVisible, setModalVisible] = useState(false);
