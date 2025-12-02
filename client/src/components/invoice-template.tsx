@@ -17,7 +17,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 25,
+    marginBottom: 15,
+  },
+  headerLine: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+    marginBottom: 15,
   },
   logoContainer: {
     width: 80,
@@ -144,6 +149,13 @@ const styles = StyleSheet.create({
   colPrice: { width: '19%', textAlign: 'right', paddingRight: 8 },
   colTotal: { width: '19%', textAlign: 'right' },
   
+  colNumWithDiscount: { width: '5%', textAlign: 'center' },
+  colDescWithDiscount: { width: '37%', paddingRight: 8 },
+  colQtyWithDiscount: { width: '10%', textAlign: 'center' },
+  colPriceWithDiscount: { width: '16%', textAlign: 'right', paddingRight: 4 },
+  colDiscountWithDiscount: { width: '16%', textAlign: 'right', paddingRight: 4 },
+  colTotalWithDiscount: { width: '16%', textAlign: 'right' },
+  
   descriptionMain: {
     fontSize: 10,
     fontWeight: 'bold',
@@ -171,8 +183,20 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
+  grandTotalLabelWithDiscount: {
+    width: '84%',
+    fontSize: 11,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
   grandTotalValue: {
     width: '19%',
+    fontSize: 11,
+    fontWeight: 'bold',
+    textAlign: 'right',
+  },
+  grandTotalValueWithDiscount: {
+    width: '16%',
     fontSize: 11,
     fontWeight: 'bold',
     textAlign: 'right',
@@ -319,6 +343,10 @@ export const InvoiceTemplate = ({
   const gstRate = 0.18;
   const gstAmount = includeGst ? afterEventDiscount * gstRate : 0;
   const grandTotal = afterEventDiscount + gstAmount;
+  
+  const hasAnyReqDiscount = requirements && requirements.some(req => 
+    req.req_discount === 'true' && Number(req.req_discount_amount ?? 0) > 0
+  );
 
   return (
     <Document>
@@ -347,6 +375,8 @@ export const InvoiceTemplate = ({
           </View>
         </View>
         
+        <View style={styles.headerLine} />
+        
         <View style={styles.clientSection}>
           <View style={styles.toSection}>
             <Text style={styles.toLabel}>To,</Text>
@@ -371,81 +401,100 @@ export const InvoiceTemplate = ({
         
         <View style={styles.table}>
           <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderCell, styles.colNum]}>#</Text>
-            <Text style={[styles.tableHeaderCell, styles.colDesc]}>DESCRIPTION</Text>
-            <Text style={[styles.tableHeaderCell, styles.colQty]}>QTY</Text>
-            <Text style={[styles.tableHeaderCell, styles.colPrice]}>PRICE</Text>
-            <Text style={[styles.tableHeaderCell, styles.colTotal]}>TOTAL</Text>
+            <Text style={[styles.tableHeaderCell, hasAnyReqDiscount ? styles.colNumWithDiscount : styles.colNum]}>#</Text>
+            <Text style={[styles.tableHeaderCell, hasAnyReqDiscount ? styles.colDescWithDiscount : styles.colDesc]}>DESCRIPTION</Text>
+            <Text style={[styles.tableHeaderCell, hasAnyReqDiscount ? styles.colQtyWithDiscount : styles.colQty]}>QTY</Text>
+            <Text style={[styles.tableHeaderCell, hasAnyReqDiscount ? styles.colPriceWithDiscount : styles.colPrice]}>PRICE</Text>
+            {hasAnyReqDiscount && (
+              <Text style={[styles.tableHeaderCell, styles.colDiscountWithDiscount]}>DISCOUNT</Text>
+            )}
+            <Text style={[styles.tableHeaderCell, hasAnyReqDiscount ? styles.colTotalWithDiscount : styles.colTotal]}>TOTAL</Text>
           </View>
           
           {requirements && requirements.length > 0 ? (
             requirements.map((req, index) => {
+              const price = Number(req.price ?? 0);
               const quantity = Number(req.quantity ?? 1);
               const lineTotal = Number(req.order ?? 0);
+              const reqDiscountAmount = req.req_discount === 'true' ? Number(req.req_discount_amount ?? 0) : 0;
               
+              const validPrice = isNaN(price) ? 0 : price;
               const validQuantity = isNaN(quantity) ? 1 : quantity;
               const validLineTotal = isNaN(lineTotal) ? 0 : lineTotal;
-              // Calculate effective unit price so PRICE * QTY = TOTAL
-              const effectiveUnitPrice = validQuantity > 0 ? validLineTotal / validQuantity : 0;
+              const validReqDiscount = isNaN(reqDiscountAmount) ? 0 : reqDiscountAmount;
               
               return (
                 <View key={req.id || index} style={styles.tableRow}>
-                  <Text style={[styles.tableCell, styles.colNum]}>{index + 1}</Text>
-                  <View style={styles.colDesc}>
+                  <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colNumWithDiscount : styles.colNum]}>{index + 1}</Text>
+                  <View style={hasAnyReqDiscount ? styles.colDescWithDiscount : styles.colDesc}>
                     <Text style={styles.descriptionMain}>{req.requirement}</Text>
                     {req.description && (
                       <Text style={styles.descriptionSub}>{req.description}</Text>
                     )}
                   </View>
-                  <Text style={[styles.tableCell, styles.colQty]}>{validQuantity}</Text>
-                  <Text style={[styles.tableCell, styles.colPrice]}>{formatCurrency(effectiveUnitPrice)}</Text>
-                  <Text style={[styles.tableCell, styles.colTotal]}>{formatCurrency(validLineTotal)}</Text>
+                  <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colQtyWithDiscount : styles.colQty]}>{validQuantity}</Text>
+                  <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colPriceWithDiscount : styles.colPrice]}>{formatCurrency(validPrice)}</Text>
+                  {hasAnyReqDiscount && (
+                    <Text style={[styles.tableCell, styles.colDiscountWithDiscount]}>
+                      {validReqDiscount > 0 ? formatCurrency(validReqDiscount) : '-'}
+                    </Text>
+                  )}
+                  <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colTotalWithDiscount : styles.colTotal]}>{formatCurrency(validLineTotal)}</Text>
                 </View>
               );
             })
           ) : (
             <View style={styles.tableRow}>
-              <Text style={[styles.tableCell, styles.colNum]}>1</Text>
-              <View style={styles.colDesc}>
+              <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colNumWithDiscount : styles.colNum]}>1</Text>
+              <View style={hasAnyReqDiscount ? styles.colDescWithDiscount : styles.colDesc}>
                 <Text style={styles.descriptionMain}>{event.eventName}</Text>
                 <Text style={styles.descriptionSub}>{event.providedService}</Text>
               </View>
-              <Text style={[styles.tableCell, styles.colQty]}>1</Text>
-              <Text style={[styles.tableCell, styles.colPrice]}>{formatCurrency(subtotal)}</Text>
-              <Text style={[styles.tableCell, styles.colTotal]}>{formatCurrency(subtotal)}</Text>
+              <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colQtyWithDiscount : styles.colQty]}>1</Text>
+              <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colPriceWithDiscount : styles.colPrice]}>{formatCurrency(subtotal)}</Text>
+              {hasAnyReqDiscount && (
+                <Text style={[styles.tableCell, styles.colDiscountWithDiscount]}>-</Text>
+              )}
+              <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colTotalWithDiscount : styles.colTotal]}>{formatCurrency(subtotal)}</Text>
             </View>
           )}
           
           {eventDiscountAmount > 0 && (
             <View style={styles.tableRow}>
-              <Text style={[styles.tableCell, styles.colNum]}></Text>
-              <View style={styles.colDesc}>
+              <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colNumWithDiscount : styles.colNum]}></Text>
+              <View style={hasAnyReqDiscount ? styles.colDescWithDiscount : styles.colDesc}>
                 <Text style={styles.descriptionMain}>Event Discount</Text>
               </View>
-              <Text style={[styles.tableCell, styles.colQty]}></Text>
-              <Text style={[styles.tableCell, styles.colPrice]}></Text>
-              <Text style={[styles.tableCell, styles.colTotal]}>-{formatCurrency(eventDiscountAmount)}</Text>
+              <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colQtyWithDiscount : styles.colQty]}></Text>
+              <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colPriceWithDiscount : styles.colPrice]}></Text>
+              {hasAnyReqDiscount && (
+                <Text style={[styles.tableCell, styles.colDiscountWithDiscount]}></Text>
+              )}
+              <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colTotalWithDiscount : styles.colTotal]}>-{formatCurrency(eventDiscountAmount)}</Text>
             </View>
           )}
           
           {includeGst && (
             <View style={styles.tableRow}>
-              <Text style={[styles.tableCell, styles.colNum]}></Text>
-              <View style={styles.colDesc}>
+              <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colNumWithDiscount : styles.colNum]}></Text>
+              <View style={hasAnyReqDiscount ? styles.colDescWithDiscount : styles.colDesc}>
                 <Text style={styles.descriptionMain}>GST (18%)</Text>
                 {config.gstNumber && (
                   <Text style={styles.descriptionSub}>GST No: {config.gstNumber}</Text>
                 )}
               </View>
-              <Text style={[styles.tableCell, styles.colQty]}></Text>
-              <Text style={[styles.tableCell, styles.colPrice]}></Text>
-              <Text style={[styles.tableCell, styles.colTotal]}>{formatCurrency(gstAmount)}</Text>
+              <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colQtyWithDiscount : styles.colQty]}></Text>
+              <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colPriceWithDiscount : styles.colPrice]}></Text>
+              {hasAnyReqDiscount && (
+                <Text style={[styles.tableCell, styles.colDiscountWithDiscount]}></Text>
+              )}
+              <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colTotalWithDiscount : styles.colTotal]}>{formatCurrency(gstAmount)}</Text>
             </View>
           )}
           
           <View style={styles.grandTotalRow}>
-            <Text style={styles.grandTotalLabel}>GRAND TOTAL</Text>
-            <Text style={styles.grandTotalValue}>{formatCurrency(grandTotal)}</Text>
+            <Text style={hasAnyReqDiscount ? styles.grandTotalLabelWithDiscount : styles.grandTotalLabel}>GRAND TOTAL</Text>
+            <Text style={hasAnyReqDiscount ? styles.grandTotalValueWithDiscount : styles.grandTotalValue}>{formatCurrency(grandTotal)}</Text>
           </View>
         </View>
         
