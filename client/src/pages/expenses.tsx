@@ -67,14 +67,14 @@ export default function Expenses() {
         console.error('Expected array but got:', data);
         return [];
       }
-      // Filter to only show expenses from last 1 month and sort by created_at in descending order
+      // Filter to only show expenses from last 1 month based on transaction date and sort by date descending
       return [...data]
         .filter((expense) => {
-          const expenseDate = new Date(expense.created_at || expense.date);
-          return expenseDate >= oneMonthAgo;
+          const transactionDate = new Date(expense.date);
+          return transactionDate >= oneMonthAgo;
         })
         .sort((a, b) => 
-          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+          new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
         );
     },
   });

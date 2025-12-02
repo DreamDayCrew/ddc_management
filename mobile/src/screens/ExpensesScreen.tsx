@@ -108,9 +108,9 @@ export default function ExpensesScreen() {
         }
       }
 
-      // Date filters - use created_at instead of date
+      // Date filters - use transaction date
       if (filters.fromDate) {
-        const expenseDate = new Date(expense.created_at);
+        const expenseDate = new Date(expense.date);
         const fromDate = new Date(filters.fromDate);
         if (expenseDate < fromDate) {
           return false;
@@ -118,7 +118,7 @@ export default function ExpensesScreen() {
       }
 
       if (filters.toDate) {
-        const expenseDate = new Date(expense.created_at);
+        const expenseDate = new Date(expense.date);
         const toDate = new Date(filters.toDate);
         toDate.setHours(23, 59, 59, 999); // Include the entire end date
         if (expenseDate > toDate) {

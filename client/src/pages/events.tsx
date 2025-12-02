@@ -33,9 +33,9 @@ export default function Events() {
   const { data: events = [], isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
     select: (data) => {
-      // Filter to only show events from last 3 months
+      // Filter to only show events from last 3 months based on event date
       return data.filter((event) => {
-        const eventDate = new Date(event.registeredOn || event.eventDate);
+        const eventDate = new Date(event.eventDate);
         return eventDate >= threeMonthsAgo;
       });
     },
@@ -64,9 +64,9 @@ export default function Events() {
       );
     })
     .sort((a, b) => {
-      // Sort by registeredOn date (latest first), fallback to eventDate
-      const dateA = new Date(a.registeredOn || a.eventDate).getTime();
-      const dateB = new Date(b.registeredOn || b.eventDate).getTime();
+      // Sort by eventDate (latest first)
+      const dateA = new Date(a.eventDate).getTime();
+      const dateB = new Date(b.eventDate).getTime();
       return dateB - dateA;
     });
 

@@ -82,9 +82,9 @@ export default function EventsScreen({ navigation }: Props) {
       
       return matchesSearch && matchesDateFilter;
     }).sort((a, b) => {
-      // Sort by registeredOn date (latest first), fallback to eventDate
-      const aDate = new Date(a.registeredOn || a.eventDate);
-      const bDate = new Date(b.registeredOn || b.eventDate);
+      // Sort by eventDate (latest first)
+      const aDate = new Date(a.eventDate);
+      const bDate = new Date(b.eventDate);
       return bDate.getTime() - aDate.getTime();
     });
   }, [events, searchText, startDate, endDate]);
