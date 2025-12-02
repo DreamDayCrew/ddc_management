@@ -1,360 +1,284 @@
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
 import { type Configuration, type Event, type Requirement } from '@shared/schema';
 
-// Professional styles matching the reference PDF
+const BRAND_MAROON = '#800020';
+
 const styles = StyleSheet.create({
   page: {
     padding: 40,
+    paddingBottom: 60,
     fontSize: 10,
     fontFamily: 'Helvetica',
     color: '#1a1a1a',
-    backgroundColor: '#ffffff', // White background
+    backgroundColor: '#ffffff',
   },
   
-  // Header Section
-  header: {
+  headerSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center', // Align logo and title on same line
-    marginBottom: 20,
-  },
-  logoSection: {
-    flex: 1,
-  },
-  invoiceTitleSection: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  invoiceTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    letterSpacing: 2,
-  },
-  headerDivider: {
-    borderBottom: '3 solid #800020',
-    marginBottom: 20,
-  },
-  
-  // Business Info Section
-  businessSection: {
+    alignItems: 'flex-start',
     marginBottom: 25,
   },
   logoContainer: {
-    marginBottom: 10,
+    width: 80,
   },
   logo: {
-    width: 80,
-    height: 80,
+    width: 70,
+    height: 70,
     objectFit: 'contain',
   },
-  businessName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 6,
-    color: '#2c3e50',
-  },
-  businessDetails: {
-    fontSize: 9,
-    lineHeight: 1.5,
-    color: '#555',
-  },
-  
-  // Two Column Layout
-  twoColumns: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 30,
-    paddingBottom: 20,
-    borderBottom: '1 solid #e0e0e0',
-  },
-  
-  // Bill To Section
-  billToSection: {
+  businessInfoCenter: {
     flex: 1,
-    marginRight: 30,
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
-  sectionTitle: {
-    fontSize: 11,
+  businessName: {
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#2c3e50',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: BRAND_MAROON,
+    marginBottom: 4,
   },
-  clientInfo: {
-    fontSize: 10,
+  businessAddress: {
+    fontSize: 9,
+    color: '#333',
+    textAlign: 'center',
     lineHeight: 1.4,
+  },
+  businessContact: {
+    fontSize: 9,
+    color: '#333',
+    marginTop: 4,
+  },
+  invoiceTitleContainer: {
+    width: 100,
+    alignItems: 'flex-end',
+  },
+  invoiceTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
     color: '#333',
   },
   
-  // Invoice Details Section
-  invoiceDetailsSection: {
-    width: 180,
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 4,
-  },
-  detailRow: {
+  clientSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 20,
+    marginTop: 10,
   },
-  detailLabel: {
+  toSection: {
+    flex: 1,
+  },
+  toLabel: {
     fontSize: 10,
     fontWeight: 'bold',
-    color: '#555',
+    marginBottom: 4,
   },
-  detailValue: {
-    fontSize: 10,
-    color: '#2c3e50',
+  clientName: {
+    fontSize: 11,
     fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  clientPhone: {
+    fontSize: 10,
+    color: '#333',
+  },
+  invoiceDetails: {
+    alignItems: 'flex-end',
+  },
+  invoiceDetailRow: {
+    flexDirection: 'row',
+    marginBottom: 3,
+  },
+  invoiceLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
+  invoiceValue: {
+    fontSize: 10,
   },
   
-  // Items Table
+  greeting: {
+    fontSize: 10,
+    marginBottom: 8,
+  },
+  introText: {
+    fontSize: 10,
+    marginBottom: 15,
+  },
+  
   table: {
-    marginTop: 10,
-    marginBottom: 20,
+    width: '100%',
+    marginBottom: 0,
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#800020',
-    padding: 10,
-    borderRadius: 3,
-    marginBottom: 5,
-  },
-  tableHeaderText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#fff',
-    textTransform: 'uppercase',
+    backgroundColor: '#f5f5f5',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#333',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
   },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 10,
-    paddingHorizontal: 5,
-    borderBottom: '1 solid #e8e8e8',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    minHeight: 30,
   },
-  tableRowAlt: {
-    backgroundColor: '#f9f9f9',
-  },
-  
-  // Table Columns
-  colDescription: {
-    width: '40%',
-    paddingRight: 10,
-  },
-  colDescriptionWide: {
-    width: '48%',
-    paddingRight: 10,
-  },
-  colQty: {
-    width: '10%',
-    textAlign: 'center',
-  },
-  colQtyWide: {
-    width: '12%',
-    textAlign: 'center',
-  },
-  colPrice: {
-    width: '15%',
-    textAlign: 'right',
-    paddingRight: 5,
-  },
-  colPriceWide: {
-    width: '20%',
-    textAlign: 'right',
-    paddingRight: 5,
-  },
-  colDiscount: {
-    width: '15%',
-    textAlign: 'right',
-    paddingRight: 5,
-  },
-  colAmount: {
-    width: '20%',
-    textAlign: 'right',
-  },
-  
-  // Description Styling
-  itemName: {
+  tableHeaderCell: {
     fontSize: 10,
     fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 2,
+    color: '#333',
   },
-  itemDescription: {
-    fontSize: 8,
-    color: '#666',
-    fontStyle: 'italic',
-    lineHeight: 1.3,
-  },
-  
-  // Totals Section
-  totalsContainer: {
-    marginTop: 20,
-    alignItems: 'flex-end',
-  },
-  totalsBox: {
-    width: 250,
-    backgroundColor: '#f8f9fa',
-    padding: 15,
-    borderRadius: 4,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-    paddingBottom: 8,
-  },
-  totalRowWithBorder: {
-    borderBottom: '1 solid #ddd',
-  },
-  totalLabel: {
+  tableCell: {
     fontSize: 10,
-    color: '#555',
-  },
-  totalValue: {
-    fontSize: 10,
-    color: '#2c3e50',
-    fontWeight: 'bold',
-  },
-  gstRow: {
-    fontSize: 9,
-    color: '#666',
-    marginBottom: 4,
-  },
-  grandTotalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-    paddingTop: 10,
-    borderTop: '2 solid #800020',
-  },
-  grandTotalLabel: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-  },
-  grandTotalValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#800020',
-  },
-  
-  // Payment Information
-  paymentSection: {
-    marginTop: 20,
-    padding: 15,
-    backgroundColor: '#fff9e6',
-    borderLeft: '4 solid #f39c12',
-    borderRadius: 3,
-  },
-  paymentTitle: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#2c3e50',
-  },
-  paymentDetails: {
-    fontSize: 9,
-    lineHeight: 1.5,
-    color: '#555',
-  },
-  paymentRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  paymentLabel: {
-    width: 100,
-    fontWeight: 'bold',
-    color: '#666',
-  },
-  paymentValue: {
-    flex: 1,
     color: '#333',
   },
   
-  // Terms & Conditions
-  termsSection: {
-    marginTop: 25,
-    padding: 15,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 4,
+  colNum: { width: '6%', textAlign: 'center' },
+  colDesc: { width: '44%', paddingRight: 8 },
+  colQty: { width: '12%', textAlign: 'center' },
+  colPrice: { width: '19%', textAlign: 'right', paddingRight: 8 },
+  colTotal: { width: '19%', textAlign: 'right' },
+  
+  descriptionMain: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 3,
   },
-  termsTitle: {
+  descriptionSub: {
+    fontSize: 9,
+    color: '#555',
+    lineHeight: 1.4,
+  },
+  
+  grandTotalRow: {
+    flexDirection: 'row',
+    backgroundColor: '#f5f5f5',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#333',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+  },
+  grandTotalLabel: {
+    width: '81%',
     fontSize: 11,
     fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#2c3e50',
+    textAlign: 'center',
+  },
+  grandTotalValue: {
+    width: '19%',
+    fontSize: 11,
+    fontWeight: 'bold',
+    textAlign: 'right',
+  },
+  
+  closingMessage: {
+    marginTop: 20,
+    fontSize: 10,
+    marginBottom: 25,
+  },
+  
+  footerSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  termsColumn: {
+    width: '55%',
+    paddingRight: 20,
+  },
+  paymentColumn: {
+    width: '45%',
+  },
+  sectionTitle: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginBottom: 6,
   },
   termsText: {
     fontSize: 8,
-    lineHeight: 1.6,
-    color: '#555',
+    lineHeight: 1.5,
+    color: '#333',
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    marginBottom: 2,
+  },
+  paymentLabel: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#333',
+    width: 80,
+  },
+  paymentValue: {
+    fontSize: 9,
+    color: '#333',
+    flex: 1,
   },
   
-  // Signature Section
-  signatureContainer: {
+  signatureSection: {
     marginTop: 40,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'flex-end',
   },
-  signatureBox: {
-    width: '45%',
-  },
-  signatureLabel: {
+  forCompany: {
     fontSize: 10,
     fontWeight: 'bold',
-    marginBottom: 35,
-    color: '#555',
-  },
-  signatureLine: {
-    borderTop: '1 solid #333',
-    paddingTop: 5,
-  },
-  signatureText: {
-    fontSize: 9,
-    textAlign: 'center',
-    color: '#666',
+    marginBottom: 30,
   },
   signatureImage: {
-    width: 100,
-    height: 40,
+    width: 80,
+    height: 35,
     marginBottom: 5,
   },
-  
-  // Footer
-  footer: {
-    marginTop: 30,
-    paddingTop: 15,
-    borderTop: '1 solid #ddd',
-    textAlign: 'center',
+  signatureLine: {
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+    width: 120,
+    paddingTop: 5,
   },
-  footerText: {
-    fontSize: 8,
-    color: '#999',
+  authorizedText: {
+    fontSize: 9,
+    textAlign: 'center',
+    color: '#333',
   },
 });
 
-// Utility functions
 const formatCurrency = (amount: number): string => {
-  // Format number manually to avoid PDF rendering issues with toLocaleString
-  const fixedAmount = amount.toFixed(2);
+  const fixedAmount = Math.abs(amount).toFixed(2);
   const [integerPart, decimalPart] = fixedAmount.split('.');
   
-  // Add thousand separators manually
-  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  // Indian number system: last 3 digits, then groups of 2
+  let result = '';
+  const len = integerPart.length;
   
-  return `₹${formattedInteger}.${decimalPart}`;
+  if (len <= 3) {
+    result = integerPart;
+  } else {
+    result = integerPart.slice(-3);
+    let remaining = integerPart.slice(0, -3);
+    while (remaining.length > 0) {
+      const chunk = remaining.slice(-2);
+      result = chunk + ',' + result;
+      remaining = remaining.slice(0, -2);
+    }
+  }
+  
+  const sign = amount < 0 ? '-' : '';
+  return `${sign}₹${result}.${decimalPart}`;
 };
 
 const formatDate = (date: Date | string): string => {
   const d = typeof date === 'string' ? new Date(date) : date;
   return d.toLocaleDateString('en-IN', { 
-    year: 'numeric', 
+    day: '2-digit',
     month: '2-digit', 
-    day: '2-digit' 
+    year: 'numeric', 
   });
 };
 
@@ -369,276 +293,206 @@ export const InvoiceTemplate = ({
   config, 
   event, 
   requirements, 
-  invoiceNumber = 'INV00001' 
+  invoiceNumber = 'INV-001' 
 }: InvoiceTemplateProps) => {
-  // Date calculations
   const invoiceDate = new Date();
-  const dueDate = new Date();
-  dueDate.setDate(dueDate.getDate() + 7); // 7 days payment term
   
-  // Client information
   const clientName = event.clientName || 'Customer';
   const clientPhone = event.clientPhone || '';
-  const clientAddress = event.clientAddress || '';
-  const clientEmail = event.clientEmail || '';
   
-  // Calculate totals from requirements
   let subtotal = 0;
-  
   if (requirements && requirements.length > 0) {
-    // Sum up all requirement amounts using order field (which includes requirement-level discounts)
     subtotal = requirements.reduce((sum, req) => {
       const amount = Number(req.order ?? 0);
       return sum + (isNaN(amount) ? 0 : amount);
     }, 0);
   } else {
-    // If no requirements, use the finalized or initial quote
     const fallbackQuote = Number(event.finalizedQuote ?? event.initialQuote ?? 0);
     subtotal = isNaN(fallbackQuote) ? 0 : fallbackQuote;
   }
   
-  // Apply event-level discount to subtotal
   const eventDiscountAmount = event?.discount === 'true' && event.discount_amount ? 
     Number(event.discount_amount) : 0;
-  const discountedSubtotal = subtotal - (isNaN(eventDiscountAmount) ? 0 : eventDiscountAmount);
+  const afterEventDiscount = subtotal - (isNaN(eventDiscountAmount) ? 0 : eventDiscountAmount);
   
-  // Check if any requirements have discounts to conditionally show discount column
-  const hasRequirementDiscounts = requirements && requirements.some(req => 
-    req.req_discount === 'true' && req.req_discount_amount && Number(req.req_discount_amount) > 0
-  );
-  
-  // GST calculations - includeGst is stored as text in database
   const includeGst = config.includeGst === 'true';
-  const gstRate = 0.18; // 18% GST
-  const gstAmount = includeGst ? discountedSubtotal * gstRate : 0;
-  const grandTotal = discountedSubtotal + gstAmount;
-  
+  const gstRate = 0.18;
+  const gstAmount = includeGst ? afterEventDiscount * gstRate : 0;
+  const grandTotal = afterEventDiscount + gstAmount;
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Header with Logo on Left and Invoice Title on Right */}
-        <View style={styles.header}>
-          {/* Logo Section - Left */}
-          <View style={styles.logoSection}>
+        <View style={styles.headerSection}>
+          <View style={styles.logoContainer}>
             {config.logo && (
               <Image style={styles.logo} src={config.logo} />
             )}
           </View>
           
-          {/* Invoice Title - Right */}
-          <View style={styles.invoiceTitleSection}>
-            <Text style={styles.invoiceTitle}>INVOICE</Text>
-          </View>
-        </View>
-        
-        <View style={styles.headerDivider} />
-        
-        {/* Business Information */}
-        <View style={styles.businessSection}>
-          <Text style={styles.businessName}>{config.businessName}</Text>
-          <Text style={styles.businessDetails}>
-            {config.address && `${config.address}\n`}
-            {config.phone && `Phone: ${config.phone}\n`}
-            {config.email && `Email: ${config.email}\n`}
-            {config.website && `Website: ${config.website}`}
-          </Text>
-        </View>
-        
-        {/* Bill To and Invoice Details */}
-        <View style={styles.twoColumns}>
-          {/* Bill To Section */}
-          <View style={styles.billToSection}>
-            <Text style={styles.sectionTitle}>Bill To</Text>
-            <Text style={styles.clientInfo}>
-              {clientName && `${clientName}\n`}
-              {clientAddress && `${clientAddress}\n`}
-              {clientPhone && `${clientPhone}\n`}
-              {clientEmail && clientEmail}
+          <View style={styles.businessInfoCenter}>
+            <Text style={styles.businessName}>{config.businessName}</Text>
+            <Text style={styles.businessAddress}>
+              {config.address}
+            </Text>
+            <Text style={styles.businessContact}>
+              {config.phone && `${config.phone}`}
+              {config.phone && config.email && ' | '}
+              {config.email && `${config.email}`}
             </Text>
           </View>
           
-          {/* Invoice Details */}
-          <View style={styles.invoiceDetailsSection}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Invoice #:</Text>
-              <Text style={styles.detailValue}>{invoiceNumber}</Text>
+          <View style={styles.invoiceTitleContainer}>
+            <Text style={styles.invoiceTitle}>Invoice</Text>
+          </View>
+        </View>
+        
+        <View style={styles.clientSection}>
+          <View style={styles.toSection}>
+            <Text style={styles.toLabel}>To,</Text>
+            <Text style={styles.clientName}>{clientName}</Text>
+            {clientPhone && <Text style={styles.clientPhone}>{clientPhone}</Text>}
+          </View>
+          
+          <View style={styles.invoiceDetails}>
+            <View style={styles.invoiceDetailRow}>
+              <Text style={styles.invoiceLabel}>Invoice#</Text>
+              <Text style={styles.invoiceValue}>{invoiceNumber}</Text>
             </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Date:</Text>
-              <Text style={styles.detailValue}>{formatDate(invoiceDate)}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Due Date:</Text>
-              <Text style={styles.detailValue}>{formatDate(dueDate)}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Event Date:</Text>
-              <Text style={styles.detailValue}>{formatDate(event.eventDate)}</Text>
+            <View style={styles.invoiceDetailRow}>
+              <Text style={styles.invoiceLabel}>Date:</Text>
+              <Text style={styles.invoiceValue}>{formatDate(invoiceDate)}</Text>
             </View>
           </View>
         </View>
         
-        {/* Items Table */}
+        <Text style={styles.greeting}>Dear Sir/Mam,</Text>
+        <Text style={styles.introText}>Thank you for your valuable inquiry. We are pleased to invoice as below</Text>
+        
         <View style={styles.table}>
-          {/* Table Header */}
           <View style={styles.tableHeader}>
-            <Text style={[hasRequirementDiscounts ? styles.colDescription : styles.colDescriptionWide, styles.tableHeaderText]}>Description</Text>
-            <Text style={[hasRequirementDiscounts ? styles.colQty : styles.colQtyWide, styles.tableHeaderText]}>Qty</Text>
-            <Text style={[hasRequirementDiscounts ? styles.colPrice : styles.colPriceWide, styles.tableHeaderText]}>Unit Price</Text>
-            {hasRequirementDiscounts && (
-              <Text style={[styles.colDiscount, styles.tableHeaderText]}>Discount</Text>
-            )}
-            <Text style={[styles.colAmount, styles.tableHeaderText]}>Amount</Text>
+            <Text style={[styles.tableHeaderCell, styles.colNum]}>#</Text>
+            <Text style={[styles.tableHeaderCell, styles.colDesc]}>DESCRIPTION</Text>
+            <Text style={[styles.tableHeaderCell, styles.colQty]}>QTY</Text>
+            <Text style={[styles.tableHeaderCell, styles.colPrice]}>PRICE</Text>
+            <Text style={[styles.tableHeaderCell, styles.colTotal]}>TOTAL</Text>
           </View>
           
-          {/* Table Rows */}
           {requirements && requirements.length > 0 ? (
             requirements.map((req, index) => {
-              const price = Number(req.price ?? 0);
               const quantity = Number(req.quantity ?? 1);
-              const discountAmount = req.req_discount === 'true' && req.req_discount_amount ? 
-                Number(req.req_discount_amount) : 0;
-              const finalAmount = Number(req.order ?? 0);
+              const lineTotal = Number(req.order ?? 0);
               
-              // Guard against NaN
-              const validPrice = isNaN(price) ? 0 : price;
               const validQuantity = isNaN(quantity) ? 1 : quantity;
-              const validDiscount = isNaN(discountAmount) ? 0 : discountAmount;
-              const validAmount = isNaN(finalAmount) ? 0 : finalAmount;
+              const validLineTotal = isNaN(lineTotal) ? 0 : lineTotal;
+              // Calculate effective unit price so PRICE * QTY = TOTAL
+              const effectiveUnitPrice = validQuantity > 0 ? validLineTotal / validQuantity : 0;
               
               return (
-                <View 
-                  key={req.id || index} 
-                  style={[
-                    styles.tableRow, 
-                    ...(index % 2 === 1 ? [styles.tableRowAlt] : [])
-                  ]}
-                >
-                  <View style={hasRequirementDiscounts ? styles.colDescription : styles.colDescriptionWide}>
-                    <Text style={styles.itemName}>{req.requirement}</Text>
+                <View key={req.id || index} style={styles.tableRow}>
+                  <Text style={[styles.tableCell, styles.colNum]}>{index + 1}</Text>
+                  <View style={styles.colDesc}>
+                    <Text style={styles.descriptionMain}>{req.requirement}</Text>
                     {req.description && (
-                      <Text style={styles.itemDescription}>{req.description}</Text>
+                      <Text style={styles.descriptionSub}>{req.description}</Text>
                     )}
                   </View>
-                  <Text style={hasRequirementDiscounts ? styles.colQty : styles.colQtyWide}>{validQuantity}</Text>
-                  <Text style={hasRequirementDiscounts ? styles.colPrice : styles.colPriceWide}>{formatCurrency(validPrice)}</Text>
-                  {hasRequirementDiscounts && (
-                    <Text style={styles.colDiscount}>{formatCurrency(validDiscount)}</Text>
-                  )}
-                  <Text style={styles.colAmount}>{formatCurrency(validAmount)}</Text>
+                  <Text style={[styles.tableCell, styles.colQty]}>{validQuantity}</Text>
+                  <Text style={[styles.tableCell, styles.colPrice]}>{formatCurrency(effectiveUnitPrice)}</Text>
+                  <Text style={[styles.tableCell, styles.colTotal]}>{formatCurrency(validLineTotal)}</Text>
                 </View>
               );
             })
           ) : (
-            // Fallback: Show event as single line item
             <View style={styles.tableRow}>
-              <View style={hasRequirementDiscounts ? styles.colDescription : styles.colDescriptionWide}>
-                <Text style={styles.itemName}>{event.eventName}</Text>
-                <Text style={styles.itemDescription}>{event.providedService}</Text>
+              <Text style={[styles.tableCell, styles.colNum]}>1</Text>
+              <View style={styles.colDesc}>
+                <Text style={styles.descriptionMain}>{event.eventName}</Text>
+                <Text style={styles.descriptionSub}>{event.providedService}</Text>
               </View>
-              <Text style={hasRequirementDiscounts ? styles.colQty : styles.colQtyWide}>1</Text>
-              <Text style={hasRequirementDiscounts ? styles.colPrice : styles.colPriceWide}>{formatCurrency(subtotal)}</Text>
-              {hasRequirementDiscounts && (
-                <Text style={styles.colDiscount}>{formatCurrency(0)}</Text>
-              )}
-              <Text style={styles.colAmount}>{formatCurrency(subtotal)}</Text>
+              <Text style={[styles.tableCell, styles.colQty]}>1</Text>
+              <Text style={[styles.tableCell, styles.colPrice]}>{formatCurrency(subtotal)}</Text>
+              <Text style={[styles.tableCell, styles.colTotal]}>{formatCurrency(subtotal)}</Text>
             </View>
           )}
-        </View>
-        
-        {/* Totals Section */}
-        <View style={styles.totalsContainer}>
-          <View style={styles.totalsBox}>
-            <View style={[styles.totalRow, styles.totalRowWithBorder]}>
-              <Text style={styles.totalLabel}>Subtotal:</Text>
-              <Text style={styles.totalValue}>{formatCurrency(subtotal)}</Text>
-            </View>
-            
-            {eventDiscountAmount > 0 && (
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Event Discount:</Text>
-                <Text style={styles.totalValue}>-{formatCurrency(eventDiscountAmount)}</Text>
+          
+          {eventDiscountAmount > 0 && (
+            <View style={styles.tableRow}>
+              <Text style={[styles.tableCell, styles.colNum]}></Text>
+              <View style={styles.colDesc}>
+                <Text style={styles.descriptionMain}>Event Discount</Text>
               </View>
-            )}
-            
-            {includeGst && (
-              <>
-                <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>GST (18%):</Text>
-                  <Text style={styles.totalValue}>{formatCurrency(gstAmount)}</Text>
-                </View>
-                {config.gstNumber && (
-                  <Text style={styles.gstRow}>GST No: {config.gstNumber}</Text>
-                )}
-              </>
-            )}
-            
-            <View style={styles.grandTotalRow}>
-              <Text style={styles.grandTotalLabel}>Grand Total:</Text>
-              <Text style={styles.grandTotalValue}>{formatCurrency(grandTotal)}</Text>
+              <Text style={[styles.tableCell, styles.colQty]}></Text>
+              <Text style={[styles.tableCell, styles.colPrice]}></Text>
+              <Text style={[styles.tableCell, styles.colTotal]}>-{formatCurrency(eventDiscountAmount)}</Text>
             </View>
+          )}
+          
+          {includeGst && (
+            <View style={styles.tableRow}>
+              <Text style={[styles.tableCell, styles.colNum]}></Text>
+              <View style={styles.colDesc}>
+                <Text style={styles.descriptionMain}>GST (18%)</Text>
+                {config.gstNumber && (
+                  <Text style={styles.descriptionSub}>GST No: {config.gstNumber}</Text>
+                )}
+              </View>
+              <Text style={[styles.tableCell, styles.colQty]}></Text>
+              <Text style={[styles.tableCell, styles.colPrice]}></Text>
+              <Text style={[styles.tableCell, styles.colTotal]}>{formatCurrency(gstAmount)}</Text>
+            </View>
+          )}
+          
+          <View style={styles.grandTotalRow}>
+            <Text style={styles.grandTotalLabel}>GRAND TOTAL</Text>
+            <Text style={styles.grandTotalValue}>{formatCurrency(grandTotal)}</Text>
           </View>
         </View>
         
-        {/* Payment Information - Keep on same page */}
-        <View style={styles.paymentSection} wrap={false}>
-          <Text style={styles.paymentTitle}>Payment Information</Text>
-          <View style={styles.paymentDetails}>
-            <View style={styles.paymentRow}>
-              <Text style={styles.paymentLabel}>Payment Mode:</Text>
-              <Text style={styles.paymentValue}>
-                {event.paymentMode || 'Bank Transfer / UPI / Cash'}
-              </Text>
-            </View>
-            {config.phone && (
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>UPI ID:</Text>
-                <Text style={styles.paymentValue}>{config.phone}@paytm</Text>
-              </View>
-            )}
-            <View style={styles.paymentRow}>
-              <Text style={styles.paymentLabel}>Payment Terms:</Text>
-              <Text style={styles.paymentValue}>Payment due within 7 days</Text>
-            </View>
-            <Text style={{ fontSize: 8, marginTop: 8, color: '#e67e22', fontWeight: 'bold' }}>
-              Please make payment by {formatDate(dueDate)}
+        <Text style={styles.closingMessage}>
+          We hope you find our offer to be in line with your requirement.
+        </Text>
+        
+        <View style={styles.footerSection}>
+          <View style={styles.termsColumn}>
+            <Text style={styles.sectionTitle}>Terms & Conditions:</Text>
+            <Text style={styles.termsText}>
+              {config.termsAndConditions || 
+                'This quote is valid for 7 days, and a non-refundable 50% deposit is required to confirm your booking. The remaining balance is due 3 days before the event. Cancellations made within 48 hours of the event will be charged the full amount.'}
             </Text>
           </View>
-        </View>
-        
-        {/* Terms & Conditions */}
-        {config.termsAndConditions && (
-          <View style={styles.termsSection} wrap={false}>
-            <Text style={styles.termsTitle}>Terms & Conditions</Text>
-            <Text style={styles.termsText}>{config.termsAndConditions}</Text>
-          </View>
-        )}
-        
-        {/* Signature Section */}
-        <View style={styles.signatureContainer} wrap={false}>
-          <View style={styles.signatureBox}>
-            <Text style={styles.signatureLabel}>Customer Signature</Text>
-            <View style={styles.signatureLine}>
-              <Text style={styles.signatureText}>Signature & Date</Text>
-            </View>
-          </View>
           
-          <View style={styles.signatureBox}>
-            <Text style={styles.signatureLabel}>Authorized Signature</Text>
-            {config.signatureImage && (
-              <Image style={styles.signatureImage} src={config.signatureImage} />
-            )}
-            <View style={styles.signatureLine}>
-              <Text style={styles.signatureText}>{config.businessName}</Text>
+          <View style={styles.paymentColumn}>
+            <Text style={styles.sectionTitle}>Payment Instructions</Text>
+            <View style={styles.paymentRow}>
+              <Text style={styles.paymentValue}>EBENESAR PAUL P</Text>
             </View>
+            <View style={styles.paymentRow}>
+              <Text style={styles.paymentValue}>BANK OF MAHARASTRA</Text>
+            </View>
+            <View style={styles.paymentRow}>
+              <Text style={styles.paymentValue}>60223941368</Text>
+            </View>
+            <View style={styles.paymentRow}>
+              <Text style={styles.paymentValue}>MAHB0001206</Text>
+            </View>
+            {config.phone && (
+              <View style={[styles.paymentRow, { marginTop: 6 }]}>
+                <Text style={styles.paymentLabel}>UPI ID:</Text>
+                <Text style={styles.paymentValue}>{config.phone}@okicici</Text>
+              </View>
+            )}
           </View>
         </View>
         
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Thank you for your business! | {config.businessName}
-          </Text>
+        <View style={styles.signatureSection}>
+          <Text style={styles.forCompany}>For, {config.businessName?.toUpperCase() || 'DREAM DAY CREW'}</Text>
+          {config.signatureImage && (
+            <Image style={styles.signatureImage} src={config.signatureImage} />
+          )}
+          <View style={styles.signatureLine}>
+            <Text style={styles.authorizedText}>AUTHORIZED SIGNATURE</Text>
+          </View>
         </View>
       </Page>
     </Document>
