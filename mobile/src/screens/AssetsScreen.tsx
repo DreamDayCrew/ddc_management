@@ -39,8 +39,10 @@ export default function AssetsScreen() {
       const matchesCategory = !selectedCategory || asset.category === selectedCategory;
       return matchesSearch && matchesCategory;
     }).sort((a, b) => {
-      // Sort by id or creation order (latest first)
-      return b.id.localeCompare(a.id);
+      // Sort by purchase date (latest first)
+      const dateA = a.purchaseDate ? new Date(a.purchaseDate).getTime() : 0;
+      const dateB = b.purchaseDate ? new Date(b.purchaseDate).getTime() : 0;
+      return dateB - dateA;
     });
   }, [assets, searchName, selectedCategory]);
 
