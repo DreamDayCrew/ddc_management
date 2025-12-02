@@ -16,6 +16,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 
+// Helper function to get last 1 month range
+const getLast1MonthRange = () => {
+  const now = new Date();
+  const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+  return oneMonthAgo;
+};
+
 export default function Expenses() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
@@ -34,6 +41,8 @@ export default function Expenses() {
     repayment: ''
   });
   const [repaymentAmounts, setRepaymentAmounts] = useState<Record<string, number>>({});
+
+  const oneMonthAgo = useMemo(getLast1MonthRange, []);
 
   // Initialize repaymentAmounts from selectedMembers
   useEffect(() => {
@@ -58,10 +67,15 @@ export default function Expenses() {
         console.error('Expected array but got:', data);
         return [];
       }
-      // Create a new array to avoid mutating the original data and sort by created_at in descending order
-      return [...data].sort((a, b) => 
-        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-      );
+      // Filter to only show expenses from last 1 month and sort by created_at in descending order
+      return [...data]
+        .filter((expense) => {
+          const expenseDate = new Date(expense.created_at || expense.date);
+          return expenseDate >= oneMonthAgo;
+        })
+        .sort((a, b) => 
+          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        );
     },
   });
   // Type definitions

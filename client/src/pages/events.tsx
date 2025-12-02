@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { type Event, type Requirement } from "@shared/schema";
@@ -16,13 +16,29 @@ import {
 } from "@/components/ui/dialog";
 import { EventForm } from "@/components/forms/event-form";
 
+// Helper function to get last 3 months range
+const getLast3MonthsRange = () => {
+  const now = new Date();
+  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+  return threeMonthsAgo;
+};
+
 export default function Events() {
   const [searchQuery, setSearchQuery] = useState("");
   const [addEventOpen, setAddEventOpen] = useState(false);
   const [, setLocation] = useLocation();
 
+  const threeMonthsAgo = useMemo(getLast3MonthsRange, []);
+
   const { data: events = [], isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
+    select: (data) => {
+      // Filter to only show events from last 3 months
+      return data.filter((event) => {
+        const eventDate = new Date(event.registeredOn || event.eventDate);
+        return eventDate >= threeMonthsAgo;
+      });
+    },
   });
 
   // Fetch requirements for all events to get counts
