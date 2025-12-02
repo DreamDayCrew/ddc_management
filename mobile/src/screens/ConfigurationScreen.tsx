@@ -14,11 +14,13 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts';
 import styles from './ConfigurationScreen.styles';
 
 const BRAND_MAROON = '#800020';
 
 export default function ConfigurationScreen() {
+  const { colors, isDark } = useTheme();
   const queryClient = useQueryClient();
   const [businessName, setBusinessName] = useState('');
   const [email, setEmail] = useState('');
@@ -128,26 +130,27 @@ export default function ConfigurationScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={BRAND_MAROON} />
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={isDark ? '#4a5568' : BRAND_MAROON} />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Business Information</Text>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Business Information</Text>
         
         <View style={styles.inputGroup}>
           <View style={styles.labelContainer}>
-            <Text style={styles.label}>Business Name</Text>
-            <Text style={styles.required}>*</Text>
+            <Text style={[styles.label, { color: colors.text }]}>Business Name</Text>
+            <Text style={[styles.required, { color: colors.error }]}>*</Text>
           </View>
           <TextInput
             style={[
               styles.input,
-              errors.businessName ? styles.inputError : undefined
+              { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text },
+              errors.businessName ? [styles.inputError, { borderColor: colors.error }] : undefined
             ].filter(Boolean) as any}
             value={businessName}
             onChangeText={(text) => {
@@ -161,21 +164,22 @@ export default function ConfigurationScreen() {
               }
             }}
             placeholder="Enter business name"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.textSecondary}
             data-testid="input-business-name"
           />
           {errors.businessName && (
-            <Text style={styles.errorText}>{errors.businessName}</Text>
+            <Text style={[styles.errorText, { color: colors.error }]}>{errors.businessName}</Text>
           )}
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Email</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Email</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
             value={email}
             onChangeText={setEmail}
             placeholder="business@example.com"
+            placeholderTextColor={colors.textSecondary}
             keyboardType="email-address"
             autoCapitalize="none"
             data-testid="input-email"
@@ -183,47 +187,50 @@ export default function ConfigurationScreen() {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Phone</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Phone</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
             value={phone}
             onChangeText={setPhone}
             placeholder="+91 1234567890"
+            placeholderTextColor={colors.textSecondary}
             keyboardType="phone-pad"
             data-testid="input-phone"
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>GST Number</Text>
+          <Text style={[styles.label, { color: colors.text }]}>GST Number</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
             value={gstNumber}
             onChangeText={setGstNumber}
             placeholder="Enter GST number"
+            placeholderTextColor={colors.textSecondary}
             autoCapitalize="characters"
             data-testid="input-gst"
           />
         </View>
 
         <View style={[styles.inputGroup, styles.switchContainer]}>
-          <Text style={styles.label}>Include GST in Invoices</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Include GST in Invoices</Text>
           <Switch
             value={includeGst}
             onValueChange={setIncludeGst}
-            trackColor={{ false: '#d1d5db', true: BRAND_MAROON }}
+            trackColor={{ false: colors.border, true: isDark ? '#4a5568' : BRAND_MAROON }}
             thumbColor="#ffffff"
             style={styles.switchStyle} 
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Website</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Website</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
             value={website}
             onChangeText={setWebsite}
             placeholder="https://example.com"
+            placeholderTextColor={colors.textSecondary}
             keyboardType="url"
             autoCapitalize="none"
             autoCorrect={false}
@@ -232,12 +239,13 @@ export default function ConfigurationScreen() {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Business Address</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Business Address</Text>
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={[styles.input, styles.textArea, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
             value={address}
             onChangeText={setAddress}
             placeholder="Enter business address"
+            placeholderTextColor={colors.textSecondary}
             multiline
             numberOfLines={3}
             textAlignVertical="top"
@@ -246,12 +254,12 @@ export default function ConfigurationScreen() {
         </View>
       </View>
 
-      <View style={styles.infoCard}>
-        <Ionicons name="information-circle" size={20} color="#3b82f6" />
-        <Text style={styles.infoText}>
+      <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Ionicons name="information-circle" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
+        <Text style={[styles.infoText, { color: colors.textSecondary }]}>
           Categories and other advanced settings can be managed from the{' '}
           <Text 
-            style={{color: '#3b82f6', textDecorationLine: 'underline'}}
+            style={{color: isDark ? '#60a5fa' : '#3b82f6', textDecorationLine: 'underline'}}
             onPress={() => Linking.openURL('https://ddc-management.onrender.com/')}
             accessibilityLabel="Open web application"
             accessibilityRole="link"
@@ -262,7 +270,7 @@ export default function ConfigurationScreen() {
       </View>
 
       <TouchableOpacity
-        style={[styles.saveButton, updateMutation.isPending && styles.saveButtonDisabled]}
+        style={[styles.saveButton, { backgroundColor: isDark ? '#4a5568' : BRAND_MAROON }, updateMutation.isPending && styles.saveButtonDisabled]}
         onPress={() => {
           console.log('Save button pressed');
           handleSave();
@@ -274,12 +282,12 @@ export default function ConfigurationScreen() {
         {updateMutation.isPending ? (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.saveButtonText}>Saving...</Text>
+            <Text style={[styles.saveButtonText, { color: '#fff' }]}>Saving...</Text>
           </View>
         ) : (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Ionicons name="save" size={20} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.saveButtonText}>Save Changes</Text>
+            <Text style={[styles.saveButtonText, { color: '#fff' }]}>Save Changes</Text>
           </View>
         )}
       </TouchableOpacity>

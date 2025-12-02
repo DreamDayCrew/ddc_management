@@ -8,6 +8,7 @@ import { api } from '../lib/api';
 import type { Expense } from '../types';
 import AddExpenseModal from '../components/AddExpenseModal';
 import RepaymentDetailsModal from '../components/RepaymentDetailsModal';
+import { useTheme } from '../contexts';
 
 const BRAND_MAROON = '#800020';
 const BRAND_GOLD = '#D4AF37';
@@ -32,6 +33,7 @@ const getCurrentMonthRange = () => {
 };
 
 export default function ExpensesScreen() {
+  const { colors, isDark } = useTheme();
   const queryClient = useQueryClient();
   const currentMonthRange = useMemo(getCurrentMonthRange, []);
   const { data: expenses, isLoading, error } = useExpenses(currentMonthRange);
@@ -235,6 +237,36 @@ export default function ExpensesScreen() {
     };
   }, [filteredExpenses, accountBalances, repayments]);
 
+  // Calculate running balance for each transaction
+  const expensesWithRunningBalance = useMemo(() => {
+    if (!filteredExpenses) return [];
+    
+    // Sort by date descending (newest first) for display
+    const sortedExpenses = [...filteredExpenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    let runningBalance = accountBalance;
+    
+    // Calculate running balance for each transaction from current balance backwards
+    const withBalance = sortedExpenses.map((expense) => {
+      const currentBalance = runningBalance;
+      const amount = parseFloat(expense.amount as any) || 0;
+      
+      // Update running balance for next iteration (going backwards in time)
+      if (expense.type === 'Credit') {
+        runningBalance -= amount;
+      } else if (expense.type === 'Debit') {
+        runningBalance += amount;
+      }
+      
+      return {
+        ...expense,
+        closingBalance: currentBalance
+      };
+    });
+    
+    return withBalance;
+  }, [filteredExpenses, accountBalance]);
+
   const handleEdit = (expense: Expense) => {
     setSelectedExpense(expense);
     setModalVisible(true);
@@ -247,61 +279,39 @@ export default function ExpensesScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={BRAND_MAROON} />
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={isDark ? '#4a5568' : BRAND_MAROON} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Failed to load expenses</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>Failed to load expenses</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Stats Cards */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cardsContainer}>
-        <View style={[styles.card, styles.balanceCard]}>
-          <View style={[styles.cardIconContainer, { backgroundColor: 'rgba(212, 175, 55, 0.2)' }]}>
-            <Ionicons name="wallet" size={24} color={BRAND_GOLD} />
-          </View>
-          <Text style={styles.cardValue}>₹{accountBalance.toLocaleString()}</Text>
-          <Text style={styles.cardLabel}>Account Balance</Text>
-        </View>
-
-        <TouchableOpacity 
-          style={[styles.card, styles.repaymentCard]}
-          onPress={() => setRepaymentModalVisible(true)}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.cardIconContainer, { backgroundColor: 'rgba(253, 203, 110, 0.2)' }]}>
-            <Ionicons name="time" size={24} color={DANGER_RED} />
-          </View>
-          <Text style={styles.cardValue}>₹{pendingRepayment.toLocaleString()}</Text>
-          <Text style={styles.cardLabel}>Pending Repayment</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      
       {/* Search and Filter Section */}
-      <View style={styles.searchFilterContainer}>
+      <View style={[styles.searchFilterContainer, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 16 }]}>
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <View style={styles.searchInputContainer}>
-            <Ionicons name="search" size={20} color={NEUTRAL_GRAY} style={styles.searchIcon} />
+          <View style={[styles.searchInputContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: colors.text }]}
               placeholder="Search expenses..."
-              placeholderTextColor={NEUTRAL_GRAY}
+              placeholderTextColor={colors.textSecondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close" size={20} color={NEUTRAL_GRAY} />
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
@@ -309,14 +319,14 @@ export default function ExpensesScreen() {
 
         {/* Filter Toggle Button */}
         <TouchableOpacity
-          style={styles.filterButton}
+          style={[styles.filterButton, { backgroundColor: colors.surface }]}
           onPress={() => setShowFilters(!showFilters)}
           activeOpacity={0.8}
         >
           <Ionicons 
             name={showFilters ? "filter" : "filter-outline"} 
             size={20} 
-            color={hasActiveFilters ? BRAND_MAROON : NEUTRAL_GRAY} 
+            color={hasActiveFilters ? (isDark ? '#4a5568' : BRAND_MAROON) : colors.textSecondary} 
           />
           {hasActiveFilters && (
             <View style={styles.filterBadge}>
@@ -330,20 +340,21 @@ export default function ExpensesScreen() {
 
       {/* Filter Options */}
       {showFilters && (
-        <View style={styles.filtersContainer}>
+        <View style={[styles.filtersContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
             {/* Date Range */}
             <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>From Date</Text>
+              <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>From Date</Text>
               <TouchableOpacity
-                style={styles.datePickerButton}
+                style={[styles.datePickerButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={() => setShowFromDatePicker(true)}
                 activeOpacity={0.8}
               >
-                <Ionicons name="calendar-outline" size={16} color={NEUTRAL_GRAY} style={styles.dateIcon} />
+                <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} style={styles.dateIcon} />
                 <Text style={[
                   styles.datePickerText,
-                  !filters.fromDate && styles.datePickerPlaceholder
+                  { color: colors.text },
+                  !filters.fromDate && { color: colors.textSecondary }
                 ]}>
                   {formatDisplayDate(filters.fromDate)}
                 </Text>
@@ -352,23 +363,24 @@ export default function ExpensesScreen() {
                     onPress={() => setFilters(prev => ({ ...prev, fromDate: '' }))}
                     style={styles.clearDateButton}
                   >
-                    <Ionicons name="close-circle" size={16} color={NEUTRAL_GRAY} />
+                    <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
                 )}
               </TouchableOpacity>
             </View>
 
             <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>To Date</Text>
+              <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>To Date</Text>
               <TouchableOpacity
-                style={styles.datePickerButton}
+                style={[styles.datePickerButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={() => setShowToDatePicker(true)}
                 activeOpacity={0.8}
               >
-                <Ionicons name="calendar-outline" size={16} color={NEUTRAL_GRAY} style={styles.dateIcon} />
+                <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} style={styles.dateIcon} />
                 <Text style={[
                   styles.datePickerText,
-                  !filters.toDate && styles.datePickerPlaceholder
+                  { color: colors.text },
+                  !filters.toDate && { color: colors.textSecondary }
                 ]}>
                   {formatDisplayDate(filters.toDate)}
                 </Text>
@@ -377,7 +389,7 @@ export default function ExpensesScreen() {
                     onPress={() => setFilters(prev => ({ ...prev, toDate: '' }))}
                     style={styles.clearDateButton}
                   >
-                    <Ionicons name="close-circle" size={16} color={NEUTRAL_GRAY} />
+                    <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
                 )}
               </TouchableOpacity>
@@ -385,22 +397,22 @@ export default function ExpensesScreen() {
 
             {/* Account Filters */}
             <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>From Account</Text>
+              <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>From Account</Text>
               <TextInput
-                style={styles.filterInput}
+                style={[styles.filterInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                 placeholder="Account name..."
-                placeholderTextColor={NEUTRAL_GRAY}
+                placeholderTextColor={colors.textSecondary}
                 value={filters.fromAccount}
                 onChangeText={(text) => setFilters(prev => ({ ...prev, fromAccount: text }))}
               />
             </View>
 
             <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>To Account</Text>
+              <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>To Account</Text>
               <TextInput
-                style={styles.filterInput}
+                style={[styles.filterInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                 placeholder="Account name..."
-                placeholderTextColor={NEUTRAL_GRAY}
+                placeholderTextColor={colors.textSecondary}
                 value={filters.toAccount}
                 onChangeText={(text) => setFilters(prev => ({ ...prev, toAccount: text }))}
               />
@@ -408,14 +420,15 @@ export default function ExpensesScreen() {
 
             {/* Category Filter */}
             <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>Category</Text>
+              <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Category</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilter}>
                 {['All', 'Office', 'Event', 'Asset'].map((category) => (
                   <TouchableOpacity
                     key={category}
                     style={[
                       styles.categoryChip,
-                      (category === 'All' ? !filters.category : filters.category === category) && styles.categoryChipActive
+                      { backgroundColor: colors.surface, borderColor: colors.border },
+                      (category === 'All' ? !filters.category : filters.category === category) && { backgroundColor: isDark ? '#4a5568' : BRAND_MAROON, borderColor: isDark ? '#4a5568' : BRAND_MAROON }
                     ]}
                     onPress={() => setFilters(prev => ({ 
                       ...prev, 
@@ -424,7 +437,8 @@ export default function ExpensesScreen() {
                   >
                     <Text style={[
                       styles.categoryChipText,
-                      (category === 'All' ? !filters.category : filters.category === category) && styles.categoryChipTextActive
+                      { color: colors.text },
+                      (category === 'All' ? !filters.category : filters.category === category) && { color: '#ffffff' }
                     ]}>
                       {category}
                     </Text>
@@ -435,14 +449,15 @@ export default function ExpensesScreen() {
 
             {/* Type Filter */}
             <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>Type</Text>
+              <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Type</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilter}>
                 {['All', 'Credit', 'Debit'].map((type) => (
                   <TouchableOpacity
                     key={type}
                     style={[
                       styles.categoryChip,
-                      (type === 'All' ? !filters.type : filters.type === type) && styles.categoryChipActive
+                      { backgroundColor: colors.surface, borderColor: colors.border },
+                      (type === 'All' ? !filters.type : filters.type === type) && { backgroundColor: isDark ? '#4a5568' : BRAND_MAROON, borderColor: isDark ? '#4a5568' : BRAND_MAROON }
                     ]}
                     onPress={() => setFilters(prev => ({ 
                       ...prev, 
@@ -451,7 +466,8 @@ export default function ExpensesScreen() {
                   >
                     <Text style={[
                       styles.categoryChipText,
-                      (type === 'All' ? !filters.type : filters.type === type) && styles.categoryChipTextActive
+                      { color: colors.text },
+                      (type === 'All' ? !filters.type : filters.type === type) && { color: '#ffffff' }
                     ]}>
                       {type}
                     </Text>
@@ -463,15 +479,15 @@ export default function ExpensesScreen() {
 
           {/* Clear Filters */}
           {hasActiveFilters && (
-            <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
+            <TouchableOpacity style={[styles.clearFiltersButton, { backgroundColor: isDark ? '#4a5568' : BRAND_MAROON }]} onPress={clearFilters}>
               <Ionicons name="refresh" size={16} color="#fff" />
               <Text style={styles.clearFiltersText}>Clear Filters</Text>
             </TouchableOpacity>
           )}
 
           {/* Results Count */}
-          <Text style={styles.resultsText}>
-            Showing {filteredExpenses?.length || 0} of {expenses?.length || 0} expenses
+          <Text style={[styles.resultsText, { color: colors.textSecondary }]}>
+            Showing {expensesWithRunningBalance?.length || 0} of {expenses?.length || 0} expenses
           </Text>
         </View>
       )}
@@ -500,13 +516,13 @@ export default function ExpensesScreen() {
 
       {/* Expenses List */}
       <FlatList
-        data={filteredExpenses?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) || []}
+        data={expensesWithRunningBalance?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) || []}
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
         renderItem={({ item }) => (
           <TouchableOpacity
-            style={styles.expenseCard}
+            style={[styles.expenseCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => handleEdit(item)}
             activeOpacity={0.7}
           >
@@ -528,9 +544,9 @@ export default function ExpensesScreen() {
                   />
                 </View>
                 <View style={styles.expenseInfo}>
-                  <Text style={styles.expenseDescription}>{item.description}</Text>
-                  <Text style={styles.expenseCategory}>{item.category}</Text>
-                  <Text style={styles.expenseDate}>{new Date(item.date).toLocaleDateString()}</Text>
+                  <Text style={[styles.expenseDescription, { color: colors.text }]}>{item.description}</Text>
+                  <Text style={[styles.expenseCategory, { color: colors.textSecondary }]}>{item.category}</Text>
+                  <Text style={[styles.expenseDate, { color: colors.textSecondary }]}>{new Date(item.date).toLocaleDateString()}</Text>
                 </View>
               </View>
               <View style={styles.amountSection}>
@@ -539,6 +555,9 @@ export default function ExpensesScreen() {
                   { color: item.type === 'Credit' ? SUCCESS_GREEN : DANGER_RED }
                 ]}>
                   {item.type === 'Credit' ? '+' : '-'}₹{parseFloat(item.amount as any).toLocaleString()}
+                </Text>
+                <Text style={[styles.closingBalance, { color: colors.textSecondary }]}>
+                  Closing Balance: ₹{parseFloat(item.closingBalance as any).toLocaleString()}
                 </Text>
                 <TouchableOpacity
                   style={styles.deleteButton}
@@ -555,10 +574,10 @@ export default function ExpensesScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-            <View style={styles.expenseFooter}>
+            <View style={[styles.expenseFooter, { borderTopColor: colors.border }]}>
               <View style={styles.accountFlow}>
-                <Ionicons name="card-outline" size={14} color={NEUTRAL_GRAY} />
-                <Text style={styles.expenseAccount}>
+                <Ionicons name="card-outline" size={14} color={colors.textSecondary} />
+                <Text style={[styles.expenseAccount, { color: colors.textSecondary }]}>
                   {item.to_account ? `${item.from_account} → ${item.to_account}` : item.from_account}
                 </Text>
               </View>
@@ -567,13 +586,13 @@ export default function ExpensesScreen() {
         )}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="receipt-outline" size={64} color={NEUTRAL_GRAY} />
+            <Ionicons name="receipt-outline" size={64} color={colors.textSecondary} />
             {hasActiveFilters ? (
               <>
-                <Text style={styles.emptyText}>No matching expenses</Text>
-                <Text style={styles.emptySubText}>Try adjusting your search or filters</Text>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No matching expenses</Text>
+                <Text style={[styles.emptySubText, { color: colors.textSecondary }]}>Try adjusting your search or filters</Text>
                 <TouchableOpacity 
-                  style={styles.clearFiltersButton}
+                  style={[styles.clearFiltersButton, { backgroundColor: isDark ? '#4a5568' : BRAND_MAROON }]}
                   onPress={clearFilters}
                 >
                   <Ionicons name="refresh" size={16} color="#fff" />
@@ -582,8 +601,8 @@ export default function ExpensesScreen() {
               </>
             ) : (
               <>
-                <Text style={styles.emptyText}>No expenses yet</Text>
-                <Text style={styles.emptySubText}>Tap + to add your first expense</Text>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No expenses yet</Text>
+                <Text style={[styles.emptySubText, { color: colors.textSecondary }]}>Tap + to add your first expense</Text>
               </>
             )}
           </View>
@@ -592,7 +611,7 @@ export default function ExpensesScreen() {
 
       {/* FAB */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: isDark ? '#4a5568' : BRAND_MAROON }]}
         onPress={() => setModalVisible(true)}
         activeOpacity={0.8}
       >
@@ -618,17 +637,17 @@ export default function ExpensesScreen() {
         onRequestClose={cancelDelete}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.confirmationBox}>
-            <Text style={styles.confirmTitle}>Delete Expense</Text>
-            <Text style={styles.confirmMessage}>
+          <View style={[styles.confirmationBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.confirmTitle, { color: colors.text }]}>Delete Expense</Text>
+            <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
               Are you sure you want to delete this expense?
             </Text>
             <View style={styles.confirmButtons}>
               <TouchableOpacity 
-                style={[styles.confirmButton, styles.cancelButton]}
+                style={[styles.confirmButton, styles.cancelButton, { backgroundColor: isDark ? '#374151' : '#f1f3f4' }]}
                 onPress={cancelDelete}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: isDark ? '#d1d5db' : NEUTRAL_GRAY }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.confirmButton, styles.deleteConfirmButton]}
@@ -647,18 +666,11 @@ export default function ExpensesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: LIGHT_GRAY,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: LIGHT_GRAY,
-  },
-  cardsContainer: {
-    paddingHorizontal: 35,
-    paddingTop: 35,
-    paddingBottom: 85,
   },
   card: {
     width: 160,
@@ -718,7 +730,6 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   expenseCard: {
-    backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 20,
     marginBottom: 12,
@@ -728,7 +739,6 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
   },
   expenseHeader: {
     flexDirection: 'row',
@@ -755,19 +765,16 @@ const styles = StyleSheet.create({
   expenseDescription: {
     fontSize: 17,
     fontWeight: 'bold',
-    color: PREMIUM_DARK,
     marginBottom: 6,
     lineHeight: 22,
   },
   expenseCategory: {
     fontSize: 14,
-    color: NEUTRAL_GRAY,
     fontWeight: '600',
     marginBottom: 4,
   },
   expenseDate: {
     fontSize: 13,
-    color: NEUTRAL_GRAY,
     fontWeight: '500',
   },
   amountSection: {
@@ -780,13 +787,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: -0.5,
   },
+  closingBalance: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+    marginBottom: 4,
+  },
   expenseFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.06)',
   },
   accountFlow: {
     flexDirection: 'row',
@@ -795,7 +807,6 @@ const styles = StyleSheet.create({
   },
   expenseAccount: {
     fontSize: 14,
-    color: NEUTRAL_GRAY,
     fontWeight: '500',
     marginLeft: 8,
     flex: 1,
@@ -813,19 +824,16 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    color: NEUTRAL_GRAY,
     fontWeight: '600',
     marginTop: 16,
     marginBottom: 8,
   },
   emptySubText: {
     fontSize: 14,
-    color: NEUTRAL_GRAY,
     fontWeight: '500',
   },
   errorText: {
     fontSize: 18,
-    color: DANGER_RED,
     fontWeight: '500',
   },
   fab: {
@@ -852,7 +860,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   confirmationBox: {
-    backgroundColor: 'white',
     borderRadius: 20,
     padding: 24,
     width: '100%',
@@ -862,17 +869,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 16,
     elevation: 12,
+    borderWidth: 1,
   },
   confirmTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: PREMIUM_DARK,
     marginBottom: 12,
     textAlign: 'center',
   },
   confirmMessage: {
     fontSize: 16,
-    color: NEUTRAL_GRAY,
     marginBottom: 24,
     textAlign: 'center',
     lineHeight: 22,
@@ -891,13 +897,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#f1f3f4',
+    borderRadius: 12,
   },
   deleteConfirmButton: {
     backgroundColor: DANGER_RED,
+    borderRadius: 12,
   },
   cancelButtonText: {
-    color: NEUTRAL_GRAY,
     fontWeight: 'bold',
     fontSize: 16,
   },

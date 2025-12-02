@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type { Vendor } from '../types';
+import { useTheme } from '../contexts';
 
 const BRAND_MAROON = '#800020';
 
@@ -26,6 +27,7 @@ type Props = {
 };
 
 export default function AddVendorModal({ visible, vendor, onClose }: Props) {
+  const { colors, isDark } = useTheme();
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
@@ -151,35 +153,46 @@ export default function AddVendorModal({ visible, vendor, onClose }: Props) {
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>
+        <View style={[styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
               {vendor ? 'Edit Vendor' : 'Add Vendor'}
             </Text>
             <TouchableOpacity onPress={onClose} data-testid="button-close-modal">
-              <Ionicons name="close" size={24} color="#6b7280" />
+              <Ionicons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.modalBody}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Vendor Name *</Text>
+              <Text style={[styles.label, { color: colors.text }]}>Vendor Name *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                 value={name}
                 onChangeText={setName}
                 placeholder="Enter vendor name"
+                placeholderTextColor={colors.textSecondary}
                 data-testid="input-vendor-name"
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Category</Text>
+              <Text style={[styles.label, { color: colors.text }]}>Category</Text>
               {Platform.OS === 'web' ? (
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  style={styles.select}
+                  style={{
+                    width: '100%',
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 8,
+                    padding: 12,
+                    fontSize: 16,
+                    backgroundColor: colors.surface,
+                    color: colors.text,
+                    marginBottom: 16,
+                  }}
                   data-testid="select-vendor-category"
                 >
                   <option value="">Select a category</option>
@@ -190,17 +203,17 @@ export default function AddVendorModal({ visible, vendor, onClose }: Props) {
                   ))}
                 </select>
               ) : (
-                <View style={styles.pickerContainer}>
+                <View style={[styles.pickerContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <Picker
                     selectedValue={category}
                     onValueChange={(itemValue) => setCategory(itemValue)}
-                    style={styles.picker}
-                    dropdownIconColor="#6b7280"
+                    style={[styles.picker, { color: colors.text }]}
+                    dropdownIconColor={colors.textSecondary}
                     data-testid="picker-vendor-category"
                   >
-                    <Picker.Item label="Select a category" value="" />
+                    <Picker.Item label="Select a category" value="" color={colors.textSecondary} />
                     {vendorCategories.map((cat: string) => (
-                      <Picker.Item key={cat} label={cat} value={cat} />
+                      <Picker.Item key={cat} label={cat} value={cat} color={colors.text} />
                     ))}
                   </Picker>
                 </View>
@@ -208,63 +221,67 @@ export default function AddVendorModal({ visible, vendor, onClose }: Props) {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Specialization</Text>
+              <Text style={[styles.label, { color: colors.text }]}>Specialization</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                 value={specialization}
                 onChangeText={setSpecialization}
                 placeholder="Enter specialization"
+                placeholderTextColor={colors.textSecondary}
                 data-testid="input-vendor-specialization"
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Location</Text>
+              <Text style={[styles.label, { color: colors.text }]}>Location</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                 value={location}
                 onChangeText={setLocation}
                 placeholder="Enter location"
+                placeholderTextColor={colors.textSecondary}
                 data-testid="input-vendor-location"
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Contact Info</Text>
+              <Text style={[styles.label, { color: colors.text }]}>Contact Info</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                 value={contactInfo}
                 onChangeText={setContactInfo}
                 placeholder="Phone, email, etc."
+                placeholderTextColor={colors.textSecondary}
                 keyboardType="phone-pad"
                 data-testid="input-vendor-contact"
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Rating (0-5)</Text>
+              <Text style={[styles.label, { color: colors.text }]}>Rating (0-5)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                 value={rating}
                 onChangeText={setRating}
                 placeholder="0"
+                placeholderTextColor={colors.textSecondary}
                 keyboardType="number-pad"
                 data-testid="input-vendor-rating"
               />
             </View>
           </ScrollView>
 
-          <View style={styles.modalFooter}>
+          <View style={[styles.modalFooter, { borderTopColor: colors.border }]}>
             <View style={styles.actionButtons}>
               <TouchableOpacity
-                style={styles.cancelButton}
+                style={[styles.cancelButton, { backgroundColor: isDark ? '#374151' : '#f3f4f6', borderColor: colors.border }]}
                 onPress={onClose}
                 disabled={isPending}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.saveButton}
+                style={[styles.saveButton, { backgroundColor: isDark ? '#4a5568' : BRAND_MAROON }]}
                 onPress={handleSubmit}
                 disabled={isPending}
                 data-testid="button-save-vendor"
@@ -292,10 +309,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '90%',
+    borderWidth: 1,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -303,12 +320,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1f2937',
   },
   modalBody: {
     padding: 20,
@@ -319,35 +334,19 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: '#1f2937',
-    backgroundColor: '#fff',
-  },
-  select: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-    marginBottom: 16,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
     borderRadius: 8,
     marginBottom: 16,
     overflow: 'hidden',
-    backgroundColor: '#fff',
   },
   picker: {
     width: '100%',
@@ -356,7 +355,6 @@ const styles = StyleSheet.create({
   modalFooter: {
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
     gap: 12,
   },
   actionButtons: {
@@ -382,17 +380,14 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#d1d5db',
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#6b7280',
     fontSize: 16,
     fontWeight: '600',
   },
   saveButton: {
     flex: 1,
-    backgroundColor: BRAND_MAROON,
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',

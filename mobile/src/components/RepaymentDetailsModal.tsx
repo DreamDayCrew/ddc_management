@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Repayment } from '../types';
+import { useTheme } from '../contexts';
 
 const BRAND_MAROON = '#800020';
 
@@ -20,26 +21,27 @@ interface RepaymentDetailsModalProps {
 }
 
 export default function RepaymentDetailsModal({ visible, onClose, repayments }: RepaymentDetailsModalProps) {
+  const { colors, isDark } = useTheme();
   const renderRepaymentItem = ({ item }: { item: Repayment }) => (
-    <View style={styles.repaymentItem}>
+    <View style={[styles.repaymentItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={styles.repaymentHeader}>
-        <Text style={styles.repaymentDescription}>{item.source_name}</Text>
-        <Text style={styles.repaymentAmount}>₹{parseFloat(item.allocated_amount).toFixed(2)}</Text>
+        <Text style={[styles.repaymentDescription, { color: colors.text }]}>{item.source_name}</Text>
+        <Text style={[styles.repaymentAmount, { color: colors.primary }]}>₹{parseFloat(item.allocated_amount).toFixed(2)}</Text>
       </View>
       <View style={styles.repaymentDetails}>
-        <Text style={styles.repaymentText}>
+        <Text style={[styles.repaymentText, { color: colors.textSecondary }]}>
           Allocated: ₹{parseFloat(item.allocated_amount).toFixed(2)}
         </Text>
-        <Text style={styles.repaymentText}>
+        <Text style={[styles.repaymentText, { color: colors.textSecondary }]}>
           Repaid: ₹{parseFloat(item.repaid_amount).toFixed(2)}
         </Text>
-        <Text style={styles.repaymentDate}>
+        <Text style={[styles.repaymentDate, { color: colors.textSecondary }]}>
           Created: {new Date(item.created_at).toLocaleDateString()}
         </Text>
       </View>
       <View style={styles.allocationContainer}>
-        <Text style={styles.allocationLabel}>Pending Amount:</Text>
-        <Text style={styles.allocationAmount}>₹{parseFloat(item.pending_amount).toFixed(2)}</Text>
+        <Text style={[styles.allocationLabel, { color: colors.textSecondary }]}>Pending Amount:</Text>
+        <Text style={[styles.allocationAmount, { color: colors.primary }]}>₹{parseFloat(item.pending_amount).toFixed(2)}</Text>
       </View>
     </View>
   );
@@ -50,8 +52,8 @@ export default function RepaymentDetailsModal({ visible, onClose, repayments }: 
       animationType="slide"
       presentationStyle="pageSheet"
     >
-      <View style={styles.container}>
-        <View style={styles.header}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { backgroundColor: isDark ? '#2d3748' : BRAND_MAROON }]}>
           <Text style={styles.title}>Pending Repayments</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={24} color="#fff" />
@@ -68,8 +70,8 @@ export default function RepaymentDetailsModal({ visible, onClose, repayments }: 
             />
           ) : (
             <View style={styles.emptyContainer}>
-              <Ionicons name="checkmark-circle" size={48} color="#10b981" />
-              <Text style={styles.emptyText}>No pending repayments</Text>
+              <Ionicons name="checkmark-circle" size={48} color={colors.primary} />
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No pending repayments</Text>
             </View>
           )}
         </ScrollView>
@@ -81,16 +83,14 @@ export default function RepaymentDetailsModal({ visible, onClose, repayments }: 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: BRAND_MAROON,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
   },
   title: {
     fontSize: 20,
@@ -107,12 +107,10 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   repaymentItem: {
-    backgroundColor: '#fff',
     padding: 16,
     marginBottom: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   repaymentHeader: {
     flexDirection: 'row',
@@ -123,25 +121,21 @@ const styles = StyleSheet.create({
   repaymentDescription: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
     flex: 1,
   },
   repaymentAmount: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#f59e0b',
   },
   repaymentDetails: {
     marginBottom: 8,
   },
   repaymentText: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 4,
   },
   repaymentDate: {
     fontSize: 12,
-    color: '#999',
   },
   allocationContainer: {
     flexDirection: 'row',
@@ -149,16 +143,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
   },
   allocationLabel: {
     fontSize: 14,
-    color: '#666',
   },
   allocationAmount: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#f59e0b',
   },
   emptyContainer: {
     flex: 1,
@@ -168,7 +160,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
     marginTop: 16,
   },
 });

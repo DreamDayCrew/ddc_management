@@ -10,13 +10,14 @@ import {
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSecurity } from '../contexts/SecurityContext';
+import { useSecurity, useTheme } from '../contexts';
 import * as LocalAuthentication from 'expo-local-authentication';
 
 const BRAND_MAROON = '#800020';
 const { width, height } = Dimensions.get('window');
 
 export default function AuthenticationScreen() {
+  const { colors, isDark } = useTheme();
   const { securitySettings, setAuthenticated, authenticate, updateSecuritySettings } = useSecurity();
   const [enteredPin, setEnteredPin] = useState('');
   const [attempts, setAttempts] = useState(0);
@@ -378,7 +379,7 @@ export default function AuthenticationScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle="light-content" backgroundColor={BRAND_MAROON} />
       
       <View style={styles.header}>

@@ -10,11 +10,11 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Picker as RNPicker } from '@react-native-picker/picker';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { Switch } from './Switch';
+import { useTheme } from '../contexts';
 
 interface AddRequirementModalProps {
   visible: boolean;
@@ -26,6 +26,7 @@ interface AddRequirementModalProps {
 const BRAND_MAROON = '#800020';
 
 export default function AddRequirementModal({ visible, onClose, eventId, requirement }: AddRequirementModalProps) {
+  const { colors, isDark } = useTheme();
   const queryClient = useQueryClient();
   const { data: config } = useQuery({
     queryKey: ['configuration'],
@@ -48,6 +49,10 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
     req_discount: false,
     req_discount_amount: '',
   });
+
+  // Dropdown states
+  const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
   useEffect(() => {
     if (requirement && visible) {
@@ -103,6 +108,11 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
     });
   };
 
+  const closeDropdowns = () => {
+    setShowOwnerDropdown(false);
+    setShowStatusDropdown(false);
+  };
+
   const handleSubmit = () => {
     if (!formData.requirement.trim()) {
       Alert.alert('Error', 'Please enter requirement name');
@@ -142,36 +152,48 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>
+      <TouchableOpacity 
+        style={styles.modalOverlay}
+        activeOpacity={1}
+        onPress={() => {
+          closeDropdowns();
+        }}
+      >
+        <TouchableOpacity 
+          style={[styles.modalContent, { backgroundColor: colors.card, shadowColor: isDark ? '#000' : '#000' }]}
+          activeOpacity={1}
+          onPress={() => {}}
+        >
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
               {requirement ? 'Edit Requirement' : 'Add Requirement'}
             </Text>
             <TouchableOpacity onPress={onClose} data-testid="button-close-modal">
-              <Ionicons name="close" size={24} color="#6b7280" />
+              <Ionicons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.modalBody}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Requirement Name *</Text>
+              <Text style={[styles.label, { color: colors.text }]}>Requirement Name *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                 value={formData.requirement}
                 onChangeText={(text) => setFormData({ ...formData, requirement: text })}
                 placeholder="Enter requirement name"
+                placeholderTextColor={colors.textSecondary}
                 data-testid="input-requirement-name"
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Description</Text>
+              <Text style={[styles.label, { color: colors.text }]}>Description</Text>
               <TextInput
-                style={[styles.input, styles.textArea]}
+                style={[styles.input, styles.textArea, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                 value={formData.description}
                 onChangeText={(text) => setFormData({ ...formData, description: text })}
                 placeholder="Enter description"
+                placeholderTextColor={colors.textSecondary}
                 multiline
                 numberOfLines={3}
                 data-testid="input-description"
@@ -179,62 +201,75 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Owner</Text>
-              <View style={styles.pickerContainer}>
-                <RNPicker
-                  selectedValue={formData.requirementOwner}
-                  onValueChange={(value: string) => setFormData({ ...formData, requirementOwner: value })}
-                  style={styles.picker}
+              <Text style={[styles.label, { color: colors.text }]}>Owner</Text>
+              <View style={styles.dropdownContainer}>
+                <TouchableOpacity
+                  style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => {
+                    closeDropdowns();
+                    setShowOwnerDropdown(!showOwnerDropdown);
+                  }}
                   data-testid="picker-owner"
                 >
-                  <RNPicker.Item label="Select team member" value="" />
-                  {teamMembers.map(member => (
-                    <RNPicker.Item 
-                      key={member.id} 
-                      label={member.name} 
-                      value={member.name} 
-                    />
-                  ))}
-                </RNPicker>
+                  <MaterialIcons name="person" size={20} color={colors.text} style={styles.dropdownIcon} />
+                  <Text style={[styles.dropdownText, { color: formData.requirementOwner ? colors.text : colors.textSecondary }]}>
+                    {formData.requirementOwner || 'Select team member'}
+                  </Text>
+                  <MaterialIcons 
+                    name={showOwnerDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
+                    size={24} 
+                    color={colors.text} 
+                  />
+                </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Status</Text>
-              <View style={styles.pickerContainer}>
-                <RNPicker
-                  selectedValue={formData.requirementStatus}
-                  onValueChange={(value: string) => setFormData({ ...formData, requirementStatus: value })}
-                  style={styles.picker}
+              <Text style={[styles.label, { color: colors.text }]}>Status</Text>
+              <View style={styles.dropdownContainer}>
+                <TouchableOpacity
+                  style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => {
+                    closeDropdowns();
+                    setShowStatusDropdown(!showStatusDropdown);
+                  }}
                   data-testid="picker-status"
                 >
-                  {statuses.map(status => (
-                    <RNPicker.Item key={status} label={status} value={status} />
-                  ))}
-                </RNPicker>
+                  <MaterialIcons name="flag" size={20} color={colors.text} style={styles.dropdownIcon} />
+                  <Text style={[styles.dropdownText, { color: colors.text }]}>
+                    {formData.requirementStatus}
+                  </Text>
+                  <MaterialIcons 
+                    name={showStatusDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
+                    size={24} 
+                    color={colors.text} 
+                  />
+                </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.row}>
               <View style={[styles.inputGroup, styles.flex1]}>
-                <Text style={styles.label}>Price (₹)</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Price (₹)</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                   value={formData.price}
                   onChangeText={(text) => setFormData({ ...formData, price: text })}
                   placeholder="0"
+                  placeholderTextColor={colors.textSecondary}
                   keyboardType="numeric"
                   data-testid="input-price"
                 />
               </View>
 
               <View style={[styles.inputGroup, styles.flex1]}>
-                <Text style={styles.label}>Quantity</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Quantity</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                   value={formData.quantity}
                   onChangeText={(text) => setFormData({ ...formData, quantity: text })}
                   placeholder="1"
+                  placeholderTextColor={colors.textSecondary}
                   keyboardType="numeric"
                   data-testid="input-quantity"
                 />
@@ -244,7 +279,7 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
             {/* Discount Section */}
             <View style={styles.inputGroup}>
               <View style={styles.switchContainer}>
-                <Text style={styles.label}>Apply Discount</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Apply Discount</Text>
                 <Switch
                   value={formData.req_discount}
                   onValueChange={(value) => {
@@ -260,12 +295,13 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
 
             {formData.req_discount && (
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Discount Amount (₹)</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Discount Amount (₹)</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                   value={formData.req_discount_amount}
                   onChangeText={(text) => setFormData({ ...formData, req_discount_amount: text })}
                   placeholder="0"
+                  placeholderTextColor={colors.textSecondary}
                   keyboardType="numeric"
                   data-testid="input-discount-amount"
                 />
@@ -273,9 +309,75 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
             )}
           </ScrollView>
 
-          <View style={styles.modalFooter}>
+          {/* Owner Dropdown */}
+          {showOwnerDropdown && (
+            <View style={[styles.fixedDropdownList, { backgroundColor: colors.card, borderColor: colors.border, top: 260 }]}>
+              <ScrollView style={styles.dropdownScroll} keyboardShouldPersistTaps="handled">
+                <TouchableOpacity
+                  style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+                  onPress={() => {
+                    setFormData({ ...formData, requirementOwner: '' });
+                    setShowOwnerDropdown(false);
+                  }}
+                >
+                  <MaterialIcons name="person" size={20} color={colors.textSecondary} />
+                  <Text style={[styles.dropdownItemText, { color: colors.textSecondary }]}>Select team member</Text>
+                </TouchableOpacity>
+                {teamMembers.map(member => (
+                  <TouchableOpacity
+                    key={member.id}
+                    style={[
+                      styles.dropdownItem, 
+                      { borderBottomColor: colors.border },
+                      formData.requirementOwner === member.name && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                    ]}
+                    onPress={() => {
+                      setFormData({ ...formData, requirementOwner: member.name });
+                      setShowOwnerDropdown(false);
+                    }}
+                  >
+                    <MaterialIcons name="person" size={20} color={colors.text} />
+                    <Text style={[styles.dropdownItemText, { color: colors.text }]}>{member.name}</Text>
+                    {formData.requirementOwner === member.name && (
+                      <MaterialIcons name="check" size={20} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Status Dropdown */}
+          {showStatusDropdown && (
+            <View style={[styles.fixedDropdownList, { backgroundColor: colors.card, borderColor: colors.border, top: 320 }]}>
+              <ScrollView style={styles.dropdownScroll} keyboardShouldPersistTaps="handled">
+                {statuses.map(status => (
+                  <TouchableOpacity
+                    key={status}
+                    style={[
+                      styles.dropdownItem, 
+                      { borderBottomColor: colors.border },
+                      formData.requirementStatus === status && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                    ]}
+                    onPress={() => {
+                      setFormData({ ...formData, requirementStatus: status });
+                      setShowStatusDropdown(false);
+                    }}
+                  >
+                    <MaterialIcons name="flag" size={20} color={colors.text} />
+                    <Text style={[styles.dropdownItemText, { color: colors.text }]}>{status}</Text>
+                    {formData.requirementStatus === status && (
+                      <MaterialIcons name="check" size={20} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          <View style={[styles.modalFooter, { borderTopColor: colors.border }]}>
             <TouchableOpacity
-              style={[styles.submitButton, styles.submitButtonFull, isPending && styles.buttonDisabled]}
+              style={[styles.submitButton, styles.submitButtonFull, { backgroundColor: isDark ? '#4a5568' : BRAND_MAROON }, isPending && styles.buttonDisabled]}
               onPress={handleSubmit}
               disabled={isPending}
               data-testid="button-submit"
@@ -289,8 +391,8 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
               )}
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 }
@@ -302,7 +404,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#ffffff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '90%',
@@ -313,12 +414,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1f2937',
   },
   modalBody: {
     padding: 20,
@@ -330,17 +429,13 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: '#1f2937',
-    backgroundColor: '#ffffff',
   },
   textArea: {
     minHeight: 80,
@@ -393,5 +488,57 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  dropdownContainer: {
+    position: 'relative',
+    zIndex: 1,
+  },
+  categoryDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 48,
+  },
+  dropdownIcon: {
+    marginRight: 12,
+  },
+  dropdownText: {
+    flex: 1,
+    fontSize: 15,
+  },
+  fixedDropdownList: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 1000,
+    zIndex: 999999,
+    maxHeight: 200,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  dropdownScroll: {
+    maxHeight: 200,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 0.5,
+  },
+  selectedDropdownItem: {
+    borderRadius: 4,
+  },
+  dropdownItemText: {
+    flex: 1,
+    fontSize: 15,
+    marginLeft: 12,
   },
 });

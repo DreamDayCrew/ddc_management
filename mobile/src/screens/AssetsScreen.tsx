@@ -7,11 +7,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type { Asset } from '../types';
 import AddAssetModal from '../components/AddAssetModal';
+import { useTheme } from '../contexts';
 import { useConfiguration } from '../hooks/useApi';
 
 const BRAND_MAROON = '#800020';
 
 export default function AssetsScreen() {
+  const { colors, isDark } = useTheme();
   const { data: assets = [], isLoading, error, refetch } = useAssets();
   const { data: config } = useConfiguration();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -105,12 +107,12 @@ export default function AssetsScreen() {
   };
 
   const renderAssetItem = ({ item }: { item: Asset }) => (
-    <TouchableOpacity style={styles.assetCard} onPress={() => handleEdit(item)}>
+    <TouchableOpacity style={[styles.assetCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => handleEdit(item)}>
       <View style={styles.assetHeader}>
-        <Text style={styles.assetName}>{item.name}</Text>
+        <Text style={[styles.assetName, { color: colors.text }]}>{item.name}</Text>
         <View style={styles.headerRight}>
-          <View style={[styles.statusBadge, getStatusColor(item.status)]}>
-            <Text style={styles.statusText}>{item.status}</Text>
+          <View style={[styles.statusBadge, getStatusColor(item.status, colors, isDark)]}>
+            <Text style={[styles.statusText, { color: isDark ? '#ffffff' : '#1f2937' }]}>{item.status}</Text>
           </View>
           <TouchableOpacity
             onPress={(e) => {
@@ -121,28 +123,28 @@ export default function AssetsScreen() {
             accessibilityLabel={`Delete ${item.name}`}
             style={styles.deleteButton}
           >
-            <Ionicons name="trash-outline" size={22} color="#dc2626" />
+            <Ionicons name="trash-outline" size={22} color={colors.error} />
           </TouchableOpacity>
         </View>
       </View>
       
-      <Text style={styles.category}>📦 {item.category}</Text>
-      <Text style={styles.quantity}>Quantity: {item.quantity}</Text>
+      <Text style={[styles.category, { color: colors.textSecondary }]}>📦 {item.category}</Text>
+      <Text style={[styles.quantity, { color: colors.textSecondary }]}>Quantity: {item.quantity}</Text>
       
       {item.purchasedAmount && (
-        <Text style={styles.price}>
+        <Text style={[styles.price, { color: colors.primary }]}>
           Purchase Price: ₹{parseFloat(item.purchasedAmount).toLocaleString()}
         </Text>
       )}
       
       {item.purchaseDate && (
-        <Text style={styles.date}>
+        <Text style={[styles.date, { color: colors.textSecondary }]}>
           Purchased: {new Date(item.purchaseDate).toLocaleDateString()}
         </Text>
       )}
       
       {item.detailsAndUse && (
-        <Text style={styles.details}>{item.detailsAndUse}</Text>
+        <Text style={[styles.details, { color: colors.textSecondary }]}>{item.detailsAndUse}</Text>
       )}
       
     </TouchableOpacity>
@@ -150,16 +152,16 @@ export default function AssetsScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Failed to load assets</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>Failed to load assets</Text>
       </View>
     );
   }
@@ -170,44 +172,44 @@ export default function AssetsScreen() {
   }, 0) || 0;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.summaryContainer}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Total Assets</Text>
-          <Text style={styles.summaryValue}>{filteredAssets.length}</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.summaryContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.summaryCard, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Assets</Text>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>{filteredAssets.length}</Text>
         </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Total Value</Text>
-          <Text style={[styles.summaryValue, styles.valueText]}>
+        <View style={[styles.summaryCard, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Value</Text>
+          <Text style={[styles.summaryValue, styles.valueText, { color: colors.primary }]}>
             ₹{totalValue.toLocaleString()}
           </Text>
         </View>
       </View>
 
       {/* Filter Section */}
-      <View style={styles.filterSection}>
+      <View style={[styles.filterSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.filterHeader}>
-          <Text style={styles.filterTitle}>Filters</Text>
+          <Text style={[styles.filterTitle, { color: colors.text }]}>Filters</Text>
           {activeFiltersCount > 0 && (
-            <TouchableOpacity onPress={clearFilters} style={styles.clearButton}>
-              <Text style={styles.clearButtonText}>Clear ({activeFiltersCount})</Text>
+            <TouchableOpacity onPress={clearFilters} style={[styles.clearButton, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.clearButtonText, { color: colors.card }]}>Clear ({activeFiltersCount})</Text>
             </TouchableOpacity>
           )}
         </View>
         
         {/* Search by name */}
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#6b7280" style={styles.searchIcon} />
+        <View style={[styles.searchContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+          <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
             placeholder="Search by asset name..."
             value={searchName}
             onChangeText={setSearchName}
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.textSecondary}
           />
           {searchName && (
             <TouchableOpacity onPress={() => setSearchName('')} style={styles.clearSearchButton}>
-              <Ionicons name="close-circle" size={20} color="#6b7280" />
+              <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
@@ -215,58 +217,66 @@ export default function AssetsScreen() {
         {/* Category Filter */}
         <View style={styles.categoryContainer}>
           <TouchableOpacity 
-            style={styles.categoryDropdown}
+            style={[styles.categoryDropdown, { backgroundColor: colors.background, borderColor: colors.border }]}
             onPress={() => setShowCategoryDropdown(!showCategoryDropdown)}
           >
-            <Ionicons name="pricetag" size={20} color="#6b7280" style={styles.categoryIcon} />
-            <Text style={styles.categoryText}>
+            <Ionicons name="pricetag" size={20} color={colors.textSecondary} style={styles.categoryIcon} />
+            <Text style={[styles.categoryText, { color: colors.text }]}>
               {selectedCategory || 'All Categories'}
             </Text>
             <Ionicons 
               name={showCategoryDropdown ? "chevron-up" : "chevron-down"} 
               size={20} 
-              color="#6b7280" 
+              color={colors.textSecondary}
             />
           </TouchableOpacity>
           
           {showCategoryDropdown && (
-            <View style={styles.dropdownList}>
+            <View style={[styles.dropdownList, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <ScrollView 
                 nestedScrollEnabled={true}
                 showsVerticalScrollIndicator={true}
-                indicatorStyle="black"
+                indicatorStyle={isDark ? "white" : "black"}
                 style={styles.dropdownScroll}
               >
                 <TouchableOpacity 
-                  style={[styles.dropdownItem, !selectedCategory && styles.selectedDropdownItem]}
+                  style={[
+                    styles.dropdownItem, 
+                    { backgroundColor: colors.card, borderBottomColor: colors.border },
+                    !selectedCategory && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                  ]}
                   onPress={() => {
                     setSelectedCategory('');
                     setShowCategoryDropdown(false);
                   }}
                 >
-                  <Ionicons name="list" size={18} color={!selectedCategory ? BRAND_MAROON : "#6b7280"} style={styles.dropdownItemIcon} />
-                  <Text style={[styles.dropdownItemText, !selectedCategory && styles.selectedDropdownItemText]}>
+                  <Ionicons name="list" size={18} color={!selectedCategory ? colors.primary : colors.textSecondary} style={styles.dropdownItemIcon} />
+                  <Text style={[styles.dropdownItemText, { color: colors.text }, !selectedCategory && [styles.selectedDropdownItemText, { color: colors.primary }]]}>
                     All Categories
                   </Text>
                   {!selectedCategory && (
-                    <Ionicons name="checkmark" size={16} color={BRAND_MAROON} />
+                    <Ionicons name="checkmark" size={16} color={colors.primary} />
                   )}
                 </TouchableOpacity>
                 {config?.assetCategories?.map((category: string) => (
                   <TouchableOpacity 
                     key={category}
-                    style={[styles.dropdownItem, selectedCategory === category && styles.selectedDropdownItem]}
+                    style={[
+                      styles.dropdownItem, 
+                      { backgroundColor: colors.card, borderBottomColor: colors.border },
+                      selectedCategory === category && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                    ]}
                     onPress={() => {
                       setSelectedCategory(category);
                       setShowCategoryDropdown(false);
                     }}
                   >
-                    <Ionicons name="pricetag" size={18} color={selectedCategory === category ? BRAND_MAROON : "#6b7280"} style={styles.dropdownItemIcon} />
-                    <Text style={[styles.dropdownItemText, selectedCategory === category && styles.selectedDropdownItemText]}>
+                    <Ionicons name="pricetag" size={18} color={selectedCategory === category ? colors.primary : colors.textSecondary} style={styles.dropdownItemIcon} />
+                    <Text style={[styles.dropdownItemText, { color: colors.text }, selectedCategory === category && [styles.selectedDropdownItemText, { color: colors.primary }]]}>
                       {category}
                     </Text>
                     {selectedCategory === category && (
-                      <Ionicons name="checkmark" size={16} color={BRAND_MAROON} />
+                      <Ionicons name="checkmark" size={16} color={colors.primary} />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -285,7 +295,7 @@ export default function AssetsScreen() {
         />
       )}
 
-      {error && <Text style={styles.errorText}>Error loading assets</Text>}
+      {error && <Text style={[styles.errorText, { color: colors.error }]}>Error loading assets</Text>}
       <FlatList
         data={filteredAssets}
         renderItem={renderAssetItem}
@@ -295,22 +305,22 @@ export default function AssetsScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={['#3b82f6']}
-            tintColor="#3b82f6"
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
         ListEmptyComponent={() => (
           <View style={styles.emptyContainer}>
-            <Ionicons name="search" size={48} color="#9ca3af" />
-            <Text style={styles.emptyText}>
+            <Ionicons name="search" size={48} color={colors.textSecondary} />
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               {assets.length === 0 
                 ? 'No assets found' 
                 : 'No assets match your filters'
               }
             </Text>
             {activeFiltersCount > 0 && (
-              <TouchableOpacity onPress={clearFilters} style={styles.clearAllButton}>
-                <Text style={styles.clearAllButtonText}>Clear All Filters</Text>
+              <TouchableOpacity onPress={clearFilters} style={[styles.clearAllButton, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.clearAllButtonText, { color: colors.card }]}>Clear All Filters</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -325,27 +335,27 @@ export default function AssetsScreen() {
         onRequestClose={() => setShowDeleteConfirm(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.confirmationBox}>
-            <Text style={styles.confirmationTitle}>Delete Asset?</Text>
-            <Text style={styles.confirmationMessage}>
+          <View style={[styles.confirmationBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.confirmationTitle, { color: colors.text }]}>Delete Asset?</Text>
+            <Text style={[styles.confirmationMessage, { color: colors.textSecondary }]}>
               Are you sure you want to delete "{assetToDelete?.name}"? This action cannot be undone.
             </Text>
             <View style={styles.confirmationButtons}>
               <TouchableOpacity 
-                style={[styles.confirmButton, styles.cancelButton]}
+                style={[styles.confirmButton, styles.cancelButton, { backgroundColor: colors.background, borderColor: colors.border }]}
                 onPress={() => setShowDeleteConfirm(false)}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.confirmButton, styles.deleteConfirmButton]}
+                style={[styles.confirmButton, styles.deleteConfirmButton, { backgroundColor: colors.error }]}
                 onPress={confirmDelete}
                 disabled={deleteMutation.isPending}
               >
                 {deleteMutation.isPending ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={colors.card} />
                 ) : (
-                  <Text style={styles.deleteButtonText}>Delete</Text>
+                  <Text style={[styles.deleteButtonText, { color: colors.card }]}>Delete</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -354,7 +364,7 @@ export default function AssetsScreen() {
       </Modal>
       
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: isDark ? '#4a5568' : BRAND_MAROON }]}
         onPress={() => setModalVisible(true)}
         activeOpacity={0.8}
       >
@@ -370,16 +380,18 @@ export default function AssetsScreen() {
   );
 }
 
-function getStatusColor(status: string) {
+function getStatusColor(status: string, colors: any, isDark: boolean) {
   switch (status) {
-    case 'Active':
-      return { backgroundColor: '#d1fae5' };
-    case 'Inactive':
-      return { backgroundColor: '#fee2e2' };
-    case 'Maintenance':
-      return { backgroundColor: '#fef3c7' };
+    case 'Available':
+      return { backgroundColor: isDark ? '#065f46' : '#d1fae5' };
+    case 'In Use':
+      return { backgroundColor: isDark ? '#1e40af' : '#dbeafe' };
+    case 'Under Maintenance':
+      return { backgroundColor: isDark ? '#92400e' : '#fef3c7' };
+    case 'Retired':
+      return { backgroundColor: isDark ? '#7f1d1d' : '#fee2e2' };
     default:
-      return { backgroundColor: '#e5e7eb' };
+      return { backgroundColor: isDark ? colors.border : '#e5e7eb' };
   }
 }
 
@@ -402,7 +414,6 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: '#ffffff',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -414,13 +425,11 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 12,
-    color: '#6b7280',
     marginBottom: 4,
   },
   summaryValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1f2937',
   },
   valueText: {
     color: '#2563eb',
@@ -431,7 +440,6 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   assetCard: {
-    backgroundColor: '#ffffff',
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
@@ -467,7 +475,6 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#1f2937',
   },
   deleteButton: {
     padding: 12,
@@ -496,7 +503,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     marginBottom: 12,
-    color: '#1f2937',
   },
   confirmationMessage: {
     fontSize: 16,
@@ -518,10 +524,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelButton: {
-    backgroundColor: '#f3f4f6',
+    // Styling will be applied dynamically
   },
   cancelButtonText: {
-    color: '#4b5563',
     fontWeight: '500',
   },
   deleteConfirmButton: {
@@ -588,7 +593,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   filterSection: {
-    backgroundColor: '#ffffff',
     padding: 16,
     marginBottom: 8,
     borderRadius: 12,
@@ -610,7 +614,6 @@ const styles = StyleSheet.create({
   filterTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1f2937',
   },
   clearButton: {
     paddingHorizontal: 12,
@@ -619,7 +622,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   clearButtonText: {
-    color: '#ffffff',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -637,7 +639,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#1f2937',
   },
   clearSearchButton: {
     padding: 4,
@@ -675,18 +676,16 @@ const styles = StyleSheet.create({
     top: '100%',
     left: 0,
     right: 0,
-    backgroundColor: '#ffffff',
     borderRadius: 8,
     marginTop: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 10,
+    elevation: 15,
     zIndex: 9999,
     maxHeight: 250,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     overflow: 'hidden',
   },
   dropdownScroll: {
@@ -698,11 +697,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-    backgroundColor: '#ffffff',
   },
   selectedDropdownItem: {
-    backgroundColor: '#fef2f2',
+    // Styling will be applied dynamically
   },
   dropdownItemIcon: {
     marginRight: 12,
@@ -710,11 +707,9 @@ const styles = StyleSheet.create({
   dropdownItemText: {
     flex: 1,
     fontSize: 14,
-    color: '#1f2937',
   },
   selectedDropdownItemText: {
     fontWeight: '600',
-    color: BRAND_MAROON,
   },
   clearAllButton: {
     marginTop: 16,
@@ -724,7 +719,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   clearAllButtonText: {
-    color: '#ffffff',
     fontSize: 16,
     fontWeight: '500',
   },

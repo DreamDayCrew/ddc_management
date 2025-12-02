@@ -11,11 +11,11 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useConfiguration } from '../hooks/useApi';
 import { DatePicker } from './DatePicker';
-import { Picker } from './Picker';
 
 interface AddAssetModalProps {
   visible: boolean;
@@ -26,10 +26,13 @@ interface AddAssetModalProps {
 const BRAND_MAROON = '#800020';
 
 export default function AddAssetModal({ visible, onClose, asset }: AddAssetModalProps) {
+  const { colors, isDark } = useTheme();
   const queryClient = useQueryClient();
   const { data: config } = useConfiguration();
   
   const [purchaseDate, setPurchaseDate] = useState<Date>(new Date());
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -83,6 +86,8 @@ export default function AddAssetModal({ visible, onClose, asset }: AddAssetModal
       status: 'Available',
     });
     setPurchaseDate(new Date());
+    setShowCategoryDropdown(false);
+    setShowStatusDropdown(false);
   };
 
   const handleSubmit = () => {
@@ -109,54 +114,75 @@ export default function AddAssetModal({ visible, onClose, asset }: AddAssetModal
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{asset ? 'Edit Asset' : 'Add New Asset'}</Text>
+        <View style={[styles.modalContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{asset ? 'Edit Asset' : 'Add New Asset'}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#666" />
+              <Ionicons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
+          <ScrollView 
+            style={styles.formContainer} 
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled={true}
+            keyboardShouldPersistTaps="handled"
+          >
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Asset Name *</Text>
+              <Text style={[styles.label, { color: colors.text }]}>Asset Name *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
                 value={formData.name}
                 onChangeText={(text) => setFormData({ ...formData, name: text })}
                 placeholder="Enter asset name"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.textSecondary}
               />
             </View>
 
-            <Picker
-              label="Category *"
-              value={formData.category}
-              onChange={(value) => setFormData({ ...formData, category: value })}
-              options={categories}
-              placeholder="Select a category"
-            />
+            {/* Category Dropdown */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.text }]}>Category *</Text>
+              <View style={styles.dropdownContainer}>
+                <TouchableOpacity 
+                  style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => {
+                    setShowCategoryDropdown(!showCategoryDropdown);
+                    setShowStatusDropdown(false);
+                  }}
+                >
+                  <Ionicons name="pricetag" size={20} color={colors.textSecondary} style={styles.dropdownIcon} />
+                  <Text style={[styles.dropdownText, { color: formData.category ? colors.text : colors.textSecondary }]}>
+                    {formData.category || 'Select a category'}
+                  </Text>
+                  <Ionicons 
+                    name={showCategoryDropdown ? "chevron-up" : "chevron-down"} 
+                    size={20} 
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Quantity</Text>
+              <Text style={[styles.label, { color: colors.text }]}>Quantity</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
                 value={formData.quantity}
                 onChangeText={(text) => setFormData({ ...formData, quantity: text })}
                 placeholder="1"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.textSecondary}
                 keyboardType="number-pad"
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Purchase Amount (₹)</Text>
+              <Text style={[styles.label, { color: colors.text }]}>Purchase Amount (₹)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
                 value={formData.purchasedAmount}
                 onChangeText={(text) => setFormData({ ...formData, purchasedAmount: text })}
                 placeholder="0.00"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.textSecondary}
                 keyboardType="decimal-pad"
               />
             </View>
@@ -167,24 +193,41 @@ export default function AddAssetModal({ visible, onClose, asset }: AddAssetModal
               onChange={setPurchaseDate}
             />
 
-            <Picker
-              label="Status"
-              value={formData.status}
-              onChange={(value) => setFormData({ ...formData, status: value })}
-              options={['Available', 'In Use', 'Under Maintenance', 'Retired']}
-            />
+            {/* Status Dropdown */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.text }]}>Status</Text>
+              <View style={styles.dropdownContainer}>
+                <TouchableOpacity 
+                  style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => {
+                    setShowStatusDropdown(!showStatusDropdown);
+                    setShowCategoryDropdown(false);
+                  }}
+                >
+                  <Ionicons name="flag" size={20} color={colors.textSecondary} style={styles.dropdownIcon} />
+                  <Text style={[styles.dropdownText, { color: colors.text }]}>
+                    {formData.status}
+                  </Text>
+                  <Ionicons 
+                    name={showStatusDropdown ? "chevron-up" : "chevron-down"} 
+                    size={20} 
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
 
-            <View style={styles.modalFooter}>
+            <View style={[styles.modalFooter, { borderTopColor: colors.border }]}>
               <View style={styles.actionButtons}>
                 <TouchableOpacity
-                  style={styles.cancelButton}
+                  style={[styles.cancelButton, { backgroundColor: isDark ? '#374151' : '#f3f4f6', borderColor: colors.border }]}
                   onPress={onClose}
                   disabled={createMutation.isPending}
                 >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                  <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.saveButton}
+                  style={[styles.saveButton, { backgroundColor: isDark ? '#4a5568' : BRAND_MAROON }]}
                   onPress={handleSubmit}
                   disabled={createMutation.isPending}
                   data-testid="button-save-vendor"
@@ -192,12 +235,94 @@ export default function AddAssetModal({ visible, onClose, asset }: AddAssetModal
                   {createMutation.isPending ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Text style={styles.submitButtonText}>{asset ? 'Update Asset' : 'Create Asset'}</Text>
+                    <Text style={[styles.submitButtonText, { color: '#fff' }]}>{asset ? 'Update Asset' : 'Create Asset'}</Text>
                   )}
                 </TouchableOpacity>
               </View>
             </View>
           </ScrollView>
+          
+          {/* Category Dropdown List - Outside ScrollView for proper layering */}
+          {showCategoryDropdown && (
+            <View style={[styles.fixedDropdownList, { backgroundColor: colors.card, borderColor: colors.border, top: 240 }]}>
+              <ScrollView 
+                nestedScrollEnabled={true}
+                showsVerticalScrollIndicator={true}
+                indicatorStyle={isDark ? "white" : "black"}
+                style={styles.dropdownScroll}
+              >
+                {categories.map((category: string) => (
+                  <TouchableOpacity 
+                    key={category}
+                    style={[
+                      styles.dropdownItem, 
+                      { backgroundColor: colors.card, borderBottomColor: colors.border },
+                      formData.category === category && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                    ]}
+                    onPress={() => {
+                      setFormData({ ...formData, category });
+                      setShowCategoryDropdown(false);
+                    }}
+                  >
+                    <Ionicons name="pricetag" size={18} color={formData.category === category ? colors.primary : colors.textSecondary} style={styles.dropdownItemIcon} />
+                    <Text style={[styles.dropdownItemText, { color: colors.text }, formData.category === category && [styles.selectedDropdownItemText, { color: isDark ? '#e2e8f0' : colors.primary }]]}>
+                      {category}
+                    </Text>
+                    {formData.category === category && (
+                      <Ionicons name="checkmark" size={16} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+          
+          {/* Status Dropdown List - Outside ScrollView for proper layering */}
+          {showStatusDropdown && (
+            <View style={[styles.fixedDropdownList, { backgroundColor: colors.card, borderColor: colors.border, top: 480 }]}>
+              <ScrollView 
+                nestedScrollEnabled={true}
+                showsVerticalScrollIndicator={true}
+                indicatorStyle={isDark ? "white" : "black"}
+                style={styles.dropdownScroll}
+              >
+                {['Available', 'In Use', 'Under Maintenance', 'Retired'].map((status: string) => (
+                  <TouchableOpacity 
+                    key={status}
+                    style={[
+                      styles.dropdownItem, 
+                      { backgroundColor: colors.card, borderBottomColor: colors.border },
+                      formData.status === status && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                    ]}
+                    onPress={() => {
+                      setFormData({ ...formData, status });
+                      setShowStatusDropdown(false);
+                    }}
+                  >
+                    <Ionicons name="flag" size={18} color={formData.status === status ? (isDark ? '#e2e8f0' : colors.primary) : colors.textSecondary} style={styles.dropdownItemIcon} />
+                    <Text style={[styles.dropdownItemText, { color: colors.text }, formData.status === status && [styles.selectedDropdownItemText, { color: isDark ? '#e2e8f0' : colors.primary }]]}>
+                      {status}
+                    </Text>
+                    {formData.status === status && (
+                      <Ionicons name="checkmark" size={16} color={isDark ? '#e2e8f0' : colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+          
+          {/* Dropdown Overlays - Outside ScrollView for proper layering */}
+          {(showCategoryDropdown || showStatusDropdown) && (
+            <TouchableOpacity 
+              style={styles.dropdownOverlay}
+              activeOpacity={1}
+              onPress={() => {
+                setShowCategoryDropdown(false);
+                setShowStatusDropdown(false);
+              }}
+            />
+          )}
         </View>
       </View>
     </Modal>
@@ -211,11 +336,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContainer: {
-    backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '90%',
     paddingBottom: 20,
+    overflow: 'visible',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -223,12 +348,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1f2937',
   },
   closeButton: {
     padding: 4,
@@ -242,20 +365,15 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
     marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
-    color: '#1f2937',
-    backgroundColor: '#fff',
   },
   submitButton: {
-    backgroundColor: BRAND_MAROON,
     borderRadius: 10,
     padding: 16,
     flexDirection: 'row',
@@ -268,14 +386,12 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
   modalFooter: {
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
     gap: 12,
   },
   actionButtons: {
@@ -287,19 +403,99 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#d1d5db',
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#6b7280',
     fontSize: 16,
     fontWeight: '600',
   },
   saveButton: {
     flex: 1,
-    backgroundColor: BRAND_MAROON,
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  dropdownContainer: {
+    position: 'relative',
+    zIndex: 999998,
+  },
+  categoryDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+  },
+  dropdownIcon: {
+    marginRight: 8,
+  },
+  dropdownText: {
+    flex: 1,
+    fontSize: 15,
+  },
+  dropdownList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    borderRadius: 8,
+    marginTop: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 1000,
+    zIndex: 999999,
+    maxHeight: 200,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  dropdownScroll: {
+    maxHeight: 200,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+  },
+  selectedDropdownItem: {
+    // Styling will be applied dynamically
+  },
+  dropdownItemIcon: {
+    marginRight: 10,
+  },
+  dropdownItemText: {
+    flex: 1,
+    fontSize: 14,
+  },
+  selectedDropdownItemText: {
+    fontWeight: '600',
+  },
+  dropdownOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 9999,
+  },
+  fixedDropdownList: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 1000,
+    zIndex: 999999,
+    maxHeight: 200,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
 });

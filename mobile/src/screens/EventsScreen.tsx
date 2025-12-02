@@ -10,6 +10,7 @@ import { api } from '../lib/api';
 import type { Event } from '../types';
 import AddEventModal from '../components/AddEventModal';
 import { EventsStackParamList } from '../navigation/EventsStackNavigator';
+import { useTheme } from '../contexts';
 
 type Props = NativeStackScreenProps<EventsStackParamList, 'EventsList'>;
 
@@ -28,6 +29,7 @@ const getLast3MonthsRange = () => {
 };
 
 export default function EventsScreen({ navigation }: Props) {
+  const { colors, isDark } = useTheme();
   const last3MonthsRange = useMemo(getLast3MonthsRange, []);
   const { data: events, isLoading, error, refetch } = useEvents(last3MonthsRange);
   const [modalVisible, setModalVisible] = useState(false);
@@ -38,12 +40,8 @@ export default function EventsScreen({ navigation }: Props) {
   
   // Filter states
   const [searchText, setSearchText] = useState('');
-  const [selectedYear, setSelectedYear] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [showYearDropdown, setShowYearDropdown] = useState(false);
-  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [startDateObj, setStartDateObj] = useState(new Date());
@@ -65,29 +63,21 @@ export default function EventsScreen({ navigation }: Props) {
       
       const eventDate = new Date(event.eventDate);
       
-      // Use either year/month filters OR date range filters, not both
+      // Date range filter
       let matchesDateFilter = true;
       
-      if (startDate || endDate) {
-        // Use date range filter - comparing with eventDate
-        if (startDate && endDate) {
-          const start = new Date(startDate);
-          const end = new Date(endDate);
-          end.setHours(23, 59, 59, 999); // Include the entire end date
-          matchesDateFilter = eventDate >= start && eventDate <= end;
-        } else if (startDate) {
-          const start = new Date(startDate);
-          matchesDateFilter = eventDate >= start;
-        } else if (endDate) {
-          const end = new Date(endDate);
-          end.setHours(23, 59, 59, 999); // Include the entire end date
-          matchesDateFilter = eventDate <= end;
-        }
-      } else {
-        // Use year/month filters
-        const matchesYear = !selectedYear || eventDate.getFullYear().toString() === selectedYear;
-        const matchesMonth = !selectedMonth || eventDate.getMonth().toString() === selectedMonth;
-        matchesDateFilter = matchesYear && matchesMonth;
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999); // Include the entire end date
+        matchesDateFilter = eventDate >= start && eventDate <= end;
+      } else if (startDate) {
+        const start = new Date(startDate);
+        matchesDateFilter = eventDate >= start;
+      } else if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999); // Include the entire end date
+        matchesDateFilter = eventDate <= end;
       }
       
       return matchesSearch && matchesDateFilter;
@@ -97,13 +87,11 @@ export default function EventsScreen({ navigation }: Props) {
       const bDate = new Date(b.registeredOn || b.eventDate);
       return bDate.getTime() - aDate.getTime();
     });
-  }, [events, searchText, selectedYear, selectedMonth, startDate, endDate]);
+  }, [events, searchText, startDate, endDate]);
   
   // Clear all filters
   const clearFilters = () => {
     setSearchText('');
-    setSelectedYear('');
-    setSelectedMonth('');
     setStartDate('');
     setEndDate('');
     setStartDateObj(new Date());
@@ -114,11 +102,9 @@ export default function EventsScreen({ navigation }: Props) {
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (searchText) count++;
-    if (selectedYear) count++;
-    if (selectedMonth) count++;
     if (startDate || endDate) count++;
     return count;
-  }, [searchText, selectedYear, selectedMonth, startDate, endDate]);
+  }, [searchText, startDate, endDate]);
   
   // Get available years from events
   const availableYears = useMemo(() => {
@@ -198,13 +184,13 @@ export default function EventsScreen({ navigation }: Props) {
   };
 
   const renderEventItem = ({ item }: { item: Event }) => (
-    <TouchableOpacity style={styles.eventCard} onPress={() => handleViewDetails(item)}>
+    <TouchableOpacity style={[styles.eventCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => handleViewDetails(item)}>
       <View style={styles.eventHeader}>
         <View style={styles.eventInfo}>
-          <Text style={styles.eventName}>{item.eventName}</Text>
+          <Text style={[styles.eventName, { color: colors.text }]}>{item.eventName}</Text>
           {item.providedService && (
-            <View style={styles.serviceBadge}>
-              <Text style={styles.serviceBadgeText}>{item.providedService}</Text>
+            <View style={[styles.serviceBadge, { backgroundColor: isDark ? '#374151' : '#e0e7ff' }]}>
+              <Text style={[styles.serviceBadgeText, { color: isDark ? colors.primary : '#4338ca' }]}>{item.providedService}</Text>
             </View>
           )}
         </View>
@@ -214,7 +200,7 @@ export default function EventsScreen({ navigation }: Props) {
           </View>
           <View style={styles.actionButtons}>
             <TouchableOpacity 
-              style={styles.editButton}
+              style={[styles.editButton, { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.1)' : 'rgba(128, 0, 32, 0.1)' }]}
               onPress={(e) => {
                 e.stopPropagation();
                 handleEdit(item);
@@ -222,7 +208,7 @@ export default function EventsScreen({ navigation }: Props) {
               accessibilityRole="button"
               accessibilityLabel={`Edit ${item.eventName}`}
             >
-              <Ionicons name="create-outline" size={20} color={BRAND_MAROON} />
+              <Ionicons name="create-outline" size={20} color={isDark ? '#6366f1' : BRAND_MAROON} />
             </TouchableOpacity>
             
             <TouchableOpacity
@@ -232,31 +218,31 @@ export default function EventsScreen({ navigation }: Props) {
               }}
               accessibilityRole="button"
               accessibilityLabel={`Delete ${item.eventName}`}
-              style={styles.deleteButton}
+              style={[styles.deleteButton, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : 'rgba(220, 38, 38, 0.1)' }]}
             >
-              <Ionicons name="trash-outline" size={20} color="#dc2626" />
+              <Ionicons name="trash-outline" size={20} color={isDark ? '#ef4444' : '#dc2626'} />
             </TouchableOpacity>
           </View>
         </View>
       </View>
       
-      <Text style={styles.venueText}>📍 {item.venue}</Text>
-      <Text style={styles.dateText}>📅 {new Date(item.eventDate).toLocaleDateString()}</Text>
+      <Text style={[styles.venueText, { color: colors.textSecondary }]}>📍 {item.venue}</Text>
+      <Text style={[styles.dateText, { color: colors.textSecondary }]}>📅 {new Date(item.eventDate).toLocaleDateString()}</Text>
       
       {item.clientName && (
-        <Text style={styles.clientText}>👤 {item.clientName}</Text>
+        <Text style={[styles.clientText, { color: colors.textSecondary }]}>👤 {item.clientName}</Text>
       )}
       
       {item.finalizedQuote && (
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>Quote:</Text>
-          <Text style={styles.priceValue}>₹{parseFloat(item.finalizedQuote).toLocaleString()}</Text>
+        <View style={[styles.priceRow, { borderTopColor: colors.border }]}>
+          <Text style={[styles.priceLabel, { color: colors.textSecondary }]}>Quote:</Text>
+          <Text style={[styles.priceValue, { color: isDark ? '#4ade80' : '#10b981' }]}>₹{parseFloat(item.finalizedQuote).toLocaleString()}</Text>
         </View>
       )}
       {item.discount_amount && parseFloat(item.discount_amount) > 0 && (
         <View style={styles.discountRow}>
-          <Text style={styles.discountLabel}>Discount:</Text>
-          <Text style={styles.discountValue}>₹{parseFloat(item.discount_amount).toLocaleString()}</Text>
+          <Text style={[styles.discountLabel, { color: colors.textSecondary }]}>Discount:</Text>
+          <Text style={[styles.discountValue, { color: isDark ? '#f87171' : '#ef4444' }]}>₹{parseFloat(item.discount_amount).toLocaleString()}</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -264,321 +250,161 @@ export default function EventsScreen({ navigation }: Props) {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Failed to load events</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>Failed to load events</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Filter Section */}
-      <View style={styles.filterSection}>
-        <TouchableOpacity 
-          style={styles.filterHeader}
-          onPress={() => setFiltersExpanded(!filtersExpanded)}
-        >
-          <View style={styles.filterHeaderContent}>
-            <Ionicons name="options" size={18} color={BRAND_MAROON} style={styles.filterHeaderIcon} />
-            <Text style={styles.filterTitle}>Search & Filters</Text>
-            {activeFiltersCount > 0 && (
-              <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
-              </View>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Search and Filter Section */}
+      <View style={[styles.searchFilterContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchInputContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              placeholder="Search events by name, venue, or service..."
+              placeholderTextColor={colors.textSecondary}
+              value={searchText}
+              onChangeText={setSearchText}
+            />
+            {searchText.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchText('')}>
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
             )}
           </View>
+        </View>
+
+        {/* Filter Toggle Button */}
+        <TouchableOpacity
+          style={[styles.filterButton, { backgroundColor: colors.surface }]}
+          onPress={() => setFiltersExpanded(!filtersExpanded)}
+          activeOpacity={0.8}
+        >
           <Ionicons 
-            name={filtersExpanded ? "chevron-up" : "chevron-down"} 
+            name={filtersExpanded ? "filter" : "filter-outline"} 
             size={20} 
-            color={BRAND_MAROON} 
+            color={activeFiltersCount > 0 ? (isDark ? '#6366f1' : BRAND_MAROON) : colors.textSecondary} 
           />
+          {activeFiltersCount > 0 && (
+            <View style={[styles.filterBadge, { backgroundColor: isDark ? '#6366f1' : BRAND_MAROON }]}>
+              <Text style={[styles.filterBadgeText, { color: '#ffffff' }]}>
+                {activeFiltersCount}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
-        
-        {filtersExpanded && (
-          <View style={styles.filterContent}>
-            {/* Search by text */}
-            <View style={styles.searchContainer}>
-              <Ionicons name="search" size={20} color="#6b7280" style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search by event name, venue, or service..."
-                value={searchText}
-                onChangeText={setSearchText}
-                placeholderTextColor="#9ca3af"
-              />
-              {searchText && (
-                <TouchableOpacity onPress={() => setSearchText('')} style={styles.clearSearchButton}>
-                  <Ionicons name="close-circle" size={20} color="#6b7280" />
-                </TouchableOpacity>
-              )}
-            </View>
-
-        {/* Year/Month Filter */}
-        <View style={styles.filterTypeSection}>
-          <Text style={styles.filterTypeLabel}>Quick Date Filters:</Text>
-          <View style={styles.filterRow}>
-            <View style={styles.filterItem}>
-              <TouchableOpacity 
-                style={styles.filterDropdown}
-                onPress={() => setShowYearDropdown(!showYearDropdown)}
-              >
-                <Ionicons name="calendar" size={16} color="#6b7280" style={styles.filterIcon} />
-                <Text style={styles.filterText}>
-                  {selectedYear || 'Year'}
-                </Text>
-                <Ionicons 
-                  name={showYearDropdown ? "chevron-up" : "chevron-down"} 
-                  size={16} 
-                  color="#6b7280" 
-                />
-              </TouchableOpacity>
-              
-              {showYearDropdown && (
-                <Modal
-                  transparent={true}
-                  visible={showYearDropdown}
-                  animationType="fade"
-                  onRequestClose={() => setShowYearDropdown(false)}
-                >
-                  <TouchableOpacity 
-                    style={styles.dropdownModalOverlay} 
-                    onPress={() => setShowYearDropdown(false)}
-                  >
-                    <View style={[styles.modalDropdownList, { top: 320 }]}>
-                      <ScrollView style={styles.dropdownScroll}>
-                        <TouchableOpacity 
-                          style={[styles.dropdownItem, !selectedYear && styles.selectedDropdownItem]}
-                          onPress={() => {
-                            setSelectedYear('');
-                            setShowYearDropdown(false);
-                          }}
-                        >
-                          <Text style={[styles.dropdownItemText, !selectedYear && styles.selectedDropdownItemText]}>
-                            All Years
-                          </Text>
-                        </TouchableOpacity>
-                        {availableYears.map((year) => (
-                          <TouchableOpacity 
-                            key={year}
-                            style={[styles.dropdownItem, selectedYear === year.toString() && styles.selectedDropdownItem]}
-                            onPress={() => {
-                              setSelectedYear(year.toString());
-                              setShowYearDropdown(false);
-                              // Clear date range when using year filter
-                              setStartDate('');
-                              setEndDate('');
-                            }}
-                          >
-                            <Text style={[styles.dropdownItemText, selectedYear === year.toString() && styles.selectedDropdownItemText]}>
-                              {year}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  </TouchableOpacity>
-                </Modal>
-              )}
-            </View>
-
-            {/* Month Filter */}
-            <View style={styles.filterItem}>
-              <TouchableOpacity 
-                style={styles.filterDropdown}
-                onPress={() => setShowMonthDropdown(!showMonthDropdown)}
-              >
-                <Ionicons name="time" size={16} color="#6b7280" style={styles.filterIcon} />
-                <Text style={styles.filterText}>
-                  {selectedMonth ? months.find(m => m.value === selectedMonth)?.label : 'Month'}
-                </Text>
-                <Ionicons 
-                  name={showMonthDropdown ? "chevron-up" : "chevron-down"} 
-                  size={16} 
-                  color="#6b7280" 
-                />
-              </TouchableOpacity>
-              
-              {showMonthDropdown && (
-                <Modal
-                  transparent={true}
-                  visible={showMonthDropdown}
-                  animationType="fade"
-                  onRequestClose={() => setShowMonthDropdown(false)}
-                >
-                  <TouchableOpacity 
-                    style={styles.dropdownModalOverlay} 
-                    onPress={() => setShowMonthDropdown(false)}
-                  >
-                    <View style={[styles.modalDropdownList, { top: 320, left: '50%' }]}>
-                      <ScrollView style={styles.dropdownScroll}>
-                        <TouchableOpacity 
-                          style={[styles.dropdownItem, !selectedMonth && styles.selectedDropdownItem]}
-                          onPress={() => {
-                            setSelectedMonth('');
-                            setShowMonthDropdown(false);
-                          }}
-                        >
-                          <Text style={[styles.dropdownItemText, !selectedMonth && styles.selectedDropdownItemText]}>
-                            All Months
-                          </Text>
-                        </TouchableOpacity>
-                        {months.map((month) => (
-                          <TouchableOpacity 
-                            key={month.value}
-                            style={[styles.dropdownItem, selectedMonth === month.value && styles.selectedDropdownItem]}
-                            onPress={() => {
-                              setSelectedMonth(month.value);
-                              setShowMonthDropdown(false);
-                              // Clear date range when using month filter
-                              setStartDate('');
-                              setEndDate('');
-                            }}
-                          >
-                            <Text style={[styles.dropdownItemText, selectedMonth === month.value && styles.selectedDropdownItemText]}>
-                              {month.label}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  </TouchableOpacity>
-                </Modal>
-              )}
-            </View>
-          </View>
-        </View>
-
-        {/* Date Range Filter */}
-        <View style={styles.dateRangeContainer}>
-          <Text style={styles.dateRangeLabel}>Date Range:</Text>
-          <View style={styles.dateInputs}>
-            <View style={styles.dateInputContainer}>
-              <Text style={styles.dateInputLabel}>From:</Text>
-              <TouchableOpacity
-                style={styles.datePickerButton}
-                onPress={() => {
-                  setShowStartDatePicker(true);
-                  setShowYearDropdown(false);
-                  setShowMonthDropdown(false);
-                }}
-              >
-                <Ionicons name="calendar" size={16} color="#6b7280" style={styles.dateIcon} />
-                <Text style={styles.datePickerText}>
-                  {startDate || 'Select date'}
-                </Text>
-              </TouchableOpacity>
-              
-              {showStartDatePicker && (
-                <DateTimePicker
-                  value={startDateObj}
-                  mode="date"
-                  display="default"
-                  onChange={(event: any, selectedDate?: Date) => {
-                    setShowStartDatePicker(false);
-                    if (selectedDate) {
-                      setStartDateObj(selectedDate);
-                      setStartDate(selectedDate.toISOString().split('T')[0]);
-                      
-                      // If end date is before or same as start date, clear it
-                      if (endDateObj <= selectedDate) {
-                        setEndDate('');
-                        setEndDateObj(new Date(selectedDate.getTime() + 24 * 60 * 60 * 1000)); // Next day
-                      }
-                      
-                      // Clear year/month filters when using date range
-                      setSelectedYear('');
-                      setSelectedMonth('');
-                    }
-                  }}
-                />
-              )}
-            </View>
-            <View style={styles.dateInputContainer}>
-              <Text style={styles.dateInputLabel}>To:</Text>
-              <TouchableOpacity
-                style={[styles.datePickerButton, !startDate && styles.disabledDateButton]}
-                disabled={!startDate}
-                onPress={() => {
-                  if (!startDate) {
-                    Alert.alert(
-                      'Select Start Date First',
-                      'Please select a start date before choosing an end date',
-                      [{ text: 'OK' }]
-                    );
-                    return;
-                  }
-                  setShowEndDatePicker(true);
-                  setShowYearDropdown(false);
-                  setShowMonthDropdown(false);
-                }}
-              >
-                <Ionicons name="calendar" size={16} color={!startDate ? "#9ca3af" : "#6b7280"} style={styles.dateIcon} />
-                <Text style={[styles.datePickerText, !startDate && styles.disabledDateText]}>
-                  {endDate || 'Select date'}
-                </Text>
-              </TouchableOpacity>
-              
-              {showEndDatePicker && (
-                <DateTimePicker
-                  value={endDateObj}
-                  mode="date"
-                  display="default"
-                  minimumDate={startDate ? new Date(startDateObj.getTime() + 24 * 60 * 60 * 1000) : undefined}
-                  onChange={(event: any, selectedDate?: Date) => {
-                    setShowEndDatePicker(false);
-                    if (selectedDate) {
-                      // Ensure selected date is after start date
-                      if (startDate && selectedDate <= startDateObj) {
-                        Alert.alert(
-                          'Invalid Date Range',
-                          'End date must be after start date',
-                          [{ text: 'OK' }]
-                        );
-                        return;
-                      }
-                      
-                      setEndDateObj(selectedDate);
-                      setEndDate(selectedDate.toISOString().split('T')[0]);
-                      // Clear year/month filters when using date range
-                      setSelectedYear('');
-                      setSelectedMonth('');
-                    }
-                  }}
-                />
-              )}
-            </View>
-          </View>
-        </View>
-        
-        {/* Clear All Filters Button */}
-        {activeFiltersCount > 0 && (
-          <TouchableOpacity onPress={clearFilters} style={styles.clearAllButton}>
-            <Ionicons name="refresh" size={16} color="#6b7280" style={{ marginRight: 6 }} />
-            <Text style={styles.clearAllButtonText}>Clear All Filters ({activeFiltersCount})</Text>
-          </TouchableOpacity>
-        )}
       </View>
-    )}
-  </View>
 
-      {/* Dropdown Overlays */}
-      {(showYearDropdown || showMonthDropdown) && (
-        <TouchableOpacity 
-          style={styles.dropdownOverlay}
-          activeOpacity={1}
-          onPress={() => {
-            setShowYearDropdown(false);
-            setShowMonthDropdown(false);
-          }}
-        />
+      {/* Filter Options */}
+      {filtersExpanded && (
+        <View style={[styles.filtersContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {/* Date Range */}
+          <View style={styles.filterGroup}>
+            <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>From Date</Text>
+            <TouchableOpacity
+              style={[styles.datePickerButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={() => setShowStartDatePicker(true)}
+            >
+              <Ionicons name="calendar" size={16} color={colors.textSecondary} style={styles.dateIcon} />
+              <Text style={[styles.datePickerText, { color: colors.text }]}>
+                {startDate || 'Select date'}
+              </Text>
+            </TouchableOpacity>
+            
+            {showStartDatePicker && (
+              <DateTimePicker
+                value={startDateObj}
+                mode="date"
+                display="default"
+                onChange={(event: any, selectedDate?: Date) => {
+                  setShowStartDatePicker(false);
+                  if (selectedDate) {
+                    setStartDateObj(selectedDate);
+                    setStartDate(selectedDate.toISOString().split('T')[0]);
+                    
+                    // If end date is before or same as start date, clear it
+                    if (endDateObj <= selectedDate) {
+                      setEndDate('');
+                      setEndDateObj(new Date(selectedDate.getTime() + 24 * 60 * 60 * 1000)); // Next day
+                    }
+                  }
+                }}
+              />
+            )}
+          </View>
+          
+          {/* To Date */}
+          <View style={styles.filterGroup}>
+            <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>To Date</Text>
+            <TouchableOpacity
+              style={[styles.datePickerButton, { backgroundColor: colors.surface, borderColor: colors.border }, !startDate && { backgroundColor: colors.background, opacity: 0.6 }]}
+              disabled={!startDate}
+              onPress={() => {
+                if (!startDate) {
+                  Alert.alert(
+                    'Select Start Date First',
+                    'Please select a start date before choosing an end date',
+                    [{ text: 'OK' }]
+                  );
+                  return;
+                }
+                setShowEndDatePicker(true);
+              }}
+            >
+              <Ionicons name="calendar" size={16} color={!startDate ? colors.textSecondary : colors.textSecondary} style={styles.dateIcon} />
+              <Text style={[styles.datePickerText, { color: colors.text }, !startDate && { color: colors.textSecondary }]}>
+                {endDate || 'Select date'}
+              </Text>
+            </TouchableOpacity>
+            
+            {showEndDatePicker && (
+              <DateTimePicker
+                value={endDateObj}
+                mode="date"
+                display="default"
+                minimumDate={startDate ? new Date(startDateObj.getTime() + 24 * 60 * 60 * 1000) : undefined}
+                onChange={(event: any, selectedDate?: Date) => {
+                  setShowEndDatePicker(false);
+                  if (selectedDate) {
+                    // Ensure selected date is after start date
+                    if (startDate && selectedDate <= startDateObj) {
+                      Alert.alert(
+                        'Invalid Date Range',
+                        'End date must be after start date',
+                        [{ text: 'OK' }]
+                      );
+                      return;
+                    }
+                    
+                    setEndDateObj(selectedDate);
+                    setEndDate(selectedDate.toISOString().split('T')[0]);
+                  }
+                }}
+              />
+            )}
+          </View>
+
+          {/* Clear All Filters Button */}
+          {activeFiltersCount > 0 && (
+            <TouchableOpacity onPress={clearFilters} style={[styles.clearAllButton, { backgroundColor: isDark ? '#6366f1' : BRAND_MAROON }]}>
+              <Ionicons name="refresh" size={16} color="#ffffff" style={{ marginRight: 6 }} />
+              <Text style={[styles.clearAllButtonText, { color: '#ffffff' }]}>Clear All Filters ({activeFiltersCount})</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       )}
 
       <FlatList
@@ -596,16 +422,16 @@ export default function EventsScreen({ navigation }: Props) {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="search" size={48} color="#9ca3af" />
-            <Text style={styles.emptyText}>
+            <Ionicons name="search" size={48} color={colors.textSecondary} />
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               {events?.length === 0 
                 ? 'No events found' 
                 : 'No events match your filters'
               }
             </Text>
             {activeFiltersCount > 0 && (
-              <TouchableOpacity onPress={clearFilters} style={styles.clearAllButton}>
-                <Text style={styles.clearAllButtonText}>Clear All Filters</Text>
+              <TouchableOpacity onPress={clearFilters} style={[styles.clearAllButton, { backgroundColor: isDark ? '#6366f1' : BRAND_MAROON }]}>
+                <Text style={[styles.clearAllButtonText, { color: '#ffffff' }]}>Clear All Filters</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -613,7 +439,7 @@ export default function EventsScreen({ navigation }: Props) {
       />
       
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: isDark ? '#4a5568' : BRAND_MAROON }]}
         onPress={() => setModalVisible(true)}
         activeOpacity={0.8}
       >
@@ -628,26 +454,26 @@ export default function EventsScreen({ navigation }: Props) {
         onRequestClose={() => setShowDeleteConfirm(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.confirmationBox}>
-            <Text style={styles.confirmationTitle}>Delete Event?</Text>
-            <Text style={styles.warningText}>⚠️ This action cannot be undone!</Text>
-            <Text style={styles.confirmationMessage}>
+          <View style={[styles.confirmationBox, { backgroundColor: colors.card }]}>
+            <Text style={[styles.confirmationTitle, { color: colors.text }]}>Delete Event?</Text>
+            <Text style={[styles.warningText, { color: colors.error }]}>⚠️ This action cannot be undone!</Text>
+            <Text style={[styles.confirmationMessage, { color: colors.textSecondary }]}>
               Are you sure you want to delete "{eventToDelete?.eventName}"?
             </Text>
-            <View style={styles.deletionInfo}>
-              <Text style={styles.deletionInfoTitle}>This will permanently delete:</Text>
-              <Text style={styles.deletionInfoItem}>• The event and all its information</Text>
-              <Text style={styles.deletionInfoItem}>• All requirements</Text>
-              <Text style={styles.deletionInfoItem}>• All associated fulfillment plans</Text>
-              <Text style={styles.deletionInfoItem}>• All related invoicing data</Text>
+            <View style={[styles.deletionInfo, { backgroundColor: colors.background }]}>
+              <Text style={[styles.deletionInfoTitle, { color: colors.text }]}>This will permanently delete:</Text>
+              <Text style={[styles.deletionInfoItem, { color: colors.textSecondary }]}>• The event and all its information</Text>
+              <Text style={[styles.deletionInfoItem, { color: colors.textSecondary }]}>• All requirements</Text>
+              <Text style={[styles.deletionInfoItem, { color: colors.textSecondary }]}>• All associated fulfillment plans</Text>
+              <Text style={[styles.deletionInfoItem, { color: colors.textSecondary }]}>• All related invoicing data</Text>
             </View>
             <View style={styles.confirmationButtons}>
               <TouchableOpacity 
-                style={[styles.confirmButton, styles.cancelButton]}
+                style={[styles.confirmButton, styles.cancelButton, { backgroundColor: colors.surface }]}
                 onPress={() => setShowDeleteConfirm(false)}
                 disabled={deleteMutation.isPending}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.confirmButton, styles.deleteConfirmButton]}
@@ -724,7 +550,6 @@ const styles = StyleSheet.create({
   eventName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1f2937',
     flex: 1,
     marginRight: 8,
   },
@@ -745,11 +570,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: '#e0e7ff',
   },
   serviceBadgeText: {
     fontSize: 12,
-    color: '#4338ca',
     fontWeight: '600',
   },
   statusText: {
@@ -765,17 +588,14 @@ const styles = StyleSheet.create({
   },
   venueText: {
     fontSize: 14,
-    color: '#6b7280',
     marginBottom: 4,
   },
   dateText: {
     fontSize: 14,
-    color: '#6b7280',
     marginBottom: 4,
   },
   clientText: {
     fontSize: 14,
-    color: '#6b7280',
     marginBottom: 8,
   },
   priceRow: {
@@ -785,16 +605,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
   },
   priceLabel: {
     fontSize: 14,
-    color: '#6b7280',
   },
   priceValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#10b981',
   },
   discountRow: {
     flexDirection: 'row',
@@ -804,12 +621,10 @@ const styles = StyleSheet.create({
   },
   discountLabel: {
     fontSize: 14,
-    color: '#6b7280',
   },
   discountValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#ef4444',
   },
   actionButtons: {
     flexDirection: 'row',
@@ -819,14 +634,12 @@ const styles = StyleSheet.create({
   },
   editButton: {
     padding: 8,
-    backgroundColor: 'rgba(128, 0, 32, 0.1)',
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
   deleteButton: {
     padding: 8,
-    backgroundColor: 'rgba(220, 38, 38, 0.1)',
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -839,7 +652,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   confirmationBox: {
-    backgroundColor: 'white',
     borderRadius: 12,
     padding: 20,
     width: '100%',
@@ -849,22 +661,18 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     marginBottom: 8,
-    color: '#1f2937',
   },
   warningText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#dc2626',
     marginBottom: 12,
   },
   confirmationMessage: {
     fontSize: 16,
-    color: '#4b5563',
     marginBottom: 16,
     lineHeight: 24,
   },
   deletionInfo: {
-    backgroundColor: '#f9fafb',
     padding: 12,
     borderRadius: 8,
     marginBottom: 24,
@@ -873,11 +681,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
-    color: '#1f2937',
   },
   deletionInfoItem: {
     fontSize: 13,
-    color: '#4b5563',
     marginBottom: 4,
   },
   confirmationButtons: {
@@ -894,10 +700,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelButton: {
-    backgroundColor: '#f3f4f6',
   },
   cancelButtonText: {
-    color: '#4b5563',
     fontWeight: '500',
   },
   deleteConfirmButton: {
@@ -913,11 +717,9 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#9ca3af',
   },
   errorText: {
     fontSize: 16,
-    color: '#ef4444',
   },
   fab: {
     position: 'absolute',
@@ -926,7 +728,6 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: BRAND_MAROON,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 6,
@@ -948,66 +749,34 @@ const styles = StyleSheet.create({
     elevation: 3,
     overflow: 'hidden',
   },
-  filterHeader: {
+  searchFilterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#fafafa',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  filterHeaderContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  filterHeaderIcon: {
-    marginRight: 8,
-  },
-  filterBadge: {
-    backgroundColor: BRAND_MAROON,
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginLeft: 8,
-    minWidth: 20,
-    alignItems: 'center',
-  },
-  filterBadgeText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  filterContent: {
-    padding: 16,
-    zIndex: 1000,
-    position: 'relative',
-    overflow: 'visible',
-  },
-  filterTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  clearButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#ef4444',
-    borderRadius: 16,
-  },
-  clearButtonText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   searchContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 10,
     paddingHorizontal: 12,
-    marginBottom: 12,
+    paddingVertical: 10,
   },
   searchIcon: {
     marginRight: 8,
@@ -1015,131 +784,76 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#1f2937',
-    paddingVertical: 12,
+    fontWeight: '500',
+    paddingVertical: 8,
   },
-  clearSearchButton: {
-    padding: 4,
+  filterButton: {
+    position: 'relative',
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#f8f9fa',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  filterBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: BRAND_MAROON,
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+
+  filtersContainer: {
+    backgroundColor: '#ffffff',
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 12,
+    paddingVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  filtersScroll: {
+    flexGrow: 0,
+  },
+  filterGroup: {
+    marginBottom: 20,
+    paddingHorizontal: 16,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#374151',
   },
   filterTypeSection: {
     marginBottom: 16,
     overflow: 'visible',
   },
-  filterTypeLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 8,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-    overflow: 'visible',
-  },
-  filterItem: {
-    flex: 1,
-    position: 'relative',
-    zIndex: 1000,
-    overflow: 'visible',
-  },
-  filterDropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  filterIcon: {
-    marginRight: 8,
-  },
-  filterText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#1f2937',
-  },
-  dropdownOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'transparent',
-    zIndex: 9998,
-  },
-  dropdownModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  modalDropdownList: {
-    position: 'absolute',
-    width: '40%',
-    maxWidth: 200,
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 15,
-    maxHeight: 200,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    marginHorizontal: 16,
-  },
-  dropdownScroll: {
-    maxHeight: 200,
-  },
-  dropdownItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  selectedDropdownItem: {
-    backgroundColor: '#fef2f2',
-  },
-  dropdownItemText: {
-    fontSize: 14,
-    color: '#1f2937',
-  },
-  selectedDropdownItemText: {
-    fontWeight: '600',
-    color: BRAND_MAROON,
-  },
-  dateRangeContainer: {
-    marginTop: 16,
-    marginBottom: 8,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    zIndex: 1,
-    backgroundColor: '#ffffff',
-  },
-  dateRangeLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 8,
-  },
-  dateInputs: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  dateInputContainer: {
-    flex: 1,
-  },
   datePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-    paddingVertical: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 10,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    minHeight: 48,
+    borderColor: 'rgba(0,0,0,0.08)',
+    minHeight: 52,
   },
   dateIcon: {
     marginRight: 8,
@@ -1149,36 +863,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#374151',
   },
-  disabledDateButton: {
-    backgroundColor: '#f3f4f6',
-    opacity: 0.6,
-  },
-  disabledDateText: {
-    color: '#9ca3af',
-  },
-  dateInputLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginBottom: 4,
-  },
-  dateInput: {
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#1f2937',
-  },
+
   clearAllButton: {
     marginTop: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    marginHorizontal: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
     backgroundColor: BRAND_MAROON,
-    borderRadius: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
   clearAllButtonText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
   },
 });

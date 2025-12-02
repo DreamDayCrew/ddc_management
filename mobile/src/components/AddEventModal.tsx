@@ -18,6 +18,7 @@ import { DatePicker } from './DatePicker';
 import { Picker } from './Picker';
 import { Switch } from './Switch';
 import { Collapsible } from './Collapsible';
+import { useTheme } from '../contexts';
 
 interface AddEventModalProps {
   visible: boolean;
@@ -25,14 +26,17 @@ interface AddEventModalProps {
   event?: any;
 }
 
-const BRAND_MAROON = '#800020';
-
 export default function AddEventModal({ visible, onClose, event }: AddEventModalProps) {
+  const { colors, isDark } = useTheme();
   const queryClient = useQueryClient();
   const { data: config } = useConfiguration();
   
   const [eventDate, setEventDate] = useState<Date>(new Date());
   const [registeredDate, setRegisteredDate] = useState<Date>(new Date());
+  const [showServiceDropdown, setShowServiceDropdown] = useState(false);
+  const [showEventStatusDropdown, setShowEventStatusDropdown] = useState(false);
+  const [showPaymentModeDropdown, setShowPaymentModeDropdown] = useState(false);
+  const [showPaymentStatusDropdown, setShowPaymentStatusDropdown] = useState(false);
   const [formData, setFormData] = useState({
     eventName: '',
     providedService: '',
@@ -115,6 +119,10 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
     });
     setEventDate(new Date());
     setRegisteredDate(new Date());
+    setShowServiceDropdown(false);
+    setShowEventStatusDropdown(false);
+    setShowPaymentModeDropdown(false);
+    setShowPaymentStatusDropdown(false);
   };
 
   const handleSubmit = () => {
@@ -144,11 +152,11 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{event ? 'Edit Event' : 'Add New Event'}</Text>
+        <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{event ? 'Edit Event' : 'Add New Event'}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#666" />
+              <Ionicons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -156,32 +164,50 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
             {/* Basic Information Section */}
             <Collapsible title="Basic Information" defaultExpanded={true} icon="information-circle">
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Event Name *</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Event Name *</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
                   value={formData.eventName}
                   onChangeText={(text) => setFormData({ ...formData, eventName: text })}
                   placeholder="Enter event name"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.textSecondary}
                 />
               </View>
 
-              <Picker
-                label="Service Provided *"
-                value={formData.providedService}
-                onChange={(value) => setFormData({ ...formData, providedService: value })}
-                options={services}
-                placeholder="Select a service"
-              />
+              {/* Service Provided Dropdown */}
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Service Provided *</Text>
+                <View style={styles.dropdownContainer}>
+                  <TouchableOpacity 
+                    style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onPress={() => {
+                      setShowServiceDropdown(!showServiceDropdown);
+                      setShowEventStatusDropdown(false);
+                      setShowPaymentModeDropdown(false);
+                      setShowPaymentStatusDropdown(false);
+                    }}
+                  >
+                    <Ionicons name="business" size={20} color={colors.textSecondary} style={styles.dropdownIcon} />
+                    <Text style={[styles.dropdownText, { color: formData.providedService ? colors.text : colors.textSecondary }]}>
+                      {formData.providedService || 'Select a service'}
+                    </Text>
+                    <Ionicons 
+                      name={showServiceDropdown ? "chevron-up" : "chevron-down"} 
+                      size={20} 
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Venue *</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Venue *</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
                   value={formData.venue}
                   onChangeText={(text) => setFormData({ ...formData, venue: text })}
                   placeholder="Event venue location"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.textSecondary}
                 />
               </View>
 
@@ -198,23 +224,41 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
               />
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Source</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Source</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
                   value={formData.source}
                   onChangeText={(text) => setFormData({ ...formData, source: text })}
                   placeholder="How did you find us? (Instagram, Referral, etc.)"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.textSecondary}
                 />
               </View>
 
-              <Picker
-                label="Event Status"
-                value={formData.eventStatus}
-                onChange={(value) => setFormData({ ...formData, eventStatus: value })}
-                options={['Inquired', 'In Progress', 'Completed']}
-                placeholder="Select status"
-              />
+              {/* Event Status Dropdown */}
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Event Status</Text>
+                <View style={styles.dropdownContainer}>
+                  <TouchableOpacity 
+                    style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onPress={() => {
+                      setShowEventStatusDropdown(!showEventStatusDropdown);
+                      setShowServiceDropdown(false);
+                      setShowPaymentModeDropdown(false);
+                      setShowPaymentStatusDropdown(false);
+                    }}
+                  >
+                    <Ionicons name="flag" size={20} color={colors.textSecondary} style={styles.dropdownIcon} />
+                    <Text style={[styles.dropdownText, { color: formData.eventStatus ? colors.text : colors.textSecondary }]}>
+                      {formData.eventStatus || 'Select status'}
+                    </Text>
+                    <Ionicons 
+                      name={showEventStatusDropdown ? "chevron-up" : "chevron-down"} 
+                      size={20} 
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </Collapsible>
 
             {/* Discount Information Section */}
@@ -233,17 +277,21 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
                 />
                 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Discount Amount</Text>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Discount Amount</Text>
                   <TextInput
-                    style={[styles.input, !formData.discount && styles.inputDisabled]}
+                    style={[
+                      styles.input,
+                      { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text },
+                      !formData.discount && { backgroundColor: isDark ? '#374151' : '#f5f5f5', color: colors.textSecondary }
+                    ]}
                     value={formData.discountAmount}
                     onChangeText={(text) => setFormData({ ...formData, discountAmount: text })}
                     placeholder="Enter discount amount"
-                    placeholderTextColor="#999"
+                    placeholderTextColor={colors.textSecondary}
                     keyboardType="numeric"
                     editable={formData.discount}
                   />
-                  <Text style={styles.helpText}>The amount discounted from the invoice price</Text>
+                  <Text style={[styles.helpText, { color: colors.textSecondary }]}>The amount discounted from the invoice price</Text>
                 </View>
               </View>
             </Collapsible>
@@ -251,49 +299,49 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
             {/* Client Information Section */}
             <Collapsible title="Client Information" defaultExpanded={true} icon="person">
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Client Name</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Client Name</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
                   value={formData.clientName}
                   onChangeText={(text) => setFormData({ ...formData, clientName: text })}
                   placeholder="Client name"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.textSecondary}
                 />
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Client Phone</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Client Phone</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
                   value={formData.clientPhone}
                   onChangeText={(text) => setFormData({ ...formData, clientPhone: text })}
                   placeholder="Phone number"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.textSecondary}
                   keyboardType="phone-pad"
                 />
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Client Address</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Client Address</Text>
                 <TextInput
-                  style={[styles.input, styles.textArea]}
+                  style={[styles.input, styles.textArea, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
                   value={formData.clientAddress}
                   onChangeText={(text) => setFormData({ ...formData, clientAddress: text })}
                   placeholder="Client address"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.textSecondary}
                   multiline
                   numberOfLines={2}
                 />
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Client Email</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Client Email</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
                   value={formData.clientEmail}
                   onChangeText={(text) => setFormData({ ...formData, clientEmail: text })}
                   placeholder="email@example.com"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.textSecondary}
                   keyboardType="email-address"
                   autoCapitalize="none"
                 />
@@ -302,38 +350,237 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
 
             {/* Payment Information Section */}
             <Collapsible title="Payment Information" defaultExpanded={true} icon="card">
-              <Picker
-                label="Payment Mode"
-                value={formData.paymentMode}
-                onChange={(value) => setFormData({ ...formData, paymentMode: value })}
-                options={config?.paymentModes || ['Cash', 'Bank Transfer', 'UPI', 'Cheque', 'Card']}
-                placeholder="Select payment mode"
-              />
+              {/* Payment Mode Dropdown */}
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Payment Mode</Text>
+                <View style={styles.dropdownContainer}>
+                  <TouchableOpacity 
+                    style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onPress={() => {
+                      setShowPaymentModeDropdown(!showPaymentModeDropdown);
+                      setShowServiceDropdown(false);
+                      setShowEventStatusDropdown(false);
+                      setShowPaymentStatusDropdown(false);
+                    }}
+                  >
+                    <Ionicons name="wallet" size={20} color={colors.textSecondary} style={styles.dropdownIcon} />
+                    <Text style={[styles.dropdownText, { color: formData.paymentMode ? colors.text : colors.textSecondary }]}>
+                      {formData.paymentMode || 'Select payment mode'}
+                    </Text>
+                    <Ionicons 
+                      name={showPaymentModeDropdown ? "chevron-up" : "chevron-down"} 
+                      size={20} 
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-              <Picker
-                label="Payment Status"
-                value={formData.paymentStatus}
-                onChange={(value) => setFormData({ ...formData, paymentStatus: value })}
-                options={config?.paymentStatuses || ['Pending', 'Partial', 'Completed', 'Refunded']}
-                placeholder="Select payment status"
-              />
+              {/* Payment Status Dropdown */}
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Payment Status</Text>
+                <View style={styles.dropdownContainer}>
+                  <TouchableOpacity 
+                    style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onPress={() => {
+                      setShowPaymentStatusDropdown(!showPaymentStatusDropdown);
+                      setShowServiceDropdown(false);
+                      setShowEventStatusDropdown(false);
+                      setShowPaymentModeDropdown(false);
+                    }}
+                  >
+                    <Ionicons name="checkmark-circle" size={20} color={colors.textSecondary} style={styles.dropdownIcon} />
+                    <Text style={[styles.dropdownText, { color: formData.paymentStatus ? colors.text : colors.textSecondary }]}>
+                      {formData.paymentStatus || 'Select payment status'}
+                    </Text>
+                    <Ionicons 
+                      name={showPaymentStatusDropdown ? "chevron-up" : "chevron-down"} 
+                      size={20} 
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </Collapsible>
 
-            <TouchableOpacity
-              style={[styles.submitButton, createMutation.isPending && styles.submitButtonDisabled]}
-              onPress={handleSubmit}
-              disabled={createMutation.isPending}
-            >
-              {createMutation.isPending ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.submitButtonText}>{event ? 'Update Event' : 'Create Event'}</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            <View style={[styles.modalFooter, { borderTopColor: colors.border }]}>
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  style={[styles.cancelButton, { backgroundColor: isDark ? '#374151' : '#f3f4f6', borderColor: colors.border }]}
+                  onPress={onClose}
+                  disabled={createMutation.isPending}
+                >
+                  <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.submitButton, { backgroundColor: isDark ? '#4a5568' : '#800020' }, createMutation.isPending && styles.submitButtonDisabled]}
+                  onPress={handleSubmit}
+                  disabled={createMutation.isPending}
+                >
+                  {createMutation.isPending ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.submitButtonText}>{event ? 'Update Event' : 'Create Event'}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
           </ScrollView>
+          
+          {/* Service Dropdown List - Outside ScrollView for proper layering */}
+          {showServiceDropdown && (
+            <View style={[styles.fixedDropdownList, { backgroundColor: colors.card, borderColor: colors.border, top: 260 }]}>
+              <ScrollView 
+                nestedScrollEnabled={true}
+                showsVerticalScrollIndicator={true}
+                indicatorStyle={isDark ? "white" : "black"}
+                style={styles.dropdownScroll}
+              >
+                {services.map((service: string) => (
+                  <TouchableOpacity 
+                    key={service}
+                    style={[
+                      styles.dropdownItem, 
+                      { backgroundColor: colors.card, borderBottomColor: colors.border },
+                      formData.providedService === service && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                    ]}
+                    onPress={() => {
+                      setFormData({ ...formData, providedService: service });
+                      setShowServiceDropdown(false);
+                    }}
+                  >
+                    <Ionicons name="business" size={18} color={formData.providedService === service ? colors.primary : colors.textSecondary} style={styles.dropdownItemIcon} />
+                    <Text style={[styles.dropdownItemText, { color: colors.text }, formData.providedService === service && [styles.selectedDropdownItemText, { color: isDark ? '#e2e8f0' : colors.primary }]]}>
+                      {service}
+                    </Text>
+                    {formData.providedService === service && (
+                      <Ionicons name="checkmark" size={16} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+          
+          {/* Event Status Dropdown List */}
+          {showEventStatusDropdown && (
+            <View style={[styles.fixedDropdownList, { backgroundColor: colors.card, borderColor: colors.border, top: 320 }]}>
+              <ScrollView 
+                nestedScrollEnabled={true}
+                showsVerticalScrollIndicator={true}
+                indicatorStyle={isDark ? "white" : "black"}
+                style={styles.dropdownScroll}
+              >
+                {['Inquired', 'In Progress', 'Completed'].map((status: string) => (
+                  <TouchableOpacity 
+                    key={status}
+                    style={[
+                      styles.dropdownItem, 
+                      { backgroundColor: colors.card, borderBottomColor: colors.border },
+                      formData.eventStatus === status && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                    ]}
+                    onPress={() => {
+                      setFormData({ ...formData, eventStatus: status });
+                      setShowEventStatusDropdown(false);
+                    }}
+                  >
+                    <Ionicons name="flag" size={18} color={formData.eventStatus === status ? colors.primary : colors.textSecondary} style={styles.dropdownItemIcon} />
+                    <Text style={[styles.dropdownItemText, { color: colors.text }, formData.eventStatus === status && [styles.selectedDropdownItemText, { color: isDark ? '#e2e8f0' : colors.primary }]]}>
+                      {status}
+                    </Text>
+                    {formData.eventStatus === status && (
+                      <Ionicons name="checkmark" size={16} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+          
+          {/* Payment Mode Dropdown List */}
+          {showPaymentModeDropdown && (
+            <View style={[styles.fixedDropdownList, { backgroundColor: colors.card, borderColor: colors.border, top: 380 }]}>
+              <ScrollView 
+                nestedScrollEnabled={true}
+                showsVerticalScrollIndicator={true}
+                indicatorStyle={isDark ? "white" : "black"}
+                style={styles.dropdownScroll}
+              >
+                {(config?.paymentModes || ['Cash', 'Bank Transfer', 'UPI', 'Cheque', 'Card']).map((mode: string) => (
+                  <TouchableOpacity 
+                    key={mode}
+                    style={[
+                      styles.dropdownItem, 
+                      { backgroundColor: colors.card, borderBottomColor: colors.border },
+                      formData.paymentMode === mode && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                    ]}
+                    onPress={() => {
+                      setFormData({ ...formData, paymentMode: mode });
+                      setShowPaymentModeDropdown(false);
+                    }}
+                  >
+                    <Ionicons name="wallet" size={18} color={formData.paymentMode === mode ? colors.primary : colors.textSecondary} style={styles.dropdownItemIcon} />
+                    <Text style={[styles.dropdownItemText, { color: colors.text }, formData.paymentMode === mode && [styles.selectedDropdownItemText, { color: isDark ? '#e2e8f0' : colors.primary }]]}>
+                      {mode}
+                    </Text>
+                    {formData.paymentMode === mode && (
+                      <Ionicons name="checkmark" size={16} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+          
+          {/* Payment Status Dropdown List */}
+          {showPaymentStatusDropdown && (
+            <View style={[styles.fixedDropdownList, { backgroundColor: colors.card, borderColor: colors.border, top: 440 }]}>
+              <ScrollView 
+                nestedScrollEnabled={true}
+                showsVerticalScrollIndicator={true}
+                indicatorStyle={isDark ? "white" : "black"}
+                style={styles.dropdownScroll}
+              >
+                {(config?.paymentStatuses || ['Pending', 'Partial', 'Completed', 'Refunded']).map((status: string) => (
+                  <TouchableOpacity 
+                    key={status}
+                    style={[
+                      styles.dropdownItem, 
+                      { backgroundColor: colors.card, borderBottomColor: colors.border },
+                      formData.paymentStatus === status && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                    ]}
+                    onPress={() => {
+                      setFormData({ ...formData, paymentStatus: status });
+                      setShowPaymentStatusDropdown(false);
+                    }}
+                  >
+                    <Ionicons name="checkmark-circle" size={18} color={formData.paymentStatus === status ? colors.primary : colors.textSecondary} style={styles.dropdownItemIcon} />
+                    <Text style={[styles.dropdownItemText, { color: colors.text }, formData.paymentStatus === status && [styles.selectedDropdownItemText, { color: isDark ? '#e2e8f0' : colors.primary }]]}>
+                      {status}
+                    </Text>
+                    {formData.paymentStatus === status && (
+                      <Ionicons name="checkmark" size={16} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+          
+          {/* Overlay to close dropdowns */}
+          {(showServiceDropdown || showEventStatusDropdown || showPaymentModeDropdown || showPaymentStatusDropdown) && (
+            <TouchableOpacity 
+              style={styles.dropdownOverlay}
+              onPress={() => {
+                setShowServiceDropdown(false);
+                setShowEventStatusDropdown(false);
+                setShowPaymentModeDropdown(false);
+                setShowPaymentStatusDropdown(false);
+              }}
+              activeOpacity={1}
+            />
+          )}
         </View>
       </View>
     </Modal>
@@ -347,7 +594,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContainer: {
-    backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '95%',
@@ -359,12 +605,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1f2937',
   },
   closeButton: {
     padding: 4,
@@ -378,17 +622,13 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
     marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
-    color: '#1f2937',
-    backgroundColor: '#fff',
   },
   textArea: {
     minHeight: 60,
@@ -397,25 +637,105 @@ const styles = StyleSheet.create({
   discountSection: {
     marginBottom: 16,
   },
-  inputDisabled: {
-    backgroundColor: '#f5f5f5',
-    color: '#9ca3af',
-  },
   helpText: {
     fontSize: 12,
-    color: '#6b7280',
     marginTop: 4,
     fontStyle: 'italic',
   },
-  submitButton: {
-    backgroundColor: BRAND_MAROON,
-    borderRadius: 10,
-    padding: 16,
+  dropdownContainer: {
+    position: 'relative',
+    zIndex: 1,
+  },
+  categoryDropdown: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 20,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 48,
+  },
+  dropdownIcon: {
+    marginRight: 12,
+  },
+  dropdownText: {
+    flex: 1,
+    fontSize: 15,
+  },
+  fixedDropdownList: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 1000,
+    zIndex: 999999,
+    maxHeight: 200,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  dropdownScroll: {
+    maxHeight: 200,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 0.5,
+  },
+  selectedDropdownItem: {
+    borderRadius: 4,
+    marginHorizontal: 4,
+    marginVertical: 1,
+  },
+  dropdownItemIcon: {
+    marginRight: 12,
+  },
+  dropdownItemText: {
+    flex: 1,
+    fontSize: 14,
+  },
+  selectedDropdownItemText: {
+    fontWeight: '600',
+  },
+  dropdownOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 9999,
+  },
+  modalFooter: {
+    borderTopWidth: 1,
+    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  submitButton: {
+    flex: 1,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
   },
   submitButtonDisabled: {
     opacity: 0.6,

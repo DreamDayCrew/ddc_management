@@ -1,5 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, View, Text, StyleSheet, Animated } from 'react-native';
+import { useTheme } from '../contexts';
 
 interface SwitchProps {
   value: boolean;
@@ -9,6 +10,7 @@ interface SwitchProps {
 }
 
 export function Switch({ value, onValueChange, disabled = false, label }: SwitchProps) {
+  const { colors } = useTheme();
   const translateX = React.useRef(new Animated.Value(value ? 20 : 0)).current;
 
   React.useEffect(() => {
@@ -27,22 +29,26 @@ export function Switch({ value, onValueChange, disabled = false, label }: Switch
 
   return (
     <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={[styles.label, { color: colors.text }]}>{label}</Text>}
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={handlePress}
         disabled={disabled}
         style={[
           styles.switchContainer,
-          value ? styles.switchContainerActive : styles.switchContainerInactive,
-          disabled && styles.switchContainerDisabled,
+          {
+            backgroundColor: value ? colors.primary : colors.border,
+            opacity: disabled ? 0.5 : 1,
+          },
         ]}
       >
         <Animated.View
           style={[
             styles.switchThumb,
-            value ? styles.switchThumbActive : styles.switchThumbInactive,
-            { transform: [{ translateX }] },
+            {
+              backgroundColor: colors.card,
+              transform: [{ translateX }],
+            },
           ]}
         />
       </TouchableOpacity>

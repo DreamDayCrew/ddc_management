@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSecurity } from '../contexts/SecurityContext';
+import { useSecurity } from '../contexts';
+import { useTheme } from '../contexts';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 const BRAND_MAROON = '#800020';
@@ -56,6 +57,7 @@ const settingsMenu: MenuItem[] = [
 
 export default function MoreScreen({ navigation }: any) {
   const { securitySettings, logout } = useSecurity();
+  const { colors, isDark } = useTheme();
 
   const handleLogout = () => {
     console.log('Lock App button pressed'); // Debug log
@@ -81,23 +83,23 @@ export default function MoreScreen({ navigation }: any) {
   const renderMenuItem = (item: MenuItem) => (
     <TouchableOpacity
       key={item.id}
-      style={styles.menuItem}
+      style={[styles.menuItem, { backgroundColor: colors.card, borderColor: colors.border }]}
       onPress={() => navigation.navigate(item.screen)}
       data-testid={`button-navigate-${item.id}`}
     >
-      <View style={styles.menuIconContainer}>
-        <Ionicons name={item.icon} size={24} color={BRAND_MAROON} />
+      <View style={[styles.menuIconContainer, { backgroundColor: isDark ? colors.surface : 'rgba(128, 0, 32, 0.1)' }]}>
+        <Ionicons name={item.icon} size={24} color={colors.primary} />
       </View>
       <View style={styles.menuContent}>
-        <Text style={styles.menuTitle}>{item.title}</Text>
-        <Text style={styles.menuDescription}>{item.description}</Text>
+        <Text style={[styles.menuTitle, { color: colors.text }]}>{item.title}</Text>
+        <Text style={[styles.menuDescription, { color: colors.textSecondary }]}>{item.description}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
     </TouchableOpacity>
   );
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       {/*<View style={styles.header}>
         <Image 
           source={require('../../assets/ddc-logo.jpeg')}
@@ -107,14 +109,14 @@ export default function MoreScreen({ navigation }: any) {
       </View> */}
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Resources</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Resources</Text>
         <View style={styles.menuList}>
           {resourcesMenu.map(renderMenuItem)}
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Settings</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Settings</Text>
         <View style={styles.menuList}>
           {settingsMenu.map(renderMenuItem)}
         </View>
@@ -123,28 +125,28 @@ export default function MoreScreen({ navigation }: any) {
       {/* Security Section */}
       {(securitySettings.pinEnabled || securitySettings.biometricEnabled) && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Security</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Security</Text>
           <View style={styles.menuList}>
             <TouchableOpacity
-              style={[styles.menuItem, styles.logoutItem]}
+              style={[styles.menuItem, styles.logoutItem, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={handleLogout}
             >
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="log-out-outline" size={24} color="#ef4444" />
+              <View style={[styles.menuIconContainer, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2' }]}>
+                <Ionicons name="log-out-outline" size={24} color={colors.error} />
               </View>
               <View style={styles.menuContent}>
-                <Text style={[styles.menuTitle, { color: '#ef4444' }]}>Lock App</Text>
-                <Text style={styles.menuDescription}>Lock the app and require authentication</Text>
+                <Text style={[styles.menuTitle, { color: colors.error }]}>Lock App</Text>
+                <Text style={[styles.menuDescription, { color: colors.textSecondary }]}>Lock the app and require authentication</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#ef4444" />
+              <Ionicons name="chevron-forward" size={20} color={colors.error} />
             </TouchableOpacity>
           </View>
         </View>
       )}
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Dream Day Crew</Text>
-        <Text style={styles.footerSubtext}>Event Management System v1.0.8</Text>
+        <Text style={[styles.footerText, { color: colors.text }]}>Dream Day Crew</Text>
+        <Text style={[styles.footerSubtext, { color: colors.textSecondary }]}>Event Management System v1.0.9</Text>
       </View>
     </ScrollView>
   );

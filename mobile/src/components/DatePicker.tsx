@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TouchableOpacity, Platform, StyleSheet } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts';
 
 interface DatePickerProps {
   label: string;
@@ -11,6 +12,7 @@ interface DatePickerProps {
 }
 
 export function DatePicker({ label, value, onChange, error }: DatePickerProps) {
+  const { colors } = useTheme();
   const [show, setShow] = useState(false);
 
   const handleChange = (event: any, selectedDate?: Date) => {
@@ -22,18 +24,18 @@ export function DatePicker({ label, value, onChange, error }: DatePickerProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
       <TouchableOpacity
-        style={[styles.input, error && styles.inputError]}
+        style={[styles.input, { backgroundColor: colors.card, borderColor: error ? colors.error : colors.border }]}
         onPress={() => setShow(true)}
       >
-        <Text style={styles.inputText}>
+        <Text style={[styles.inputText, { color: colors.text }]}>
           {value.toLocaleDateString()}
         </Text>
-        <Ionicons name="calendar-outline" size={20} color="#6b7280" />
+        <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
       </TouchableOpacity>
       
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>}
       
       {show && (
         <DateTimePicker
@@ -54,7 +56,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
     marginBottom: 8,
   },
   input: {
@@ -62,22 +63,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#d1d5db',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: '#fff',
   },
   inputError: {
-    borderColor: '#ef4444',
+    // Will be handled dynamically
   },
   inputText: {
     fontSize: 16,
-    color: '#1f2937',
   },
   errorText: {
     fontSize: 12,
-    color: '#ef4444',
     marginTop: 4,
   },
 });

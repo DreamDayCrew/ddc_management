@@ -102,7 +102,7 @@ export function ExpenseRow({
               className="text-sm text-muted-foreground mt-1"
               data-testid={`expense-closing-balance-${id}`}
             >
-              Balance: ₹{parseFloat(closing_balance).toFixed(2)}
+              Closing Balance: ₹{parseFloat(closing_balance).toFixed(2)}
             </span>
           )}
         </div>

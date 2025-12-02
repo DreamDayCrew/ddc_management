@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Picker as RNPicker } from '@react-native-picker/picker';
+import { useTheme } from '../contexts';
 
 interface PickerProps {
   label: string;
@@ -11,22 +12,24 @@ interface PickerProps {
 }
 
 export function Picker({ label, value, onChange, options, error, placeholder }: PickerProps) {
+  const { colors } = useTheme();
+  
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={[styles.pickerContainer, error && styles.pickerContainerError]}>
+      <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
+      <View style={[styles.pickerContainer, { backgroundColor: colors.card, borderColor: error ? colors.error : colors.border }]}>
         <RNPicker
           selectedValue={value}
           onValueChange={onChange}
-          style={styles.picker}
+          style={[styles.picker, { color: colors.text }]}
         >
-          {placeholder && <RNPicker.Item label={placeholder} value="" />}
+          {placeholder && <RNPicker.Item label={placeholder} value="" color={colors.textSecondary} />}
           {options.map((option) => (
-            <RNPicker.Item key={option} label={option} value={option} />
+            <RNPicker.Item key={option} label={option} value={option} color={colors.text} />
           ))}
         </RNPicker>
       </View>
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>}
     </View>
   );
 }
@@ -38,24 +41,20 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
     marginBottom: 8,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
     borderRadius: 8,
-    backgroundColor: '#fff',
   },
   pickerContainerError: {
-    borderColor: '#ef4444',
+    // Will be handled dynamically
   },
   picker: {
     height: 50,
   },
   errorText: {
     fontSize: 12,
-    color: '#ef4444',
     marginTop: 4,
   },
 });

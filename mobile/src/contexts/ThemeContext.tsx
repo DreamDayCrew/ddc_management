@@ -45,17 +45,17 @@ const lightColors: ThemeColors = {
 };
 
 const darkColors: ThemeColors = {
-  background: '#111827',
-  card: '#1f2937',
-  text: '#f9fafb',
-  textSecondary: '#9ca3af',
-  border: '#374151',
-  primary: '#800020',
+  background: '#0f0f0f',
+  card: '#1a1a1a',
+  text: '#ffffff',
+  textSecondary: '#b3b3b3',
+  border: '#333333',
+  primary: '#007acc',
   primaryText: '#ffffff',
-  surface: '#374151',
-  error: '#ef4444',
-  success: '#10b981',
-  warning: '#f59e0b',
+  surface: '#262626',
+  error: '#ff6b6b',
+  success: '#51cf66',
+  warning: '#ffd43b',
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);

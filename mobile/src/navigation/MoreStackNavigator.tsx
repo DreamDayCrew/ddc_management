@@ -5,6 +5,7 @@ import TeamScreen from '../screens/TeamScreen';
 import VendorsScreen from '../screens/VendorsScreen';
 import ConfigurationScreen from '../screens/ConfigurationScreen';
 import AppConfigurationScreen from '../screens/AppConfigurationScreen';
+import { useTheme } from '../contexts';
 
 export type MoreStackParamList = {
   MoreMenu: undefined;
@@ -20,11 +21,13 @@ const Stack = createNativeStackNavigator<MoreStackParamList>();
 const BRAND_MAROON = '#800020';
 
 export default function MoreStackNavigator() {
+  const { colors, isDark } = useTheme();
+  
   return (
     <Stack.Navigator
       screenOptions={{
         headerStyle: {
-          backgroundColor: BRAND_MAROON,
+          backgroundColor: isDark ? '#2d3748' : BRAND_MAROON,
         },
         headerTitleStyle: {
           fontWeight: 'bold',

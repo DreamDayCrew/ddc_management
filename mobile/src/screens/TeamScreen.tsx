@@ -4,12 +4,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTeamMembers } from '../hooks/useApi';
 import type { TeamMember } from '../types';
 import AddTeamMemberModal from '../components/AddTeamMemberModal';
+import { useTheme } from '../contexts';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
 const BRAND_MAROON = '#800020';
 
 export default function TeamScreen() {
+  const { colors, isDark } = useTheme();
   const { data: team, isLoading, error } = useTeamMembers();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
@@ -59,7 +61,7 @@ export default function TeamScreen() {
   };
 
   const renderTeamMember = ({ item }: { item: TeamMember }) => (
-    <View style={styles.memberCard}>
+    <View style={[styles.memberCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <TouchableOpacity 
         style={styles.memberContent}
         onPress={() => {
@@ -67,18 +69,18 @@ export default function TeamScreen() {
           handleEdit(item);
         }}
       >
-        <View style={styles.avatar}>
+        <View style={[styles.avatar, { backgroundColor: isDark ? '#4a5568' : '#2563eb' }]}>
           <Text style={styles.avatarText}>
             {item.name.charAt(0).toUpperCase()}
           </Text>
         </View>
         <View style={styles.memberInfo}>
-          <Text style={styles.memberName}>{item.name}</Text>
-          <Text style={styles.memberDesignation}>{item.designation}</Text>
+          <Text style={[styles.memberName, { color: colors.text }]}>{item.name}</Text>
+          <Text style={[styles.memberDesignation, { color: colors.textSecondary }]}>{item.designation}</Text>
         </View>
       </TouchableOpacity>
       <TouchableOpacity 
-        style={styles.deleteButton}
+        style={[styles.deleteButton, { backgroundColor: isDark ? 'rgba(248, 113, 113, 0.2)' : 'rgba(220, 38, 38, 0.1)' }]}
         onPress={(e) => {
           e.stopPropagation(); // Prevent event bubbling to parent
           console.log('Trash icon pressed for:', item.id);
@@ -86,32 +88,32 @@ export default function TeamScreen() {
         }}
         testID={`delete-member-${item.id}`}
       >
-        <Ionicons name="trash-outline" size={22} color="#dc2626" />
+        <Ionicons name="trash-outline" size={22} color={isDark ? '#f87171' : '#dc2626'} />
       </TouchableOpacity>
     </View>
   );
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={isDark ? '#4a5568' : '#2563eb'} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Failed to load team members</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>Failed to load team members</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Team Members</Text>
-        <Text style={styles.headerSubtitle}>{team?.length || 0} members</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Team Members</Text>
+        <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>{team?.length || 0} members</Text>
       </View>
 
       <FlatList
@@ -121,13 +123,13 @@ export default function TeamScreen() {
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No team members found</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No team members found</Text>
           </View>
         }
       />
 
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: isDark ? '#4a5568' : BRAND_MAROON }]}
         onPress={() => setModalVisible(true)}
         activeOpacity={0.8}
       >
@@ -148,17 +150,17 @@ export default function TeamScreen() {
         onRequestClose={cancelDelete}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.confirmationBox}>
-            <Text style={styles.confirmTitle}>Delete Team Member</Text>
-            <Text style={styles.confirmMessage}>
+          <View style={[styles.confirmationBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.confirmTitle, { color: colors.text }]}>Delete Team Member</Text>
+            <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
               Are you sure you want to delete {memberToDelete?.name}?
             </Text>
             <View style={styles.confirmButtons}>
               <TouchableOpacity 
-                style={[styles.confirmButton, styles.cancelButton]}
+                style={[styles.confirmButton, styles.cancelButton, { backgroundColor: isDark ? '#374151' : '#e5e7eb' }]}
                 onPress={cancelDelete}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: isDark ? '#d1d5db' : '#4b5563' }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.confirmButton, styles.deleteConfirmButton]}
@@ -177,29 +179,23 @@ export default function TeamScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#ffffff',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1f2937',
     marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
   },
   listContent: {
     padding: 16,
@@ -207,7 +203,6 @@ const styles = StyleSheet.create({
   memberCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     borderRadius: 12,
     paddingRight: 4, // Reduced right padding since delete button has its own padding
     marginBottom: 12,
@@ -217,6 +212,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
     position: 'relative', // For z-index to work on children
+    borderWidth: 1,
   },
   memberContent: {
     flex: 1,
@@ -228,7 +224,6 @@ const styles = StyleSheet.create({
     padding: 12,
     marginLeft: 8,
     zIndex: 10, // Ensure it's above other elements
-    backgroundColor: 'rgba(220, 38, 38, 0.1)', // Light red background
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -237,7 +232,6 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#2563eb',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -253,12 +247,10 @@ const styles = StyleSheet.create({
   memberName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2937',
     marginBottom: 4,
   },
   memberDesignation: {
     fontSize: 14,
-    color: '#6b7280',
   },
   emptyContainer: {
     padding: 40,
@@ -266,11 +258,9 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#9ca3af',
   },
   errorText: {
     fontSize: 16,
-    color: '#ef4444',
   },
   fab: {
     position: 'absolute',
@@ -279,7 +269,6 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: BRAND_MAROON,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 6,
@@ -295,11 +284,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   confirmationBox: {
-    backgroundColor: 'white',
     borderRadius: 12,
     padding: 20,
     width: '100%',
     maxWidth: 400,
+    borderWidth: 1,
   },
   confirmModal: {
     width: '80%',
@@ -332,13 +321,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#e5e7eb',
   },
   deleteConfirmButton: {
     backgroundColor: '#ef4444',
   },
   cancelButtonText: {
-    color: '#4b5563',
     fontWeight: '600',
   },
   deleteButtonText: {

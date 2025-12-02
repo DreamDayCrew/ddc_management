@@ -7,6 +7,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts';
 
 interface ConfirmDialogProps {
   visible: boolean;
@@ -31,6 +32,8 @@ export default function ConfirmDialog({
   onCancel,
   confirmStyle = 'default'
 }: ConfirmDialogProps) {
+  const { colors } = useTheme();
+  
   return (
     <Modal
       visible={visible}
@@ -39,39 +42,39 @@ export default function ConfirmDialog({
       onRequestClose={onCancel}
     >
       <View style={styles.overlay}>
-        <View style={styles.dialog}>
+        <View style={[styles.dialog, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.header}>
             <Ionicons 
               name={confirmStyle === 'destructive' ? "warning-outline" : "information-circle-outline"} 
               size={24} 
-              color={confirmStyle === 'destructive' ? "#ef4444" : BRAND_MAROON} 
+              color={confirmStyle === 'destructive' ? colors.error : colors.primary} 
             />
-            <Text style={styles.title}>{title}</Text>
+            <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
           </View>
           
-          <Text style={styles.message}>{message}</Text>
+          <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
           
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
+              style={[styles.button, styles.cancelButton, { backgroundColor: colors.background, borderColor: colors.border }]}
               onPress={onCancel}
               data-testid="confirm-dialog-cancel"
             >
-              <Text style={styles.cancelButtonText}>{cancelText}</Text>
+              <Text style={[styles.cancelButtonText, { color: colors.text }]}>{cancelText}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
               style={[
                 styles.button, 
                 styles.confirmButton,
-                confirmStyle === 'destructive' && styles.destructiveButton
+                { backgroundColor: confirmStyle === 'destructive' ? colors.error : colors.primary }
               ]}
               onPress={onConfirm}
               data-testid="confirm-dialog-confirm"
             >
               <Text style={[
                 styles.confirmButtonText,
-                confirmStyle === 'destructive' && styles.destructiveButtonText
+                { color: colors.card }
               ]}>
                 {confirmText}
               </Text>

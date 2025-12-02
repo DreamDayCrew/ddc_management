@@ -1,5 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts';
 import DashboardScreen from '../screens/DashboardScreen';
 import EventsStackNavigator from './EventsStackNavigator';
 import ExpensesScreen from '../screens/ExpensesScreen';
@@ -11,6 +12,8 @@ const BRAND_MAROON = '#800020';
 const BRAND_MAROON_LIGHT = '#a0203a';
 
 export default function BottomTabNavigator() {
+  const { colors, isDark } = useTheme();
+  
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -29,12 +32,12 @@ export default function BottomTabNavigator() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: BRAND_MAROON,
-        tabBarInactiveTintColor: '#9ca3af',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: '#ffffff',
+          backgroundColor: colors.card,
           borderTopWidth: 1,
-          borderTopColor: '#e5e7eb',
+          borderTopColor: colors.border,
           paddingBottom: 8,
           paddingTop: 8,
           height: 65,
@@ -44,7 +47,7 @@ export default function BottomTabNavigator() {
           fontWeight: '600',
         },
         headerStyle: {
-          backgroundColor: BRAND_MAROON,
+          backgroundColor: isDark ? '#2d3748' : BRAND_MAROON,
           elevation: 4,
           shadowOpacity: 0.3,
           shadowOffset: { width: 0, height: 2 },

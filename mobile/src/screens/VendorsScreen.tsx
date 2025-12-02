@@ -6,10 +6,12 @@ import { api } from '../lib/api';
 import type { Vendor } from '../types';
 import AddVendorModal from '../components/AddVendorModal';
 import { useConfiguration } from '../hooks/useApi';
+import { useTheme } from '../contexts';
 
 const BRAND_MAROON = '#800020';
 
 export default function VendorsScreen() {
+  const { colors, isDark } = useTheme();
   const queryClient = useQueryClient();
   const { data: config } = useConfiguration();
   
@@ -103,19 +105,19 @@ export default function VendorsScreen() {
 
   const renderVendorItem = ({ item }: { item: Vendor }) => (
     <TouchableOpacity 
-      style={styles.vendorCard} 
+      style={[styles.vendorCard, { backgroundColor: colors.card, borderColor: colors.border }]} 
       onPress={() => handleEdit(item)}
       data-testid={`vendor-card-${item.id}`}
     >
       <View style={styles.vendorHeader}>
-        <View style={styles.vendorIconContainer}>
-          <Ionicons name="business" size={24} color={BRAND_MAROON} />
+        <View style={[styles.vendorIconContainer, { backgroundColor: isDark ? '#4a5568' : '#fef2f2' }]}>
+          <Ionicons name="business" size={24} color={isDark ? '#e2e8f0' : BRAND_MAROON} />
         </View>
         <View style={styles.vendorInfo}>
-          <Text style={styles.vendorName}>{item.name}</Text>
+          <Text style={[styles.vendorName, { color: colors.text }]}>{item.name}</Text>
           {item.category && (
-            <View style={styles.categoryBadge}>
-              <Text style={styles.categoryBadgeText}>{item.category}</Text>
+            <View style={[styles.categoryBadge, { backgroundColor: isDark ? '#374151' : '#e0e7ff' }]}>
+              <Text style={[styles.categoryBadgeText, { color: isDark ? '#d1d5db' : '#4338ca' }]}>{item.category}</Text>
             </View>
           )}
         </View>
@@ -127,7 +129,7 @@ export default function VendorsScreen() {
             </View>
 
             <TouchableOpacity
-              style={styles.vendorDeleteButton}
+              style={[styles.vendorDeleteButton, { backgroundColor: isDark ? 'rgba(248, 113, 113, 0.2)' : 'rgba(220, 38, 38, 0.1)' }]}
                onPress={(e) => {
                 e.stopPropagation(); // Prevent event bubbling to parent
                 console.log('Trash icon pressed for:', item.id);
@@ -136,9 +138,9 @@ export default function VendorsScreen() {
               testID={`delete-member-${item.id}`}
             >
               {deleteVendor.isPending ? (
-                <ActivityIndicator size="small" color="#dc2626" />
+                <ActivityIndicator size="small" color={isDark ? '#f87171' : '#dc2626'} />
               ) : (
-                <Ionicons name="trash-outline" size={20} color="#dc2626" />
+                <Ionicons name="trash-outline" size={20} color={isDark ? '#f87171' : '#dc2626'} />
               )}
             </TouchableOpacity>
           </View>
@@ -147,22 +149,22 @@ export default function VendorsScreen() {
 
       {item.specialization && ( 
         <View style={styles.vendorDetail}>
-          <Ionicons name="briefcase" size={14} color="#6b7280" />
-          <Text style={styles.detailText}>{item.specialization}</Text>
+          <Ionicons name="briefcase" size={14} color={colors.textSecondary} />
+          <Text style={[styles.detailText, { color: colors.textSecondary }]}>{item.specialization}</Text>
         </View>
       )}
 
       {item.location && (
         <View style={styles.vendorDetail}>
-          <Ionicons name="location" size={14} color="#6b7280" />
-          <Text style={styles.detailText}>{item.location}</Text>
+          <Ionicons name="location" size={14} color={colors.textSecondary} />
+          <Text style={[styles.detailText, { color: colors.textSecondary }]}>{item.location}</Text>
         </View>
       )}
 
       {item.contactInfo && (
         <View style={styles.vendorDetail}>
-          <Ionicons name="call" size={14} color="#6b7280" />
-          <Text style={styles.detailText}>{item.contactInfo}</Text>
+          <Ionicons name="call" size={14} color={colors.textSecondary} />
+          <Text style={[styles.detailText, { color: colors.textSecondary }]}>{item.contactInfo}</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -170,26 +172,26 @@ export default function VendorsScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={BRAND_MAROON} />
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={isDark ? '#4a5568' : BRAND_MAROON} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Failed to load vendors</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>Failed to load vendors</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Filter Section */}
-      <View style={styles.filterSection}>
+      <View style={[styles.filterSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.filterHeader}>
-          <Text style={styles.filterTitle}>Filters</Text>
+          <Text style={[styles.filterTitle, { color: colors.text }]}>Filters</Text>
           {activeFiltersCount > 0 && (
             <TouchableOpacity onPress={clearFilters} style={styles.clearButton}>
               <Text style={styles.clearButtonText}>Clear ({activeFiltersCount})</Text>
@@ -197,19 +199,18 @@ export default function VendorsScreen() {
           )}
         </View>
         
-        {/* Search by name */}
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#6b7280" style={styles.searchIcon} />
+        <View style={[styles.searchContainer, { backgroundColor: colors.surface }]}>
+          <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
             placeholder="Search by vendor name..."
             value={searchName}
             onChangeText={setSearchName}
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.textSecondary}
           />
           {searchName && (
             <TouchableOpacity onPress={() => setSearchName('')} style={styles.clearSearchButton}>
-              <Ionicons name="close-circle" size={20} color="#6b7280" />
+              <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
@@ -217,58 +218,58 @@ export default function VendorsScreen() {
         {/* Category Filter */}
         <View style={styles.categoryContainer}>
           <TouchableOpacity 
-            style={styles.categoryDropdown}
+            style={[styles.categoryDropdown, { backgroundColor: colors.surface }]}
             onPress={() => setShowCategoryDropdown(!showCategoryDropdown)}
           >
-            <Ionicons name="pricetag" size={20} color="#6b7280" style={styles.categoryIcon} />
-            <Text style={styles.categoryText}>
+            <Ionicons name="pricetag" size={20} color={colors.textSecondary} style={styles.categoryIcon} />
+            <Text style={[styles.categoryText, { color: colors.text }]}>
               {selectedCategory || 'All Categories'}
             </Text>
             <Ionicons 
               name={showCategoryDropdown ? "chevron-up" : "chevron-down"} 
               size={20} 
-              color="#6b7280" 
+              color={colors.textSecondary} 
             />
           </TouchableOpacity>
           
           {showCategoryDropdown && (
-            <View style={styles.dropdownList}>
+            <View style={[styles.dropdownList, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <ScrollView 
                 nestedScrollEnabled={true}
                 showsVerticalScrollIndicator={true}
-                indicatorStyle="black"
+                indicatorStyle={isDark ? "white" : "black"}
                 style={styles.dropdownScroll}
               >
                 <TouchableOpacity 
-                  style={[styles.dropdownItem, !selectedCategory && styles.selectedDropdownItem]}
+                  style={[styles.dropdownItem, !selectedCategory && [styles.selectedDropdownItem, { backgroundColor: isDark ? '#4a5568' : '#fef2f2' }], { backgroundColor: colors.card }]}
                   onPress={() => {
                     setSelectedCategory('');
                     setShowCategoryDropdown(false);
                   }}
                 >
-                  <Ionicons name="list" size={18} color={!selectedCategory ? BRAND_MAROON : "#6b7280"} style={styles.dropdownItemIcon} />
-                  <Text style={[styles.dropdownItemText, !selectedCategory && styles.selectedDropdownItemText]}>
+                  <Ionicons name="list" size={18} color={!selectedCategory ? (isDark ? '#4a5568' : BRAND_MAROON) : colors.textSecondary} style={styles.dropdownItemIcon} />
+                  <Text style={[styles.dropdownItemText, { color: colors.text }, !selectedCategory && { fontWeight: '600', color: isDark ? '#4a5568' : BRAND_MAROON }]}>
                     All Categories
                   </Text>
                   {!selectedCategory && (
-                    <Ionicons name="checkmark" size={16} color={BRAND_MAROON} />
+                    <Ionicons name="checkmark" size={16} color={isDark ? '#4a5568' : BRAND_MAROON} />
                   )}
                 </TouchableOpacity>
                 {config?.vendorCategories?.map((category: string) => (
                   <TouchableOpacity 
                     key={category}
-                    style={[styles.dropdownItem, selectedCategory === category && styles.selectedDropdownItem]}
+                    style={[styles.dropdownItem, selectedCategory === category && [styles.selectedDropdownItem, { backgroundColor: isDark ? '#4a5568' : '#fef2f2' }], { backgroundColor: colors.card }]}
                     onPress={() => {
                       setSelectedCategory(category);
                       setShowCategoryDropdown(false);
                     }}
                   >
-                    <Ionicons name="pricetag" size={18} color={selectedCategory === category ? BRAND_MAROON : "#6b7280"} style={styles.dropdownItemIcon} />
-                    <Text style={[styles.dropdownItemText, selectedCategory === category && styles.selectedDropdownItemText]}>
+                    <Ionicons name="pricetag" size={18} color={selectedCategory === category ? (isDark ? '#4a5568' : BRAND_MAROON) : colors.textSecondary} style={styles.dropdownItemIcon} />
+                    <Text style={[styles.dropdownItemText, { color: colors.text }, selectedCategory === category && { fontWeight: '600', color: isDark ? '#4a5568' : BRAND_MAROON }]}>
                       {category}
                     </Text>
                     {selectedCategory === category && (
-                      <Ionicons name="checkmark" size={16} color={BRAND_MAROON} />
+                      <Ionicons name="checkmark" size={16} color={isDark ? '#4a5568' : BRAND_MAROON} />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -294,15 +295,15 @@ export default function VendorsScreen() {
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="business-outline" size={64} color="#d1d5db" />
-            <Text style={styles.emptyText}>
+            <Ionicons name="business-outline" size={64} color={colors.border} />
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               {vendors?.length === 0 
                 ? 'No vendors added yet' 
                 : 'No vendors match your filters'
               }
             </Text>
              {activeFiltersCount > 0 && (
-                <TouchableOpacity onPress={clearFilters} style={styles.clearAllButton}>
+                <TouchableOpacity onPress={clearFilters} style={[styles.clearAllButton, { backgroundColor: isDark ? '#4a5568' : BRAND_MAROON }]}>
                   <Text style={styles.clearAllButtonText}>Clear All Filters</Text>
                 </TouchableOpacity>
               )}
@@ -311,7 +312,7 @@ export default function VendorsScreen() {
       />
 
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: isDark ? '#4a5568' : BRAND_MAROON }]}
         onPress={() => setModalVisible(true)}
         data-testid="button-add-vendor"
       >
@@ -331,17 +332,17 @@ export default function VendorsScreen() {
         onRequestClose={cancelDelete}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.confirmationBox}>
-            <Text style={styles.confirmTitle}>Delete Vendor</Text>
-            <Text style={styles.confirmMessage}>
+          <View style={[styles.confirmationBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.confirmTitle, { color: colors.text }]}>Delete Vendor</Text>
+            <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
               Are you sure you want to delete {vendorToDelete?.name}?
             </Text>
             <View style={styles.confirmButtons}>
               <TouchableOpacity 
-                style={[styles.confirmButton, styles.cancelButton]}
+                style={[styles.confirmButton, styles.cancelButton, { backgroundColor: isDark ? '#374151' : '#e5e7eb' }]}
                 onPress={cancelDelete}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: isDark ? '#d1d5db' : '#4b5563' }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.confirmButton, styles.deleteConfirmButton]}
@@ -360,19 +361,16 @@ export default function VendorsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
   },
   listContent: {
     padding: 16,
   },
   filterSection: {
-    backgroundColor: '#ffffff',
     padding: 16,
     marginBottom: 8,
     borderRadius: 12,
@@ -384,6 +382,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     zIndex: 9999,
+    borderWidth: 1,
   },
   filterHeader: {
     flexDirection: 'row',
@@ -394,7 +393,6 @@ const styles = StyleSheet.create({
   filterTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1f2937',
   },
   clearButton: {
     paddingHorizontal: 12,
@@ -410,7 +408,6 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
     borderRadius: 8,
     paddingHorizontal: 12,
     marginBottom: 12,
@@ -421,7 +418,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#1f2937',
   },
   clearSearchButton: {
     padding: 4,
@@ -441,7 +437,6 @@ const styles = StyleSheet.create({
   categoryDropdown: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -452,7 +447,6 @@ const styles = StyleSheet.create({
   categoryText: {
     flex: 1,
     fontSize: 16,
-    color: '#1f2937',
   },
   dropdownList: {
     position: 'absolute',

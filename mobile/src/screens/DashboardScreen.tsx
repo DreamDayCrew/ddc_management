@@ -2,9 +2,12 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, Dimension
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
-import { useEvents, useExpenses, useAssets, useTeamMembers } from '../hooks/useApi';
+import { useEvents, useExpenses, useAssets, useTeamMembers, useRepayments } from '../hooks/useApi';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { useTheme } from '../contexts';
+import { useState } from 'react';
+import RepaymentDetailsModal from '../components/RepaymentDetailsModal';
 
 type RootTabParamList = {
   Dashboard: undefined;
@@ -36,10 +39,13 @@ const { width } = Dimensions.get('window');
 
 export default function DashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootTabParamList>>();
+  const { colors, isDark } = useTheme();
+  const [repaymentModalVisible, setRepaymentModalVisible] = useState(false);
   const { data: events, isLoading: eventsLoading } = useEvents();
   const { data: expenses } = useExpenses();
   const { data: assets } = useAssets();
   const { data: team } = useTeamMembers();
+  const { data: repayments } = useRepayments();
   
   const { data: requirements = [] } = useQuery({
     queryKey: ['all-requirements'],
@@ -55,9 +61,9 @@ export default function DashboardScreen() {
 
   if (eventsLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={BRAND_MAROON} />
-        <Text style={styles.loadingText}>Loading dashboard...</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading dashboard...</Text>
       </View>
     );
   }
@@ -97,6 +103,14 @@ export default function DashboardScreen() {
     }
   });
 
+  // Calculate pending repayment
+  let pendingRepayment = 0;
+  if (repayments) {
+    repayments.forEach((r) => {
+      pendingRepayment += parseFloat(r.pending_amount as any) || 0;
+    });
+  }
+
   // Event statistics
   const totalEvents = safeEvents.length;
   const upcomingEvents = safeEvents.filter(e => {
@@ -135,7 +149,8 @@ export default function DashboardScreen() {
     .slice(0, 5);
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <>
+      <ScrollView style={[styles.container, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
       {/* Header with Logo 
       <View style={styles.header}>
         <Image 
@@ -148,42 +163,42 @@ export default function DashboardScreen() {
 
       {/* Resources Summary */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Resources</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Resources</Text>
         <View style={styles.resourceGrid}>
           <TouchableOpacity 
-            style={styles.resourceCard}
+            style={[styles.resourceCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => navigation.navigate('More', { screen: 'Assets' })}
             activeOpacity={0.7}
           >
-            <View style={[styles.resourceIcon, { backgroundColor: 'rgba(212, 175, 55, 0.15)' }]}>
-              <Ionicons name="cube-outline" size={26} color={BRAND_GOLD} />
+            <View style={[styles.resourceIcon, { backgroundColor: isDark ? colors.surface : 'rgba(212, 175, 55, 0.15)' }]}>
+              <Ionicons name="cube-outline" size={26} color={colors.primary} />
             </View>
-            <Text style={styles.resourceNumber}>{safeAssets.length}</Text>
-            <Text style={styles.resourceLabel}>Assets</Text>
+            <Text style={[styles.resourceNumber, { color: colors.text }]}>{safeAssets.length}</Text>
+            <Text style={[styles.resourceLabel, { color: colors.textSecondary }]}>Assets</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.resourceCard}
+            style={[styles.resourceCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => navigation.navigate('More', { screen: 'Team' })}
             activeOpacity={0.7}
           >
-            <View style={[styles.resourceIcon, { backgroundColor: 'rgba(22, 33, 62, 0.15)' }]}>
-              <Ionicons name="people-outline" size={26} color={PREMIUM_BLUE} />
+            <View style={[styles.resourceIcon, { backgroundColor: isDark ? colors.surface : 'rgba(22, 33, 62, 0.15)' }]}>
+              <Ionicons name="people-outline" size={26} color={colors.primary} />
             </View>
-            <Text style={styles.resourceNumber}>{safeTeam.length}</Text>
-            <Text style={styles.resourceLabel}>Team</Text>
+            <Text style={[styles.resourceNumber, { color: colors.text }]}>{safeTeam.length}</Text>
+            <Text style={[styles.resourceLabel, { color: colors.textSecondary }]}>Team</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.resourceCard}
+            style={[styles.resourceCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => navigation.navigate('Expenses')}
             activeOpacity={0.7}
           >
-            <View style={[styles.resourceIcon, { backgroundColor: 'rgba(128, 0, 32, 0.15)' }]}>
-              <Ionicons name="card-outline" size={26} color={BRAND_MAROON} />
+            <View style={[styles.resourceIcon, { backgroundColor: isDark ? colors.surface : 'rgba(128, 0, 32, 0.15)' }]}>
+              <Ionicons name="card-outline" size={26} color={colors.primary} />
             </View>
-            <Text style={styles.resourceNumber}>{safeExpenses.length}</Text>
-            <Text style={styles.resourceLabel}>Expenses</Text>
+            <Text style={[styles.resourceNumber, { color: colors.text }]}>{safeExpenses.length}</Text>
+            <Text style={[styles.resourceLabel, { color: colors.textSecondary }]}>Expenses</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -191,7 +206,7 @@ export default function DashboardScreen() {
       {/* Upcoming Events Timeline */}
       {upcoming.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Upcoming Events</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Upcoming Events</Text>
           {upcoming.map((event, index) => {
             const daysUntil = Math.ceil(
               (new Date(event.eventDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
@@ -199,24 +214,24 @@ export default function DashboardScreen() {
             return (
               <TouchableOpacity 
                 key={event.id} 
-                style={styles.timelineItem}
+                style={[styles.timelineItem, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => navigation.navigate('Events', { screen: 'EventDetails', params: { eventId: event.id } })}
                 activeOpacity={0.7}
               >
                 <View style={styles.timelineDate}>
-                  <Text style={styles.timelineDays}>{daysUntil}</Text>
-                  <Text style={styles.timelineDaysLabel}>days</Text>
+                  <Text style={[styles.timelineDays, { color: colors.primary }]}>{daysUntil}</Text>
+                  <Text style={[styles.timelineDaysLabel, { color: colors.textSecondary }]}>days</Text>
                 </View>
                 <View style={styles.timelineContent}>
-                  <Text style={styles.timelineEventName}>{event.eventName}</Text>
-                  <Text style={styles.timelineEventDetails}>{event.providedService}</Text>
+                  <Text style={[styles.timelineEventName, { color: colors.text }]}>{event.eventName}</Text>
+                  <Text style={[styles.timelineEventDetails, { color: colors.textSecondary }]}>{event.providedService}</Text>
                   <View style={styles.timelineEventMeta}>
-                    <Ionicons name="location" size={12} color="#9ca3af" />
-                    <Text style={styles.timelineEventVenue}>{event.venue}</Text>
+                    <Ionicons name="location" size={12} color={colors.textSecondary} />
+                    <Text style={[styles.timelineEventVenue, { color: colors.textSecondary }]}>{event.venue}</Text>
                   </View>
                 </View>
                 <View style={styles.timelineArrow}>
-                  <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
+                  <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
                 </View>
               </TouchableOpacity>
             );
@@ -230,46 +245,63 @@ export default function DashboardScreen() {
         onPress={() => navigation.navigate('Expenses')}
         activeOpacity={0.8}
       >
-        <Text style={styles.sectionTitle}>Financial Overview</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Financial Overview</Text>
         <View style={styles.financialGrid}>
-          <View style={[styles.financialCard, styles.incomeCard]}>
+          <View style={[styles.financialCard, styles.incomeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.financialHeader}>
               <View style={styles.financialIconContainer}>
-                <Ionicons name="trending-up" size={20} color={SUCCESS_GREEN} />
+                <Ionicons name="trending-up" size={20} color="#00b894" />
               </View>
-              <Text style={styles.financialLabel}>Total Income</Text>
+              <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Total Income</Text>
             </View>
-            <Text style={styles.financialValue}>₹{totalIncome.toLocaleString()}</Text>
+            <Text style={[styles.financialValue, { color: colors.text }]}>₹{totalIncome.toLocaleString()}</Text>
             <View style={styles.financialIndicator}>
-              <Text style={styles.financialChange}>+12.5%</Text>
+              <Text style={[styles.financialChange, { color: '#00b894' }]}>+12.5%</Text>
             </View>
           </View>
 
-          <View style={[styles.financialCard, styles.expenseCard]}>
+          <View style={[styles.financialCard, styles.expenseCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.financialHeader}>
               <View style={styles.financialIconContainer}>
-                <Ionicons name="trending-down" size={20} color={DANGER_RED} />
+                <Ionicons name="trending-down" size={20} color="#e17055" />
               </View>
-              <Text style={styles.financialLabel}>Total Expenses</Text>
+              <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Total Expenses</Text>
             </View>
-            <Text style={styles.financialValue}>₹{totalExpense.toLocaleString()}</Text>
+            <Text style={[styles.financialValue, { color: colors.text }]}>₹{totalExpense.toLocaleString()}</Text>
             <View style={styles.financialIndicator}>
-              <Text style={styles.financialChangeNegative}>+8.3%</Text>
+              <Text style={[styles.financialChangeNegative, { color: '#e17055' }]}>+8.3%</Text>
             </View>
           </View>
 
-          <View style={[styles.financialCard, styles.balanceCard]}>
+          <View style={[styles.financialCard, styles.balanceCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.financialHeader}>
               <View style={styles.financialIconContainer}>
-                <Ionicons name="wallet-outline" size={20} color={BRAND_GOLD} />
+                <Ionicons name="wallet-outline" size={20} color={colors.primary} />
               </View>
-              <Text style={styles.financialLabel}>Account Balance</Text>
+              <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Account Balance</Text>
             </View>
-            <Text style={styles.financialValue}>₹{accountBalance.toLocaleString()}</Text>
+            <Text style={[styles.financialValue, { color: colors.text }]}>₹{accountBalance.toLocaleString()}</Text>
             <View style={styles.financialIndicator}>
-              <Text style={styles.financialChange}>+4.2%</Text>
+              <Text style={[styles.financialChange, { color: '#00b894' }]}>+4.2%</Text>
             </View>
           </View>
+
+          <TouchableOpacity 
+            style={[styles.financialCard, styles.repaymentCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => setRepaymentModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.financialHeader}>
+              <View style={styles.financialIconContainer}>
+                <Ionicons name="time-outline" size={20} color="#e17055" />
+              </View>
+              <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Pending Repayment</Text>
+            </View>
+            <Text style={[styles.financialValue, { color: colors.text }]}>₹{pendingRepayment.toLocaleString()}</Text>
+            <View style={styles.financialIndicator}>
+              <Text style={[styles.financialChange, { color: '#e17055' }]}>Due Soon</Text>
+            </View>
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
 
@@ -287,30 +319,30 @@ export default function DashboardScreen() {
         }}
         activeOpacity={0.8}
       >
-        <Text style={styles.sectionTitle}>Event Statistics</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Event Statistics</Text>
         <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { borderLeftColor: PREMIUM_DARK, borderLeftWidth: 4 }]}>
-            <Ionicons name="calendar-outline" size={32} color={PREMIUM_DARK} />
-            <Text style={styles.statNumber}>{totalEvents}</Text>
-            <Text style={styles.statLabel}>Total Events</Text>
+          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: colors.primary, borderLeftWidth: 4 }]}>
+            <Ionicons name="calendar-outline" size={32} color={colors.primary} />
+            <Text style={[styles.statNumber, { color: colors.text }]}>{totalEvents}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Events</Text>
           </View>
 
-          <View style={[styles.statCard, { borderLeftColor: PREMIUM_BLUE, borderLeftWidth: 4 }]}>
-            <Ionicons name="time-outline" size={32} color={PREMIUM_BLUE} />
-            <Text style={styles.statNumber}>{upcomingEvents}</Text>
-            <Text style={styles.statLabel}>Upcoming</Text>
+          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: colors.primary, borderLeftWidth: 4 }]}>
+            <Ionicons name="time-outline" size={32} color={colors.primary} />
+            <Text style={[styles.statNumber, { color: colors.text }]}>{upcomingEvents}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Upcoming</Text>
           </View>
 
-          <View style={[styles.statCard, { borderLeftColor: WARNING_ORANGE, borderLeftWidth: 4 }]}>
-            <Ionicons name="hourglass-outline" size={32} color={WARNING_ORANGE} />
-            <Text style={styles.statNumber}>{inProgressEvents}</Text>
-            <Text style={styles.statLabel}>In Progress</Text>
+          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: '#fdcb6e', borderLeftWidth: 4 }]}>
+            <Ionicons name="hourglass-outline" size={32} color="#fdcb6e" />
+            <Text style={[styles.statNumber, { color: colors.text }]}>{inProgressEvents}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>In Progress</Text>
           </View>
 
-          <View style={[styles.statCard, { borderLeftColor: SUCCESS_GREEN, borderLeftWidth: 4 }]}>
-            <Ionicons name="checkmark-circle-outline" size={32} color={SUCCESS_GREEN} />
-            <Text style={styles.statNumber}>{completedEvents}</Text>
-            <Text style={styles.statLabel}>Completed</Text>
+          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: '#00b894', borderLeftWidth: 4 }]}>
+            <Ionicons name="checkmark-circle-outline" size={32} color="#00b894" />
+            <Text style={[styles.statNumber, { color: colors.text }]}>{completedEvents}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Completed</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -330,24 +362,24 @@ export default function DashboardScreen() {
         activeOpacity={0.8}
       >
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Requirements Overview</Text>
-          <Text style={styles.sectionCount}>{totalRequirements} total</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Requirements Overview</Text>
+          <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>{totalRequirements} total</Text>
         </View>
         
-        <View style={styles.progressCard}>
+        <View style={[styles.progressCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.progressRow}>
             <View style={styles.progressInfo}>
-              <View style={[styles.progressDot, { backgroundColor: NEUTRAL_GRAY }]} />
-              <Text style={styles.progressLabel}>To Do</Text>
+              <View style={[styles.progressDot, { backgroundColor: colors.textSecondary }]} />
+              <Text style={[styles.progressLabel, { color: colors.text }]}>To Do</Text>
             </View>
-            <Text style={styles.progressCount}>{toDoRequirements}</Text>
+            <Text style={[styles.progressCount, { color: colors.text }]}>{toDoRequirements}</Text>
           </View>
           {totalRequirements > 0 && (
             <View style={styles.progressBar}>
               <View 
                 style={[
                   styles.progressFill, 
-                  { width: `${(toDoRequirements / totalRequirements) * 100}%`, backgroundColor: NEUTRAL_GRAY }
+                  { width: `${(toDoRequirements / totalRequirements) * 100}%`, backgroundColor: colors.textSecondary }
                 ]} 
               />
             </View>
@@ -355,17 +387,17 @@ export default function DashboardScreen() {
 
           <View style={styles.progressRow}>
             <View style={styles.progressInfo}>
-              <View style={[styles.progressDot, { backgroundColor: WARNING_ORANGE }]} />
-              <Text style={styles.progressLabel}>In Progress</Text>
+              <View style={[styles.progressDot, { backgroundColor: '#fdcb6e' }]} />
+              <Text style={[styles.progressLabel, { color: colors.text }]}>In Progress</Text>
             </View>
-            <Text style={styles.progressCount}>{inProgressRequirements}</Text>
+            <Text style={[styles.progressCount, { color: colors.text }]}>{inProgressRequirements}</Text>
           </View>
           {totalRequirements > 0 && (
             <View style={styles.progressBar}>
               <View 
                 style={[
                   styles.progressFill, 
-                  { width: `${(inProgressRequirements / totalRequirements) * 100}%`, backgroundColor: WARNING_ORANGE }
+                  { width: `${(inProgressRequirements / totalRequirements) * 100}%`, backgroundColor: '#fdcb6e' }
                 ]} 
               />
             </View>
@@ -373,10 +405,10 @@ export default function DashboardScreen() {
 
           <View style={styles.progressRow}>
             <View style={styles.progressInfo}>
-              <View style={[styles.progressDot, { backgroundColor: SUCCESS_GREEN }]} />
-              <Text style={styles.progressLabel}>Completed</Text>
+              <View style={[styles.progressDot, { backgroundColor: '#00b894' }]} />
+              <Text style={[styles.progressLabel, { color: colors.text }]}>Completed</Text>
             </View>
-            <Text style={styles.progressCount}>{completedRequirements}</Text>
+            <Text style={[styles.progressCount, { color: colors.text }]}>{completedRequirements}</Text>
           </View>
           {totalRequirements > 0 && (
             <View style={styles.progressBar}>
@@ -392,7 +424,14 @@ export default function DashboardScreen() {
       </TouchableOpacity>
 
       <View style={{ height: 40 }} />
-    </ScrollView>
+      </ScrollView>
+
+      <RepaymentDetailsModal
+        visible={repaymentModalVisible}
+        onClose={() => setRepaymentModalVisible(false)}
+        repayments={repayments || []}
+      />
+    </>
   );
 }
 
@@ -478,6 +517,10 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: BRAND_GOLD,
     backgroundColor: '#fefefe',
+  },
+  repaymentCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: DANGER_RED,
   },
   financialHeader: {
     flexDirection: 'row',

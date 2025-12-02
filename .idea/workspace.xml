@@ -5,19 +5,25 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ea17880b-dbab-4dcd-8a8b-8e6f5cb9c5e8" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/copilot.data.migration.agent.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/copilot.data.migration.ask.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/copilot.data.migration.ask2agent.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/copilot.data.migration.edit.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/components/expense-row.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/expense-row.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mobile/src/components/AddExpenseModal.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/components/AddExpenseModal.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mobile/src/config/environment.ts" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/config/environment.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mobile/src/screens/AppConfigurationScreen.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/screens/AppConfigurationScreen.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/app.json" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/app.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/src/components/AddAssetModal.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/components/AddAssetModal.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/src/components/ConfirmDialog.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/components/ConfirmDialog.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/src/components/DatePicker.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/components/DatePicker.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/src/components/Picker.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/components/Picker.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/src/components/Switch.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/components/Switch.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/src/contexts/ThemeContext.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/contexts/ThemeContext.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/src/navigation/BottomTabNavigator.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/navigation/BottomTabNavigator.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/src/screens/AssetsScreen.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/screens/AssetsScreen.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/src/screens/AuthenticationScreen.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/screens/AuthenticationScreen.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/src/screens/ConfigurationScreen.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/screens/ConfigurationScreen.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/src/screens/DashboardScreen.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/screens/DashboardScreen.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/src/screens/EventDetailsScreen.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/screens/EventDetailsScreen.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/src/screens/EventsScreen.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/screens/EventsScreen.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/mobile/src/screens/ExpensesScreen.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/screens/ExpensesScreen.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server/database-storage.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/database-storage.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server/migrations/expenses.sql" beforeDir="false" afterPath="$PROJECT_DIR$/server/migrations/expenses.sql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/shared/schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/shared/schema.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/src/screens/MoreScreen.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/screens/MoreScreen.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/src/screens/TeamScreen.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/screens/TeamScreen.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile/src/screens/VendorsScreen.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/mobile/src/screens/VendorsScreen.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -87,7 +93,6 @@
     <attachedChunks>
       <set>
         <option value="bundled-jdk-9823dce3aa75-bf35d07a577b-intellij.indexing.shared.core-IU-252.27397.103" />
-        <option value="bundled-js-predefined-d6986cc7102b-3aa1da707db6-JavaScript-IU-252.27397.103" />
       </set>
     </attachedChunks>
   </component>
@@ -105,6 +110,8 @@
       <workItem from="1763380316784" duration="3457000" />
       <workItem from="1763438757238" duration="1969000" />
       <workItem from="1763452121506" duration="1120000" />
+      <workItem from="1764647630584" duration="30000" />
+      <workItem from="1764647686886" duration="419000" />
     </task>
     <servers />
   </component>

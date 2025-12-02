@@ -329,6 +329,38 @@ export default function Expenses() {
     return totals;
   }, [expenses, cardStatus, selectedMembers]);
 
+  // Calculate running balance for each transaction
+  const expensesWithRunningBalance = useMemo(() => {
+    if (!expenses || expenses.length === 0) return [];
+    
+    // Sort by date descending (newest first) for display
+    const sortedExpenses = [...expenses].sort((a, b) => 
+      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
+    
+    let runningBalance = ddcBalance;
+    
+    // Calculate running balance for each transaction from current balance backwards
+    const withBalance = sortedExpenses.map((expense) => {
+      const currentBalance = runningBalance;
+      const amount = Number(expense.amount) || 0;
+      
+      // Update running balance for next iteration (going backwards in time)
+      if (expense.type === 'Credit') {
+        runningBalance -= amount;
+      } else if (expense.type === 'Debit') {
+        runningBalance += amount;
+      }
+      
+      return {
+        ...expense,
+        closing_balance: currentBalance.toString()
+      };
+    });
+    
+    return withBalance;
+  }, [expenses, ddcBalance]);
+
   // Get distinct 'from' values for Transfer transactions
   const transferFromValues = useMemo((): string[] => {
     if (!Array.isArray(expenses) || expenses.length === 0) {
@@ -401,7 +433,7 @@ export default function Expenses() {
 
   const filteredExpenses = useMemo((): Expense[] => {
     // Validate expenses data
-    if (!expenses || !Array.isArray(expenses) || expenses.length === 0) {
+    if (!expensesWithRunningBalance || !Array.isArray(expensesWithRunningBalance) || expensesWithRunningBalance.length === 0) {
       console.log('No expenses to filter');
       return [];
     }
@@ -410,11 +442,11 @@ export default function Expenses() {
     const hasSearchQuery = searchQuery.trim().length > 0;
     const hasCategoryFilter = Boolean(selectedCategory);
     
-    console.log('Filtering', expenses.length, 'expenses...');
+    console.log('Filtering', expensesWithRunningBalance.length, 'expenses...');
     console.log('Current cardStatus:', cardStatus);
     
     // Filter expenses based on search and category first (cheaper operations)
-    const filtered = expenses.filter(expense => {
+    const filtered = expensesWithRunningBalance.filter(expense => {
       // Check search query if present
       if (hasSearchQuery) {
         const searchLower = searchQuery.toLowerCase();
@@ -456,7 +488,7 @@ export default function Expenses() {
     
     console.log('Filtered expenses:', result.length, 'out of', expenses.length);
     return result;
-  }, [expenses, searchQuery, selectedCategory, cardStatus]);
+  }, [expensesWithRunningBalance, searchQuery, selectedCategory, cardStatus]);
 
   const clearFilters = (): void => {
     setSearchQuery("");
@@ -932,6 +964,7 @@ export default function Expenses() {
                     {...expense}
                     type={expense.type as "Credit" | "Debit" | "Transfer"}
                     amount={expense.amount}
+                    closing_balance={expense.closing_balance}
                     onEdit={() => handleEdit(expense)}
                     onDelete={() => handleDelete(expense.id)}
                   />
@@ -955,6 +988,7 @@ export default function Expenses() {
                       {...expense}
                       type={expense.type as "Credit" | "Debit" | "Transfer"}
                       amount={expense.amount}
+                      closing_balance={expense.closing_balance}
                       onEdit={() => handleEdit(expense)}
                       onDelete={() => handleDelete(expense.id)}
                     />
@@ -978,6 +1012,7 @@ export default function Expenses() {
                       {...expense}
                       type={expense.type as "Credit" | "Debit" | "Transfer"}
                       amount={expense.amount}
+                      closing_balance={expense.closing_balance}
                       onEdit={() => handleEdit(expense)}
                       onDelete={() => handleDelete(expense.id)}
                     />
@@ -1006,6 +1041,7 @@ export default function Expenses() {
                       mode: null, // Add mode with default null since it's optional in ExpenseRow
                       date: expense.date || new Date().toISOString(),
                       status: expense.status || 'Pending',
+                      closing_balance: expense.closing_balance || '0',
                     };
                     
                     return (

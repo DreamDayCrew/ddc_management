@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts';
 
 interface CollapsibleProps {
   title: string;
@@ -9,15 +10,14 @@ interface CollapsibleProps {
   icon?: string;
 }
 
-const BRAND_MAROON = '#800020';
-
 export function Collapsible({ title, children, defaultExpanded = false, icon }: CollapsibleProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const { colors, isDark } = useTheme();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.card, shadowColor: isDark ? '#000' : '#000' }]}>
       <TouchableOpacity
-        style={styles.header}
+        style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
         onPress={() => setIsExpanded(!isExpanded)}
         activeOpacity={0.7}
       >
@@ -26,16 +26,16 @@ export function Collapsible({ title, children, defaultExpanded = false, icon }: 
             <Ionicons 
               name={icon as any} 
               size={20} 
-              color={BRAND_MAROON} 
+              color={colors.primary} 
               style={styles.headerIcon} 
             />
           )}
-          <Text style={styles.headerTitle}>{title}</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>{title}</Text>
         </View>
         <Ionicons
           name={isExpanded ? 'chevron-up' : 'chevron-down'}
           size={20}
-          color={BRAND_MAROON}
+          color={colors.primary}
         />
       </TouchableOpacity>
       
@@ -50,10 +50,8 @@ export function Collapsible({ title, children, defaultExpanded = false, icon }: 
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#ffffff',
     borderRadius: 12,
     marginBottom: 16,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -66,9 +64,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: '#f9fafb',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
   headerContent: {
     flexDirection: 'row',
@@ -81,7 +77,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2937',
     flex: 1,
   },
   content: {

@@ -12,6 +12,7 @@ import {
   Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { EventsStackParamList } from '../navigation/EventsStackNavigator';
@@ -27,6 +28,7 @@ type Props = NativeStackScreenProps<EventsStackParamList, 'EventDetails'>;
 const BRAND_MAROON = '#800020';
 
 export default function EventDetailsScreen({ route, navigation }: Props) {
+  const { colors, isDark } = useTheme();
   const { eventId } = route.params;
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -338,18 +340,18 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
 
   if (eventLoading || requirementsLoading || plansLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={BRAND_MAROON} />
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   if (!event) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Event not found</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>Event not found</Text>
         <TouchableOpacity 
-          style={styles.button}
+          style={[styles.button, { backgroundColor: colors.primary }]}
           onPress={() => navigation.goBack()}
         >
           <Text style={styles.buttonText}>Go Back</Text>
@@ -367,77 +369,77 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={[styles.scrollContent, { backgroundColor: colors.background }]}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[BRAND_MAROON]} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
       }
     >
       {/* Event Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.card, shadowColor: isDark ? '#000' : '#000' }]}>
         <View style={styles.headerTop}>
           <View style={styles.headerContent}>
-            <Text style={styles.eventName}>{event.eventName}</Text>
-            <Text style={styles.eventService}>{event.providedService}</Text>
+            <Text style={[styles.eventName, { color: colors.text }]}>{event.eventName}</Text>
+            <Text style={[styles.eventService, { color: colors.primary }]}>{event.providedService}</Text>
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity
-              style={styles.iconButton}
+              style={[styles.iconButton, { backgroundColor: colors.surface }]}
               onPress={handleDownloadInvoice}
               data-testid="button-download-invoice"
             >
-              <Ionicons name="download-outline" size={22} color={BRAND_MAROON} />
+              <Ionicons name="download-outline" size={22} color={colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.iconButton}
+              style={[styles.iconButton, { backgroundColor: colors.surface }]}
               onPress={handleEditEvent}
               data-testid="button-edit-event"
             >
-              <Ionicons name="create-outline" size={22} color={BRAND_MAROON} />
+              <Ionicons name="create-outline" size={22} color={colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.iconButton}
+              style={[styles.iconButton, { backgroundColor: colors.surface }]}
               onPress={handleDeleteEvent}
               data-testid="button-delete-event"
             >
-              <Ionicons name="trash-outline" size={22} color="#dc2626" />
+              <Ionicons name="trash-outline" size={22} color={colors.error} />
             </TouchableOpacity>
           </View>
         </View>
         
         <View style={styles.statusRow}>
           <View style={[styles.statusBadge, getStatusColor(event.eventStatus)]}>
-            <Text style={styles.statusText}>{event.eventStatus}</Text>
+            <Text style={[styles.statusText, { color: '#000000' }]}>{event.eventStatus}</Text>
           </View>
         </View>
       </View>
 
       {/* Budget Summary */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Budget Summary</Text>
+      <View style={[styles.section, { backgroundColor: colors.card, shadowColor: isDark ? '#000' : '#000' }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Budget Summary</Text>
         <View style={styles.budgetSummary}>
-          <View style={styles.budgetItem}>
-            <Text style={styles.budgetLabel}>Invoice Value:</Text>
-            <Text style={styles.budgetValue}>₹{invoiceValue.toLocaleString()}</Text>
+          <View style={[styles.budgetItem, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.budgetLabel, { color: colors.textSecondary }]}>Invoice Value:</Text>
+            <Text style={[styles.budgetValue, { color: colors.text }]}>₹{invoiceValue.toLocaleString()}</Text>
           </View>
           
-          <View style={styles.budgetItem}>
-            <Text style={styles.budgetLabel}>Discount:</Text>
-            <Text style={styles.budgetValue}>₹{discountAmount.toLocaleString()}</Text>
+          <View style={[styles.budgetItem, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.budgetLabel, { color: colors.textSecondary }]}>Discount:</Text>
+            <Text style={[styles.budgetValue, { color: colors.text }]}>₹{discountAmount.toLocaleString()}</Text>
           </View>
           
-          <View style={styles.budgetItem}>
-            <Text style={styles.budgetLabel}>Final Invoice:</Text>
-            <Text style={styles.budgetValue}>₹{finalInvoiceValue.toLocaleString()}</Text>
+          <View style={[styles.budgetItem, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.budgetLabel, { color: colors.textSecondary }]}>Final Invoice:</Text>
+            <Text style={[styles.budgetValue, { color: colors.text }]}>₹{finalInvoiceValue.toLocaleString()}</Text>
           </View>
           
-          <View style={styles.budgetItem}>
-            <Text style={styles.budgetLabel}>DDC Spent:</Text>
-            <Text style={styles.budgetValue}>₹{ddcCost.toLocaleString()}</Text>
+          <View style={[styles.budgetItem, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.budgetLabel, { color: colors.textSecondary }]}>DDC Spent:</Text>
+            <Text style={[styles.budgetValue, { color: colors.text }]}>₹{ddcCost.toLocaleString()}</Text>
           </View>
           
-          <View style={[styles.budgetItem, styles.profitLossItem]}>
-            <Text style={styles.budgetLabel}>{isProfitable ? 'Profit' : 'Loss'}:</Text>
+          <View style={[styles.budgetItem, styles.profitLossItem, { borderTopColor: colors.border }]}>
+            <Text style={[styles.budgetLabel, { color: colors.textSecondary }]}>{isProfitable ? 'Profit' : 'Loss'}:</Text>
             <Text style={[styles.budgetValue, isProfitable ? styles.profitText : styles.lossText]}>
               ₹{Math.abs(profitLoss).toLocaleString()}
             </Text>
@@ -446,7 +448,7 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
         
         {hasChanges && (
           <TouchableOpacity
-            style={styles.updateButton}
+            style={[styles.updateButton, { backgroundColor: colors.primary }]}
             onPress={handleUpdateBudget}
             disabled={updateBudgetMutation.isPending}
           >
@@ -459,8 +461,8 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       </View>
 
       {/* Event Information */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Event Information</Text>
+      <View style={[styles.section, { backgroundColor: colors.card, shadowColor: isDark ? '#000' : '#000' }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Event Information</Text>
         <InfoRow icon="calendar" label="Event Date" value={new Date(event.eventDate).toLocaleDateString()} />
         <InfoRow icon="location" label="Venue" value={event.venue} />
         {event.clientName && <InfoRow icon="person" label="Client" value={event.clientName} />}
@@ -469,23 +471,23 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       </View>
 
       {/* Requirements & Plans */}
-      <View style={styles.section}>
+      <View style={[styles.section, { backgroundColor: colors.card, shadowColor: isDark ? '#000' : '#000' }]}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Requirements ({requirements.length})</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Requirements ({requirements.length})</Text>
           <TouchableOpacity
             style={styles.addButton}
             onPress={handleAddRequirement}
             data-testid="button-add-requirement"
           >
-            <Ionicons name="add-circle" size={24} color={BRAND_MAROON} />
+            <Ionicons name="add-circle" size={24} color={colors.primary} />
           </TouchableOpacity>
         </View>
         
         {requirements.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No requirements added yet</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No requirements added yet</Text>
             <TouchableOpacity
-              style={styles.emptyButton}
+              style={[styles.emptyButton, { backgroundColor: colors.primary }]}
               onPress={handleAddRequirement}
               data-testid="button-add-first-requirement"
             >
@@ -509,19 +511,19 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
             const variance = actualCost - effectiveInvoiceAmount;
 
             return (
-              <View key={req.id} style={styles.requirementCard}>
+              <View key={req.id} style={[styles.requirementCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={styles.requirementHeader}>
-                  <Text style={styles.requirementTitle}>{req.requirement}</Text>
+                  <Text style={[styles.requirementTitle, { color: colors.text }]}>{req.requirement}</Text>
                   <View style={styles.requirementActions}>
                     <View style={[styles.reqStatusBadge, getStatusColor(req.requirementStatus)]}>
-                      <Text style={styles.reqStatusText}>{req.requirementStatus}</Text>
+                      <Text style={[styles.reqStatusText, { color: '#000000' }]}>{req.requirementStatus}</Text>
                     </View>
                     <TouchableOpacity
                       onPress={() => handleEditRequirement(req)}
                       data-testid={`button-edit-requirement-${req.id}`}
                       style={styles.actionButton}
                     >
-                      <Ionicons name="create-outline" size={18} color={BRAND_MAROON} />
+                      <Ionicons name="create-outline" size={18} color={colors.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleDeleteRequirement(req)}
@@ -529,40 +531,41 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                       style={styles.actionButton}
                       activeOpacity={0.7}
                     >
-                      <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                      <Ionicons name="trash-outline" size={18} color={colors.error} />
                     </TouchableOpacity>
                   </View>
                 </View>
                 
                 {req.description && (
-                  <Text style={styles.requirementDesc}>{req.description}</Text>
+                  <Text style={[styles.requirementDesc, { color: colors.textSecondary }]}>{req.description}</Text>
                 )}
 
-                <View style={styles.requirementFinancials}>
+                <View style={[styles.requirementFinancials, { borderTopColor: colors.border }]}>
                   <View style={styles.financialRow}>
-                    <Text style={styles.financialLabel}>Base Amount:</Text>
-                    <Text style={styles.financialValue}>₹{invoiceAmount.toLocaleString()}</Text>
+                    <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Base Amount:</Text>
+                    <Text style={[styles.financialValue, { color: colors.text }]}>₹{invoiceAmount.toLocaleString()}</Text>
                   </View>
                   {hasDiscount && (
                     <>
                       <View style={styles.financialRow}>
-                        <Text style={styles.financialLabel}>Discount:</Text>
+                        <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Discount:</Text>
                         <Text style={[styles.financialValue, styles.discountText]}>-₹{requirementDiscount.toLocaleString()}</Text>
                       </View>
                       <View style={styles.financialRow}>
-                        <Text style={styles.financialLabel}>Invoice Amount:</Text>
-                        <Text style={styles.financialValue}>₹{effectiveInvoiceAmount.toLocaleString()}</Text>
+                        <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Invoice Amount:</Text>
+                        <Text style={[styles.financialValue, { color: colors.text }]}>₹{effectiveInvoiceAmount.toLocaleString()}</Text>
                       </View>
                     </>
                   )}
                   <View style={styles.financialRow}>
-                    <Text style={styles.financialLabel}>Actual Cost:</Text>
-                    <Text style={styles.financialValue}>₹{actualCost.toLocaleString()}</Text>
+                    <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Actual Cost:</Text>
+                    <Text style={[styles.financialValue, { color: colors.text }]}>₹{actualCost.toLocaleString()}</Text>
                   </View>
                   <View style={styles.financialRow}>
-                    <Text style={styles.financialLabel}>Variance:</Text>
+                    <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Variance:</Text>
                     <Text style={[
                       styles.financialValue,
+                      { color: colors.text },
                       variance > 0 ? styles.lossText : variance < 0 ? styles.profitText : {}
                     ]}>
                       {variance > 0 ? '+' : ''}₹{variance.toLocaleString()}
@@ -571,14 +574,14 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                 </View>
 
                 {/* Fulfillment Plans */}
-                <View style={styles.plansSection}>
+                <View style={[styles.plansSection, { borderTopColor: colors.border }]}>
                   <View style={styles.plansHeader}>
-                    <Text style={styles.plansTitle}>Fulfillment Plans ({plans.length})</Text>
+                    <Text style={[styles.plansTitle, { color: colors.text }]}>Fulfillment Plans ({plans.length})</Text>
                     <TouchableOpacity
                       onPress={() => handleAddPlan(req.id)}
                       data-testid={`button-add-plan-${req.id}`}
                     >
-                      <Ionicons name="add-circle-outline" size={20} color={BRAND_MAROON} />
+                      <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
                     </TouchableOpacity>
                   </View>
                   {plans.length > 0 && plans.map((plan) => {
@@ -602,7 +605,7 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                       return (
                         <TouchableOpacity
                           key={plan.id}
-                          style={styles.planItem}
+                          style={[styles.planItem, { backgroundColor: colors.card }]}
                           onPress={() => handleEditPlan(plan)}
                           data-testid={`button-edit-plan-${plan.id}`}
                         >
@@ -610,11 +613,11 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                             <Ionicons 
                               name={iconName} 
                               size={16} 
-                              color="#6b7280" 
+                              color={colors.textSecondary} 
                             />
-                            <Text style={styles.planName}>{planDetails}</Text>
+                            <Text style={[styles.planName, { color: colors.text }]}>{planDetails}</Text>
                           </View>
-                          <Text style={styles.planPayment}>₹{parseFloat(plan.payment || '0').toLocaleString()}</Text>
+                          <Text style={[styles.planPayment, { color: colors.primary }]}>₹{parseFloat(plan.payment || '0').toLocaleString()}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -673,29 +676,29 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
         onRequestClose={() => setShowDeleteConfirm(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.confirmationBox}>
-            <Text style={styles.confirmationTitle}>Delete Event?</Text>
-            <Text style={styles.warningText}>⚠️ This action cannot be undone!</Text>
-            <Text style={styles.confirmationMessage}>
+          <View style={[styles.confirmationBox, { backgroundColor: colors.card, shadowColor: isDark ? '#000' : '#000' }]}>
+            <Text style={[styles.confirmationTitle, { color: colors.error }]}>Delete Event?</Text>
+            <Text style={[styles.warningText, { color: colors.primary }]}>⚠️ This action cannot be undone!</Text>
+            <Text style={[styles.confirmationMessage, { color: colors.text }]}>
               Are you sure you want to delete "{event?.eventName}"?
             </Text>
-            <View style={styles.deletionInfo}>
-              <Text style={styles.deletionInfoTitle}>This will permanently delete:</Text>
-              <Text style={styles.deletionInfoItem}>• The event and all its information</Text>
-              <Text style={styles.deletionInfoItem}>• All requirements ({requirements.length})</Text>
-              <Text style={styles.deletionInfoItem}>• All associated fulfillment plans</Text>
-              <Text style={styles.deletionInfoItem}>• All related invoicing data</Text>
+            <View style={[styles.deletionInfo, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2', borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca' }]}>
+              <Text style={[styles.deletionInfoTitle, { color: colors.error }]}>This will permanently delete:</Text>
+              <Text style={[styles.deletionInfoItem, { color: colors.text }]}>• The event and all its information</Text>
+              <Text style={[styles.deletionInfoItem, { color: colors.text }]}>• All requirements ({requirements.length})</Text>
+              <Text style={[styles.deletionInfoItem, { color: colors.text }]}>• All associated fulfillment plans</Text>
+              <Text style={[styles.deletionInfoItem, { color: colors.text }]}>• All related invoicing data</Text>
             </View>
             <View style={styles.confirmationButtons}>
               <TouchableOpacity 
-                style={[styles.confirmButton, styles.cancelButton]}
+                style={[styles.confirmButton, styles.cancelButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={() => setShowDeleteConfirm(false)}
                 disabled={deleteEventMutation.isPending}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.confirmButton, styles.deleteConfirmButton]}
+                style={[styles.confirmButton, styles.deleteConfirmButton, { backgroundColor: colors.error }]}
                 onPress={confirmDelete}
                 disabled={deleteEventMutation.isPending}
               >
@@ -715,11 +718,12 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
 
 // Helper component for info rows
 function InfoRow({ icon, label, value }: { icon: any; label: string; value: string }) {
+  const { colors } = useTheme();
   return (
     <View style={styles.infoRow}>
-      <Ionicons name={icon} size={18} color="#6b7280" />
-      <Text style={styles.infoLabel}>{label}:</Text>
-      <Text style={styles.infoValue}>{value}</Text>
+      <Ionicons name={icon} size={18} color={colors.textSecondary} />
+      <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{label}:</Text>
+      <Text style={[styles.infoValue, { color: colors.text }]}>{value}</Text>
     </View>
   );
 }
@@ -740,7 +744,6 @@ function getStatusColor(status: string) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   scrollContent: {
     padding: 16,
@@ -750,14 +753,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#ffffff',
     padding: 20,
     borderRadius: 12,
     marginBottom: 16,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -779,17 +779,14 @@ const styles = StyleSheet.create({
   iconButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
   },
   eventName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1f2937',
     marginBottom: 8,
   },
   eventService: {
     fontSize: 16,
-    color: BRAND_MAROON,
     marginBottom: 12,
   },
   statusRow: {
@@ -805,14 +802,11 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1f2937',
   },
   section: {
-    backgroundColor: '#ffffff',
     padding: 16,
     borderRadius: 12,
     marginBottom: 16,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -827,7 +821,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1f2937',
     marginBottom: 12,
   },
   budgetSummary: {
@@ -840,23 +833,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
   profitLossItem: {
     borderBottomWidth: 0,
     paddingTop: 12,
     borderTopWidth: 2,
-    borderTopColor: '#d1d5db',
   },
   budgetLabel: {
     fontSize: 14,
-    color: '#6b7280',
     fontWeight: '500',
   },
   budgetValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1f2937',
   },
   profitText: {
     color: '#10b981',
@@ -871,7 +860,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: BRAND_MAROON,
     padding: 12,
     borderRadius: 8,
     gap: 8,
@@ -889,12 +877,10 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 14,
-    color: '#6b7280',
     fontWeight: '500',
   },
   infoValue: {
     fontSize: 14,
-    color: '#1f2937',
     flex: 1,
   },
   emptyState: {
@@ -903,11 +889,9 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#9ca3af',
     marginBottom: 16,
   },
   emptyButton: {
-    backgroundColor: BRAND_MAROON,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
@@ -921,12 +905,10 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   requirementCard: {
-    backgroundColor: '#f9fafb',
     padding: 16,
     borderRadius: 8,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   requirementHeader: {
     flexDirection: 'row',
@@ -937,7 +919,6 @@ const styles = StyleSheet.create({
   requirementTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1f2937',
     flex: 1,
     marginRight: 8,
   },
@@ -963,16 +944,13 @@ const styles = StyleSheet.create({
   reqStatusText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#1f2937',
   },
   requirementDesc: {
     fontSize: 14,
-    color: '#6b7280',
     marginBottom: 12,
   },
   requirementFinancials: {
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
     paddingTop: 12,
     gap: 6,
   },
@@ -983,19 +961,16 @@ const styles = StyleSheet.create({
   },
   financialLabel: {
     fontSize: 13,
-    color: '#6b7280',
     fontWeight: '500',
   },
   financialValue: {
     fontSize: 14,
-    color: '#1f2937',
     fontWeight: '600',
   },
   plansSection: {
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
   },
   plansHeader: {
     flexDirection: 'row',
@@ -1006,7 +981,6 @@ const styles = StyleSheet.create({
   plansTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1f2937',
   },
   planItem: {
     flexDirection: 'row',
@@ -1014,7 +988,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#ffffff',
     borderRadius: 6,
     marginBottom: 6,
   },
@@ -1026,16 +999,13 @@ const styles = StyleSheet.create({
   },
   planName: {
     fontSize: 13,
-    color: '#1f2937',
     flex: 1,
   },
   planPayment: {
     fontSize: 13,
     fontWeight: '600',
-    color: BRAND_MAROON,
   },
   button: {
-    backgroundColor: BRAND_MAROON,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -1048,7 +1018,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#ef4444',
     marginBottom: 8,
   },
   modalOverlay: {
@@ -1059,12 +1028,10 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   confirmationBox: {
-    backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 24,
     width: '100%',
     maxWidth: 400,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
@@ -1073,41 +1040,34 @@ const styles = StyleSheet.create({
   confirmationTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#dc2626',
     textAlign: 'center',
     marginBottom: 8,
   },
   warningText: {
     fontSize: 14,
-    color: '#f59e0b',
     textAlign: 'center',
     marginBottom: 16,
     fontWeight: '600',
   },
   confirmationMessage: {
     fontSize: 16,
-    color: '#374151',
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 22,
   },
   deletionInfo: {
-    backgroundColor: '#fef2f2',
     padding: 16,
     borderRadius: 8,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#fecaca',
   },
   deletionInfoTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#dc2626',
     marginBottom: 8,
   },
   deletionInfoItem: {
     fontSize: 14,
-    color: '#7f1d1d',
     marginBottom: 4,
     paddingLeft: 8,
   },
@@ -1125,17 +1085,14 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   cancelButton: {
-    backgroundColor: '#f3f4f6',
     borderWidth: 1,
-    borderColor: '#d1d5db',
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
   },
   deleteConfirmButton: {
-    backgroundColor: '#dc2626',
+    // backgroundColor will be set dynamically using colors.error
   },
   deleteButtonText: {
     fontSize: 16,
