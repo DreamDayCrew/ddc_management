@@ -327,8 +327,14 @@ export const InvoiceTemplate = ({
   let subtotal = 0;
   if (requirements && requirements.length > 0) {
     subtotal = requirements.reduce((sum, req) => {
-      const amount = Number(req.order ?? 0);
-      return sum + (isNaN(amount) ? 0 : amount);
+      const price = Number(req.price ?? 0);
+      const quantity = Number(req.quantity ?? 1);
+      const reqDiscount = req.req_discount === 'true' ? Number(req.req_discount_amount ?? 0) : 0;
+      const validPrice = isNaN(price) ? 0 : price;
+      const validQuantity = isNaN(quantity) ? 1 : quantity;
+      const validReqDiscount = isNaN(reqDiscount) ? 0 : reqDiscount;
+      const lineTotal = Math.max((validPrice * validQuantity) - validReqDiscount, 0);
+      return sum + lineTotal;
     }, 0);
   } else {
     const fallbackQuote = Number(event.finalizedQuote ?? event.initialQuote ?? 0);
@@ -415,13 +421,12 @@ export const InvoiceTemplate = ({
             requirements.map((req, index) => {
               const price = Number(req.price ?? 0);
               const quantity = Number(req.quantity ?? 1);
-              const lineTotal = Number(req.order ?? 0);
               const reqDiscountAmount = req.req_discount === 'true' ? Number(req.req_discount_amount ?? 0) : 0;
               
               const validPrice = isNaN(price) ? 0 : price;
               const validQuantity = isNaN(quantity) ? 1 : quantity;
-              const validLineTotal = isNaN(lineTotal) ? 0 : lineTotal;
               const validReqDiscount = isNaN(reqDiscountAmount) ? 0 : reqDiscountAmount;
+              const validLineTotal = Math.max((validPrice * validQuantity) - validReqDiscount, 0);
               
               return (
                 <View key={req.id || index} style={styles.tableRow}>
