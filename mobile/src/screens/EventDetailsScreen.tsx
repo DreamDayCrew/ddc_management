@@ -9,7 +9,8 @@ import {
   RefreshControl,
   Alert,
   Modal,
-  Platform
+  Platform,
+  Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts';
@@ -17,6 +18,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { EventsStackParamList } from '../navigation/EventsStackNavigator';
 import { api } from '../lib/api';
+import { config as envConfig } from '../config/environment';
 import type { Event, Requirement, FulfillmentPlan, TeamMember, Vendor, Asset, Configuration } from '../types';
 import AddRequirementModal from '../components/AddRequirementModal';
 import AddPlanModal from '../components/AddPlanModal';
@@ -291,23 +293,21 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       // Generate invoice number
       const invoiceNumber = `INV${event.id.slice(-5).toUpperCase()}${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
       
-      // Create download URL for the invoice
-      const baseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+      // Create download URL for the invoice using the config API URL
+      const baseUrl = envConfig.API_URL;
       const downloadUrl = `${baseUrl}/api/events/${eventId}/invoice?invoice_number=${invoiceNumber}`;
       
       Alert.alert(
         'Download Invoice',
-        `Invoice ${invoiceNumber}\\nGross Amount: ₹${invoiceValue.toLocaleString()}\\nDiscount: ₹${discountAmount.toLocaleString()}\\nFinal Amount: ₹${finalInvoiceValue.toLocaleString()}\\n\\nThis will open your browser to download the PDF.${Platform.OS === 'android' ? '\\n\\nFor Samsung devices: After the PDF opens, tap the download icon in your browser.' : ''}`,
+        `Invoice ${invoiceNumber}\nGross Amount: ₹${invoiceValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalInvoiceValue.toLocaleString()}\n\nThis will open your browser to download the PDF.${Platform.OS === 'android' ? '\n\nFor Samsung devices: After the PDF opens, tap the download icon in your browser.' : ''}`,
         [
           { text: 'Cancel', style: 'cancel' },
           { 
             text: 'Download', 
             onPress: () => {
               // Open the download URL in the browser
-              import('expo-linking').then(({ default: Linking }) => {
-                Linking.openURL(downloadUrl).catch(() => {
-                  Alert.alert('Error', 'Cannot open browser. Please check your internet connection.');
-                });
+              Linking.openURL(downloadUrl).catch(() => {
+                Alert.alert('Error', 'Cannot open browser. Please check your internet connection.');
               });
             }
           }
@@ -315,6 +315,56 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       );
     } catch (error) {
       Alert.alert('Error', 'Failed to download invoice');
+    }
+  };
+
+  const handleDownloadQuotation = async () => {
+    try {
+      // Validate quotation requirements
+      if (!event) {
+        Alert.alert('Error', 'Event data not loaded');
+        return;
+      }
+
+      if (!requirements || requirements.length === 0) {
+        Alert.alert('Cannot Generate Quotation', 'No requirements found for this event');
+        return;
+      }
+
+      const invoiceValue = calculateInvoiceValue();
+      const discountAmount = calculateDiscountAmount();
+      const finalQuotationValue = invoiceValue - discountAmount;
+      
+      if (finalQuotationValue <= 0) {
+        Alert.alert('Cannot Generate Quotation', 'Quotation amount must be greater than zero');
+        return;
+      }
+
+      // Generate quotation number
+      const quotationNumber = `QTN${event.id.slice(-5).toUpperCase()}${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      
+      // Create download URL for the quotation using the config API URL
+      const baseUrl = envConfig.API_URL;
+      const downloadUrl = `${baseUrl}/api/events/${eventId}/quotation?quotation_number=${quotationNumber}`;
+      
+      Alert.alert(
+        'Download Quotation',
+        `Quotation ${quotationNumber}\nGross Amount: ₹${invoiceValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalQuotationValue.toLocaleString()}\n\nThis will open your browser to download the PDF.${Platform.OS === 'android' ? '\n\nFor Samsung devices: After the PDF opens, tap the download icon in your browser.' : ''}`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Download', 
+            onPress: () => {
+              // Open the download URL in the browser
+              Linking.openURL(downloadUrl).catch(() => {
+                Alert.alert('Error', 'Cannot open browser. Please check your internet connection.');
+              });
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to download quotation');
     }
   };
 
@@ -389,6 +439,13 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
               data-testid="button-download-invoice"
             >
               <Ionicons name="download-outline" size={22} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.iconButton, { backgroundColor: colors.surface }]}
+              onPress={handleDownloadQuotation}
+              data-testid="button-download-quotation"
+            >
+              <Ionicons name="document-text-outline" size={22} color={colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.iconButton, { backgroundColor: colors.surface }]}
