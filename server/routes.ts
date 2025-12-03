@@ -5,6 +5,7 @@ import { seedDatabase } from "./seed";
 import { z } from 'zod';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { ServerInvoiceTemplate } from './invoice-template';
+import { ServerCatalogTemplate } from './catalog-template';
 import React from 'react';
 import {
   insertConfigurationSchema,
@@ -1371,6 +1372,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const items = await storage.getCatalogItems();
       res.json(items);
     } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/catalog/pdf", async (_req, res) => {
+    try {
+      const [catalogItems, configuration] = await Promise.all([
+        storage.getCatalogItems(),
+        storage.getConfiguration(),
+      ]);
+
+      if (!configuration) {
+        return res.status(404).json({ error: "Configuration not found" });
+      }
+
+      const packages = configuration.packages || ['Ultra', 'Premium', 'Budget'];
+
+      const pdfBuffer = await renderToBuffer(
+        React.createElement(ServerCatalogTemplate, {
+          catalogItems,
+          configuration,
+          packages,
+        })
+      );
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="Dream_Day_Crew_Service_Catalog.pdf"');
+      res.send(pdfBuffer);
+    } catch (error: any) {
+      console.error('[PDF] Error generating catalog PDF:', error);
       res.status(500).json({ error: error.message });
     }
   });

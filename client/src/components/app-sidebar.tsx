@@ -8,6 +8,7 @@ import {
   DollarSign,
   FileText,
   Settings,
+  BookOpen,
 } from "lucide-react";
 import {
   Sidebar,
@@ -63,6 +64,12 @@ const menuItems = [
     url: "/expenses",
     icon: DollarSign,
     testId: "nav-expenses",
+  },
+  {
+    title: "Catalog",
+    url: "/catalog",
+    icon: BookOpen,
+    testId: "nav-catalog",
   },
   {
     title: "Configuration",
