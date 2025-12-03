@@ -30,8 +30,9 @@ Preferred communication style: Simple, everyday language.
 - **Mobile App Implementation**:
   - Star ratings using Ionicons (star/star-outline)
   - Tappable stars for instant rating updates
-  - Review section in each plan item
-  - Located in `mobile/src/screens/EventDetailsScreen.tsx`
+  - Review section in each plan item for viewing (EventDetailsScreen)
+  - Review editing in AddPlanModal when editing existing plans
+  - Located in `mobile/src/screens/EventDetailsScreen.tsx` and `mobile/src/components/AddPlanModal.tsx`
 - **API Endpoint**: `PATCH /api/plans/:id/review` for updating plan reviews
 - **Schema Changes**: Added `customerRating`, `teamRating`, `reviewNotes` columns to `fulfillment_plans` table
 
