@@ -669,29 +669,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(204).send();
   });
 
+  // Health check endpoint for PDF download testing
+  app.get("/api/events/:id/health", async (req, res) => {
+    console.log('🏥 Health check called for event:', req.params.id);
+    const { id } = req.params;
+    
+    try {
+      const event = await storage.getEvent(id);
+      res.json({
+        status: 'healthy',
+        eventId: id,
+        eventFound: !!event,
+        eventName: event?.eventName || 'N/A',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: 'error',
+        eventId: id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Invoice generation endpoint
   app.get("/api/events/:id/invoice", async (req, res) => {
+    console.log('📄 Invoice API called');
+    console.log('  Event ID:', req.params.id);
+    console.log('  Query params:', req.query);
+    console.log('  Headers:', {
+      'user-agent': req.headers['user-agent'],
+      'accept': req.headers['accept'],
+      'referer': req.headers['referer']
+    });
+    
     try {
       const { id } = req.params;
       const { invoice_number } = req.query;
       
+      console.log('🔍 Starting invoice generation for event:', id);
+      
       // Fetch event data
       const event = await storage.getEvent(id);
       if (!event) {
+        console.error('❌ Event not found:', id);
         return res.status(404).json({ error: "Event not found" });
       }
+      
+      console.log('✅ Event found:', event.eventName);
       
       // Fetch requirements
       const requirements = await storage.getRequirements(id);
       if (!requirements || requirements.length === 0) {
+        console.error('❌ No requirements found for event:', id);
         return res.status(400).json({ error: "No requirements found for this event" });
       }
+      
+      console.log('✅ Requirements found:', requirements.length);
       
       // Fetch configuration
       const config = await storage.getConfiguration();
       if (!config) {
+        console.error('❌ Configuration not found');
         return res.status(400).json({ error: "Configuration not found" });
       }
+      
+      console.log('✅ Configuration loaded');
       
       // Calculate invoice value
       const invoiceValue = requirements.reduce((total, req) => {
@@ -699,7 +742,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return total + (isNaN(price) ? 0 : price);
       }, 0);
       
+      console.log('💰 Calculated invoice value:', invoiceValue);
+      
       if (invoiceValue <= 0) {
+        console.error('❌ Invoice value is zero or negative:', invoiceValue);
         return res.status(400).json({ error: "Event has no billable requirements" });
       }
       
@@ -707,7 +753,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const invoiceNumber = invoice_number as string || 
         `INV${event.id.slice(-5).toUpperCase()}${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
       
+      console.log('📝 Generated invoice number:', invoiceNumber);
+      
       // Generate PDF
+      console.log('🎨 Starting PDF generation...');
       const invoiceElement = ServerInvoiceTemplate({
         event,
         requirements,
@@ -716,23 +765,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       if (!invoiceElement) {
+        console.error('❌ Failed to generate invoice template');
         return res.status(500).json({ error: "Failed to generate invoice template" });
       }
       
+      console.log('✅ Invoice template generated successfully');
+      
       const pdfBuffer = await renderToBuffer(invoiceElement as React.ReactElement);
+      console.log('✅ PDF buffer generated, size:', pdfBuffer.length, 'bytes');
       
       // Set response headers for PDF download
       const fileName = `Invoice_${event.eventName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      console.log('📁 Setting response headers for file:', fileName);
+      
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       res.setHeader('Content-Length', pdfBuffer.length);
       
+      console.log('✅ Sending PDF buffer to client');
       // Send PDF buffer
       res.send(pdfBuffer);
       
     } catch (error: any) {
-      console.error('Error generating invoice:', error);
-      res.status(500).json({ error: "Failed to generate invoice" });
+      console.error('💥 Invoice generation error:');
+      console.error('  Error message:', error.message);
+      console.error('  Error stack:', error.stack);
+      console.error('  Full error object:', error);
+      res.status(500).json({ 
+        error: "Failed to generate invoice",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
+  // Quote generation endpoint
+  app.get("/api/events/:id/quote", async (req, res) => {
+    console.log('📋 Quote API called');
+    console.log('  Event ID:', req.params.id);
+    console.log('  Query params:', req.query);
+    console.log('  Headers:', {
+      'user-agent': req.headers['user-agent'],
+      'accept': req.headers['accept'],
+      'referer': req.headers['referer']
+    });
+    
+    try {
+      const { id } = req.params;
+      const { quote_number } = req.query;
+      
+      console.log('🔍 Starting quote generation for event:', id);
+      
+      // Fetch event data
+      const event = await storage.getEvent(id);
+      if (!event) {
+        console.error('❌ Event not found for quote:', id);
+        return res.status(404).json({ error: "Event not found" });
+      }
+      
+      console.log('✅ Event found for quote:', event.eventName);
+      
+      // Fetch requirements
+      const requirements = await storage.getRequirements(id);
+      if (!requirements || requirements.length === 0) {
+        console.error('❌ No requirements found for quote event:', id);
+        return res.status(400).json({ error: "No requirements found for this event" });
+      }
+      
+      console.log('✅ Requirements found for quote:', requirements.length);
+      
+      // Fetch configuration
+      const config = await storage.getConfiguration();
+      if (!config) {
+        console.error('❌ Configuration not found for quote');
+        return res.status(400).json({ error: "Configuration not found" });
+      }
+      
+      console.log('✅ Configuration loaded for quote');
+      
+      // Calculate quote value (same as invoice)
+      const quoteValue = requirements.reduce((total, req) => {
+        const price = parseFloat(String(req.order ?? '0'));
+        return total + (isNaN(price) ? 0 : price);
+      }, 0);
+      
+      console.log('💰 Calculated quote value:', quoteValue);
+      
+      if (quoteValue <= 0) {
+        console.error('❌ Quote value is zero or negative:', quoteValue);
+        return res.status(400).json({ error: "Event has no billable requirements" });
+      }
+      
+      // Generate quote number if not provided
+      const quoteNumber = quote_number as string || 
+        `QUO${event.id.slice(-5).toUpperCase()}${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      
+      console.log('📝 Generated quote number:', quoteNumber);
+      
+      // For now, use the invoice template but modify the title
+      // TODO: Create a separate quote template without payment information
+      console.log('🎨 Starting quote PDF generation...');
+      const quoteElement = ServerInvoiceTemplate({
+        event,
+        requirements,
+        config,
+        invoiceNumber: quoteNumber.replace('QUO', 'QUOTE-')
+      });
+      
+      if (!quoteElement) {
+        console.error('❌ Failed to generate quote template');
+        return res.status(500).json({ error: "Failed to generate quote template" });
+      }
+      
+      console.log('✅ Quote template generated successfully');
+      
+      const pdfBuffer = await renderToBuffer(quoteElement as React.ReactElement);
+      console.log('✅ Quote PDF buffer generated, size:', pdfBuffer.length, 'bytes');
+      
+      // Set response headers for PDF download
+      const fileName = `Quote_${event.eventName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      console.log('📁 Setting quote response headers for file:', fileName);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      
+      console.log('✅ Sending quote PDF buffer to client');
+      // Send PDF buffer
+      res.send(pdfBuffer);
+      
+    } catch (error: any) {
+      console.error('💥 Quote generation error:');
+      console.error('  Error message:', error.message);
+      console.error('  Error stack:', error.stack);
+      console.error('  Full error object:', error);
+      res.status(500).json({ 
+        error: "Failed to generate quote",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   });
 
