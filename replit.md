@@ -18,6 +18,16 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### December 3, 2025 - Dashboard Swipeable Carousel
+- **Disney+ Hotstar Style Carousel**: Added swipeable card carousel at the top of the Dashboard
+- **Two Cards**: 
+  - Card 1: DDC logo with "Dream Day Crew - Event Management Excellence" branding
+  - Card 2: Account Balance view with Credit, Debit, and Pending metrics
+- **Smooth Gestures**: FlatList with pagingEnabled and snapToInterval for smooth swipe experience
+- **Pagination Dots**: Active indicator dots that update as user swipes between cards
+- **Maroon Theme**: Consistent branding with maroon gradient backgrounds
+- **Located in**: `mobile/src/screens/DashboardScreen.tsx`
+
 ### December 3, 2025 - Plan-Level Review System
 - **Review Feature**: Added review capability at the fulfillment plan level for granular vendor/team feedback
 - **Review Fields**: Customer rating (1-5 stars), Team rating (1-5 stars), Review notes (text)
