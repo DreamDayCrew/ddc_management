@@ -342,57 +342,27 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       
       Alert.alert(
         'Download Invoice',
-        `Invoice ${invoiceNumber}\nGross Amount: ₹${invoiceValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalInvoiceValue.toLocaleString()}\n\nThis will open your browser to download the PDF.${Platform.OS === 'android' ? '\n\nFor Samsung devices: After the PDF opens, tap the download icon in your browser.' : ''}`,
+        `Invoice ${invoiceNumber}\nGross Amount: ₹${invoiceValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalInvoiceValue.toLocaleString()}\n\nThis will open your browser to download the PDF.`,
         [
           { text: 'Cancel', style: 'cancel' },
           { 
             text: 'Download', 
-            onPress: async () => {
-              console.log('🔗 Attempting to open URL:', downloadUrl);
-              console.log('🔗 Current platform:', Platform.OS);
+            onPress: () => {
+              console.log('🔗 Opening invoice URL:', downloadUrl);
               
-              try {
-                // Test if the API URL is reachable first
-                console.log('🧪 Testing API connectivity...');
-                
-                // First test with a simple health check
-                const healthUrl = `${envConfig.API_URL}/api/events/${eventId}/health`;
-                console.log('🏥 Testing health endpoint:', healthUrl);
-                const healthResponse = await fetch(healthUrl, { 
-                  method: 'GET',
-                  mode: 'cors',
-                  headers: {
-                    'Accept': 'application/json',
-                  }
-                });
-                console.log('🏥 Health check response:', healthResponse.status);
-                if (healthResponse.ok) {
-                  const healthData = await healthResponse.json();
-                  console.log('🏥 Health data:', healthData);
-                }
-                
-                // Then test the actual download URL
-                const testResponse = await fetch(downloadUrl, { 
-                  method: 'HEAD',
-                  mode: 'cors'
-                });
-                console.log('✅ Invoice API URL reachable, status:', testResponse.status);
-                console.log('✅ Response headers:', Object.fromEntries(testResponse.headers.entries()));
-              } catch (error) {
-                console.error('❌ Invoice API URL not reachable:', error);
-                Alert.alert('Network Error', `Cannot reach server at ${envConfig.API_URL}. Please check if the backend server is running.`);
-                return;
+              // On web, use window.open for better download experience
+              if (Platform.OS === 'web') {
+                window.open(downloadUrl, '_blank');
+                console.log('✅ Opened in new tab (web)');
+              } else {
+                // On native, use Linking
+                Linking.openURL(downloadUrl)
+                  .then(() => console.log('✅ Opened URL in browser'))
+                  .catch((error) => {
+                    console.error('❌ Failed to open URL:', error);
+                    Alert.alert('Error', 'Cannot open browser');
+                  });
               }
-              
-              // Open the download URL in the browser
-              Linking.openURL(downloadUrl)
-                .then(() => {
-                  console.log('✅ Successfully opened URL in browser');
-                })
-                .catch((error) => {
-                  console.error('❌ Failed to open URL:', error);
-                  Alert.alert('Error', 'Cannot open browser. Please check your internet connection.');
-                });
             }
           }
         ]
@@ -432,78 +402,41 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
         return;
       }
 
-      // Generate quote number
-      const quoteNumber = `QUO${event.id.slice(-5).toUpperCase()}${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      // Generate quotation number
+      const quotationNumber = `QTN${event.id.slice(-5).toUpperCase()}${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
       
-      // Create download URL for the quote
+      // Create download URL for the quotation (matches server endpoint)
       const baseUrl = envConfig.API_URL;
-      const downloadUrl = `${baseUrl}/api/events/${eventId}/quote?quote_number=${quoteNumber}`;
+      const downloadUrl = `${baseUrl}/api/events/${eventId}/quotation?quotation_number=${quotationNumber}`;
       
-      console.log('🌐 Quote API Configuration:');
-      console.log('  Base URL (env):', envConfig.API_URL);
-      console.log('  Base URL (used):', baseUrl);
+      console.log('🌐 Quotation API Configuration:');
+      console.log('  Base URL:', baseUrl);
       console.log('  Full download URL:', downloadUrl);
-      console.log('  Quote number:', quoteNumber);
+      console.log('  Quotation number:', quotationNumber);
       
       Alert.alert(
-        'Download Quote',
-        `Quote ${quoteNumber}\nGross Amount: ₹${quoteValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalQuoteValue.toLocaleString()}\n\nThis will open your browser to download the PDF.${Platform.OS === 'android' ? '\n\nFor Samsung devices: After the PDF opens, tap the download icon in your browser.' : ''}`,
+        'Download Quotation',
+        `Quotation ${quotationNumber}\nGross Amount: ₹${quoteValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalQuoteValue.toLocaleString()}\n\nThis will open your browser to download the PDF.`,
         [
           { text: 'Cancel', style: 'cancel' },
           { 
             text: 'Download', 
-            onPress: async () => {
-              console.log('🔗 Attempting to open quote URL:', downloadUrl);
-              console.log('🔗 Current platform:', Platform.OS);
-              console.log('🔗 User agent:', navigator.userAgent);
+            onPress: () => {
+              console.log('🔗 Opening quotation URL:', downloadUrl);
               
-              try {
-                // Test if the API URL is reachable first
-                console.log('🧪 Testing quote API connectivity...');
-                
-                // First test with a simple health check
-                const healthUrl = `${envConfig.API_URL}/api/events/${eventId}/health`;
-                console.log('🏥 Testing quote health endpoint:', healthUrl);
-                const healthResponse = await fetch(healthUrl, { 
-                  method: 'GET',
-                  mode: 'cors',
-                  headers: {
-                    'Accept': 'application/json',
-                  }
-                });
-                console.log('🏥 Quote health check response:', healthResponse.status);
-                if (healthResponse.ok) {
-                  const healthData = await healthResponse.json();
-                  console.log('🏥 Quote health data:', healthData);
-                }
-                
-                // Then test the actual download URL
-                const testResponse = await fetch(downloadUrl, { 
-                  method: 'HEAD',
-                  mode: 'cors'
-                });
-                console.log('✅ API URL reachable, status:', testResponse.status);
-                console.log('✅ Response headers:', Object.fromEntries(testResponse.headers.entries()));
-              } catch (error) {
-                console.error('❌ Quote API URL not reachable:', error);
-                Alert.alert('Network Error', `Cannot reach server at ${envConfig.API_URL}. Please check if the backend server is running.`);
-                return;
-              }
-              
-              // Open the download URL in the browser
-              import('expo-linking').then(({ default: Linking }) => {
+              // On web, use window.open for better download experience
+              if (Platform.OS === 'web') {
+                window.open(downloadUrl, '_blank');
+                console.log('✅ Opened in new tab (web)');
+              } else {
+                // On native, use Linking
                 Linking.openURL(downloadUrl)
-                  .then(() => {
-                    console.log('✅ Successfully opened quote URL in browser');
-                  })
+                  .then(() => console.log('✅ Opened URL in browser'))
                   .catch((error) => {
-                    console.error('❌ Failed to open quote URL:', error);
-                    Alert.alert('Error', 'Cannot open browser. Please check your internet connection.');
+                    console.error('❌ Failed to open URL:', error);
+                    Alert.alert('Error', 'Cannot open browser');
                   });
-              }).catch((linkingError) => {
-                console.error('❌ Failed to import expo-linking:', linkingError);
-                Alert.alert('Error', 'Failed to load linking module');
-              });
+              }
             }
           }
         ]
