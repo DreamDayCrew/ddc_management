@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, Dimensions, TouchableOpacity, FlatList, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, ImageBackground, Dimensions, TouchableOpacity, FlatList, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -39,8 +39,8 @@ const NEUTRAL_GRAY = '#636e72';
 const LIGHT_GRAY = '#f8f9fa';
 const { width } = Dimensions.get('window');
 
-const CAROUSEL_CARD_WIDTH = width - 32; // Full width minus padding
-const CAROUSEL_CARD_HEIGHT = 220;
+const CAROUSEL_PAGE_WIDTH = width; // Full screen width for each page
+const CAROUSEL_CARD_HEIGHT = 200;
 
 export default function DashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootTabParamList>>();
@@ -56,7 +56,7 @@ export default function DashboardScreen() {
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const contentOffset = event.nativeEvent.contentOffset.x;
-    const index = Math.round(contentOffset / CAROUSEL_CARD_WIDTH);
+    const index = Math.round(contentOffset / CAROUSEL_PAGE_WIDTH);
     setActiveCardIndex(index);
   }, []);
   
@@ -184,86 +184,79 @@ export default function DashboardScreen() {
           showsHorizontalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
-          snapToInterval={CAROUSEL_CARD_WIDTH}
           decelerationRate="fast"
-          contentContainerStyle={styles.carouselContainer}
           renderItem={({ item }) => {
             if (item.key === 'logo') {
               return (
-                <LinearGradient
-                  colors={
-                    isDark 
-                      ? ['#150507', '#400C10', '#2A0E13']
-                      : ['#C0A050','#400C10', '#E0D080']
-                  }
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.carouselCard, styles.glassMorphism]}
-                >
-                  <View style={styles.logoCardContent}>
-                    <Image 
-                      source={require('../../assets/adaptive-icon.png')}
-                      style={styles.carouselLogo}
-                      resizeMode="contain"
+                <View style={styles.carouselPage}>
+                  <ImageBackground 
+                    source={require('../../assets/adaptive-icon.png')}
+                    style={styles.logoBackgroundCard}
+                    imageStyle={styles.logoBackgroundImage}
+                    resizeMode="cover"
+                  >
+                    <LinearGradient
+                      colors={['rgba(128, 0, 32, 0.3)', 'rgba(128, 0, 32, 0.5)']}
+                      style={styles.logoOverlay}
                     />
-                    <Text style={styles.logoCardTitle}>Dream Day Crew</Text>
-                    <Text style={styles.logoCardSubtitle}>Event Management Excellence</Text>
-                  </View>
-                </LinearGradient>
+                  </ImageBackground>
+                </View>
               );
             } else {
               return (
-                <LinearGradient
-                  colors={
-                    isDark 
-                      ? ['#150507', '#400C10', '#2A0E13']
-                      : ['#C0A050','#400C10', '#E0D080']
-                  }
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.carouselCard, styles.glassMorphism]}
-                >
-                  <View style={styles.gradientContent}>
-                    <View style={styles.mainBalanceSection}>
-                      <Text style={styles.balanceLabel}>Account Balance</Text>
-                      <Text style={[styles.mainBalance, accountBalance >= 0 ? styles.positiveBalance : styles.negativeBalance]}>
-                        ₹{accountBalance.toLocaleString()}
-                      </Text>
-                    </View>
-                    
-                    <View style={styles.financialMetrics}>
-                      <View style={styles.metricRow}>
-                        <View style={styles.metricItem}>
-                          <View style={styles.metricIconContainer}>
-                            <MaterialCommunityIcons name="plus-circle-outline" size={20} color="#4ade80" />
+                <View style={styles.carouselPage}>
+                  <LinearGradient
+                    colors={
+                      isDark 
+                        ? ['#150507', '#400C10', '#2A0E13']
+                        : ['#C0A050','#400C10', '#E0D080']
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.carouselCard, styles.glassMorphism]}
+                  >
+                    <View style={styles.gradientContent}>
+                      <View style={styles.mainBalanceSection}>
+                        <Text style={styles.balanceLabel}>Account Balance</Text>
+                        <Text style={[styles.mainBalance, accountBalance >= 0 ? styles.positiveBalance : styles.negativeBalance]}>
+                          ₹{accountBalance.toLocaleString()}
+                        </Text>
+                      </View>
+                      
+                      <View style={styles.financialMetrics}>
+                        <View style={styles.metricRow}>
+                          <View style={styles.metricItem}>
+                            <View style={styles.metricIconContainer}>
+                              <MaterialCommunityIcons name="plus-circle-outline" size={20} color="#4ade80" />
+                            </View>
+                            <Text style={styles.metricValue}>₹{totalIncome.toLocaleString()}</Text>
+                            <Text style={styles.metricLabel}>Credit</Text>
                           </View>
-                          <Text style={styles.metricValue}>₹{totalIncome.toLocaleString()}</Text>
-                          <Text style={styles.metricLabel}>Credit</Text>
+                          
+                          <View style={styles.metricItem}>
+                            <View style={styles.metricIconContainer}>
+                              <MaterialCommunityIcons name="minus-circle-outline" size={20} color="#f87171" />
+                            </View>
+                            <Text style={styles.metricValue}>₹{totalExpense.toLocaleString()}</Text>
+                            <Text style={styles.metricLabel}>Debit</Text>
+                          </View>
+                          
+                          <TouchableOpacity 
+                            style={styles.metricItem}
+                            onPress={() => setRepaymentModalVisible(true)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={styles.metricIconContainer}>
+                              <MaterialCommunityIcons name="clock-outline" size={20} color="#fbbf24" />
+                            </View>
+                            <Text style={styles.metricValue}>₹{pendingRepayment.toLocaleString()}</Text>
+                            <Text style={styles.metricLabel}>Pending</Text>
+                          </TouchableOpacity>
                         </View>
-                        
-                        <View style={styles.metricItem}>
-                          <View style={styles.metricIconContainer}>
-                            <MaterialCommunityIcons name="minus-circle-outline" size={20} color="#f87171" />
-                          </View>
-                          <Text style={styles.metricValue}>₹{totalExpense.toLocaleString()}</Text>
-                          <Text style={styles.metricLabel}>Debit</Text>
-                        </View>
-                        
-                        <TouchableOpacity 
-                          style={styles.metricItem}
-                          onPress={() => setRepaymentModalVisible(true)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.metricIconContainer}>
-                            <MaterialCommunityIcons name="clock-outline" size={20} color="#fbbf24" />
-                          </View>
-                          <Text style={styles.metricValue}>₹{pendingRepayment.toLocaleString()}</Text>
-                          <Text style={styles.metricLabel}>Pending</Text>
-                        </TouchableOpacity>
                       </View>
                     </View>
-                  </View>
-                </LinearGradient>
+                  </LinearGradient>
+                </View>
               );
             }
           }}
@@ -846,15 +839,15 @@ const styles = StyleSheet.create({
   
   // Carousel Styles
   carouselSection: {
-    marginHorizontal: 16,
     marginTop: 8,
     marginBottom: 8,
   },
-  carouselContainer: {
-    paddingHorizontal: 0,
+  carouselPage: {
+    width: width,
+    paddingHorizontal: 16,
   },
   carouselCard: {
-    width: width - 32,
+    width: '100%',
     height: CAROUSEL_CARD_HEIGHT,
     borderRadius: 24,
     padding: 24,
@@ -865,28 +858,18 @@ const styles = StyleSheet.create({
     elevation: 12,
     justifyContent: 'center',
   },
-  logoCardContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  logoBackgroundCard: {
+    width: '100%',
+    height: CAROUSEL_CARD_HEIGHT,
+    borderRadius: 24,
+    overflow: 'hidden',
   },
-  carouselLogo: {
-    width: 80,
-    height: 80,
-    marginBottom: 12,
-    borderRadius: 40,
+  logoBackgroundImage: {
+    borderRadius: 24,
   },
-  logoCardTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  logoCardSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontWeight: '500',
-    letterSpacing: 0.3,
+  logoOverlay: {
+    flex: 1,
+    borderRadius: 24,
   },
   paginationContainer: {
     flexDirection: 'row',
