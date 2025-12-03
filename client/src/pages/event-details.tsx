@@ -1036,6 +1036,7 @@ export default function EventDetails() {
                 onDelete={setDeleteRequirement}
                 onEditPlan={(plan, requirementId) => setEditPlan({ plan, requirementId })}
                 onDeletePlan={setDeletePlan}
+                isEventCompleted={event?.eventStatus === "Completed"}
               />
             ))}
         </Accordion>

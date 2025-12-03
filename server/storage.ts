@@ -885,7 +885,10 @@ export class MemStorage implements IStorage {
       assetCategory: plan.assetCategory || null,
       payment: plan.payment !== undefined ? String(plan.payment) : null,
       paymentStatus: plan.paymentStatus || null,
-      planStatus: plan.planStatus || 'To Do'
+      planStatus: plan.planStatus || 'To Do',
+      customerRating: plan.customerRating || null,
+      teamRating: plan.teamRating || null,
+      reviewNotes: plan.reviewNotes || null,
     };
     console.log('Trying to insert:', JSON.stringify(newPlan, null, 2));
     this.fulfillmentPlans.set(newPlan.id, newPlan);
@@ -913,6 +916,10 @@ export class MemStorage implements IStorage {
       ...(plan.planStatus !== undefined && { planStatus: plan.planStatus }),
       // Handle payment separately to ensure it's always a string
       payment: plan.payment !== undefined ? String(plan.payment) : existing.payment,
+      // Review fields
+      ...(plan.customerRating !== undefined && { customerRating: plan.customerRating }),
+      ...(plan.teamRating !== undefined && { teamRating: plan.teamRating }),
+      ...(plan.reviewNotes !== undefined && { reviewNotes: plan.reviewNotes }),
       updatedAt: new Date()
     };
     

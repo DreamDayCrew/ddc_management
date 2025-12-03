@@ -192,6 +192,11 @@ export const fulfillmentPlans = pgTable('fulfillment_plans', {
   planStatus: text('plan_status').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  
+  // Review fields (filled after event completion)
+  customerRating: integer('customer_rating'),
+  teamRating: integer('team_rating'),
+  reviewNotes: text('review_notes'),
 }, (table) => ({
   // Add check constraints
   chkVendorPlan: check('chk_vendor_plan', 
@@ -249,7 +254,20 @@ export const insertFulfillmentPlanSchema = createInsertSchema(fulfillmentPlans, 
   payment: z.union([z.string(), z.number()])
     .transform(val => val === "" ? undefined : val)
     .pipe(z.coerce.number().nullable().optional()),
+  // Review fields
+  customerRating: z.number().min(1).max(5).nullable().optional(),
+  teamRating: z.number().min(1).max(5).nullable().optional(),
+  reviewNotes: z.string().nullable().optional(),
 }).omit({ id: true });
+
+// Schema for updating plan reviews only
+export const updatePlanReviewSchema = z.object({
+  customerRating: z.number().min(1).max(5).nullable().optional(),
+  teamRating: z.number().min(1).max(5).nullable().optional(),
+  reviewNotes: z.string().nullable().optional(),
+});
+
+export type UpdatePlanReview = z.infer<typeof updatePlanReviewSchema>;
 
 // Types
 export type Configuration = typeof configurations.$inferSelect;

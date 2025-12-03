@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -34,7 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { RequirementForm } from "@/components/forms/requirement-form";
 import { FulfillmentForm } from "@/components/forms/fulfillment-form";
-import { Edit, Plus, Trash2, IndianRupee } from "lucide-react";
+import { Edit, Plus, Trash2, IndianRupee, Star, MessageSquare } from "lucide-react";
 
 interface RequirementItemProps {
   requirement: Requirement;
@@ -45,6 +46,45 @@ interface RequirementItemProps {
   onDelete: (requirement: Requirement) => void;
   onEditPlan: (plan: FulfillmentPlan, requirementId: string) => void;
   onDeletePlan: (plan: FulfillmentPlan) => void;
+  isEventCompleted?: boolean;
+}
+
+function StarRating({ 
+  rating, 
+  onChange, 
+  disabled = false,
+  label 
+}: { 
+  rating: number | null; 
+  onChange: (rating: number) => void;
+  disabled?: boolean;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-muted-foreground min-w-[80px]">{label}:</span>
+      <div className="flex gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(star)}
+            className={`p-0.5 transition-colors ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:text-yellow-400'}`}
+          >
+            <Star
+              className={`h-4 w-4 ${
+                rating && star <= rating
+                  ? 'fill-yellow-400 text-yellow-400'
+                  : 'text-muted-foreground'
+              }`}
+            />
+          </button>
+        ))}
+      </div>
+      {rating && <span className="text-xs text-muted-foreground">({rating}/5)</span>}
+    </div>
+  );
 }
 
 type FulfillmentPlanWithRequirement = FulfillmentPlan & {
@@ -60,13 +100,45 @@ export function RequirementItem({
   onDelete,
   onEditPlan,
   onDeletePlan,
+  isEventCompleted = false,
 }: RequirementItemProps) {
   const { toast } = useToast();
   const [editRequirement, setEditRequirement] = useState(false);
   const [addPlanOpen, setAddPlanOpen] = useState(false);
+  const [reviewingPlanId, setReviewingPlanId] = useState<string | null>(null);
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
 
   const { data: plans = [] } = useQuery<FulfillmentPlan[]>({
     queryKey: ["/api/requirements", requirement.id, "plans"],
+  });
+
+  const updatePlanReviewMutation = useMutation({
+    mutationFn: async ({ planId, customerRating, teamRating, reviewNotes }: { 
+      planId: string; 
+      customerRating?: number | null; 
+      teamRating?: number | null; 
+      reviewNotes?: string | null;
+    }) => {
+      return await apiRequest("PATCH", `/api/plans/${planId}/review`, { 
+        customerRating, 
+        teamRating, 
+        reviewNotes 
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/requirements", requirement.id, "plans"] });
+      toast({
+        title: "Success",
+        description: "Review updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const { data: config } = useQuery<Configuration>({
@@ -425,6 +497,147 @@ export function RequirementItem({
                       </Button>
                     </div>
                   </div>
+                  
+                  {isEventCompleted && (
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">Review</span>
+                        </div>
+                        {reviewingPlanId !== plan.id && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setReviewingPlanId(plan.id);
+                              setReviewNotes(prev => ({
+                                ...prev,
+                                [plan.id]: plan.reviewNotes || ''
+                              }));
+                            }}
+                            data-testid={`button-edit-review-${plan.id}`}
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            {(plan.customerRating || plan.teamRating) ? 'Edit' : 'Add'} Review
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {reviewingPlanId === plan.id ? (
+                        <div className="space-y-3 bg-muted/30 p-3 rounded-md">
+                          <StarRating
+                            label="Customer"
+                            rating={plan.customerRating}
+                            onChange={(rating) => {
+                              updatePlanReviewMutation.mutate({
+                                planId: plan.id,
+                                customerRating: rating,
+                                teamRating: plan.teamRating,
+                                reviewNotes: reviewNotes[plan.id] || plan.reviewNotes,
+                              });
+                            }}
+                            disabled={updatePlanReviewMutation.isPending}
+                          />
+                          <StarRating
+                            label="Team"
+                            rating={plan.teamRating}
+                            onChange={(rating) => {
+                              updatePlanReviewMutation.mutate({
+                                planId: plan.id,
+                                customerRating: plan.customerRating,
+                                teamRating: rating,
+                                reviewNotes: reviewNotes[plan.id] || plan.reviewNotes,
+                              });
+                            }}
+                            disabled={updatePlanReviewMutation.isPending}
+                          />
+                          <div className="space-y-1">
+                            <span className="text-xs text-muted-foreground">Notes:</span>
+                            <Textarea
+                              value={reviewNotes[plan.id] || ''}
+                              onChange={(e) => setReviewNotes(prev => ({
+                                ...prev,
+                                [plan.id]: e.target.value
+                              }))}
+                              placeholder="Add notes for future reference..."
+                              className="text-sm min-h-[60px]"
+                              data-testid={`textarea-review-notes-${plan.id}`}
+                            />
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setReviewingPlanId(null)}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                updatePlanReviewMutation.mutate({
+                                  planId: plan.id,
+                                  customerRating: plan.customerRating,
+                                  teamRating: plan.teamRating,
+                                  reviewNotes: reviewNotes[plan.id] || null,
+                                });
+                                setReviewingPlanId(null);
+                              }}
+                              disabled={updatePlanReviewMutation.isPending}
+                              data-testid={`button-save-review-${plan.id}`}
+                            >
+                              Save Review
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (plan.customerRating || plan.teamRating || plan.reviewNotes) ? (
+                        <div className="space-y-2 text-sm bg-muted/30 p-3 rounded-md">
+                          {plan.customerRating && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground min-w-[80px]">Customer:</span>
+                              <div className="flex gap-0.5">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Star
+                                    key={star}
+                                    className={`h-3 w-3 ${
+                                      star <= plan.customerRating!
+                                        ? 'fill-yellow-400 text-yellow-400'
+                                        : 'text-muted-foreground'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {plan.teamRating && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground min-w-[80px]">Team:</span>
+                              <div className="flex gap-0.5">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Star
+                                    key={star}
+                                    className={`h-3 w-3 ${
+                                      star <= plan.teamRating!
+                                        ? 'fill-yellow-400 text-yellow-400'
+                                        : 'text-muted-foreground'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {plan.reviewNotes && (
+                            <p className="text-xs text-muted-foreground italic">
+                              "{plan.reviewNotes}"
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic">No review yet</p>
+                      )}
+                    </div>
+                  )}
                 </Card>
               ))}
             </div>

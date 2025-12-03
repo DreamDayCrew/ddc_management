@@ -1222,6 +1222,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Plan Reviews endpoint - only allows updating review fields
+  app.patch("/api/plans/:id/review", async (req, res) => {
+    try {
+      const planId = req.params.id;
+      const { customerRating, teamRating, reviewNotes } = req.body;
+      
+      // Get the plan first
+      const existingPlan = await storage.getFulfillmentPlan(planId);
+      if (!existingPlan) {
+        return res.status(404).json({ error: "Fulfillment plan not found" });
+      }
+      
+      // Get the requirement to find the event
+      const requirement = await storage.getRequirement(existingPlan.requirementId);
+      if (!requirement) {
+        return res.status(404).json({ error: "Requirement not found" });
+      }
+      
+      // Get the event to check status
+      const event = await storage.getEvent(requirement.eventId);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      
+      // Validate event is completed
+      if (event.eventStatus !== "Completed") {
+        return res.status(400).json({ error: "Reviews can only be added for completed events" });
+      }
+      
+      // Validate ratings are between 1 and 5
+      if (customerRating !== undefined && customerRating !== null && (customerRating < 1 || customerRating > 5)) {
+        return res.status(400).json({ error: "Customer rating must be between 1 and 5" });
+      }
+      if (teamRating !== undefined && teamRating !== null && (teamRating < 1 || teamRating > 5)) {
+        return res.status(400).json({ error: "Team rating must be between 1 and 5" });
+      }
+      
+      // Update only review fields
+      const updatedPlan = await storage.updateFulfillmentPlan(planId, {
+        customerRating: customerRating ?? null,
+        teamRating: teamRating ?? null,
+        reviewNotes: reviewNotes ?? null,
+      });
+      
+      res.json(updatedPlan);
+    } catch (error) {
+      console.error('Error updating plan review:', error);
+      res.status(400).json({ 
+        error: error instanceof Error ? error.message : "Failed to update plan review"
+      });
+    }
+  });
+
   // Budget Reports route
   app.get("/api/reports/budget", async (_req, res) => {
     try {
