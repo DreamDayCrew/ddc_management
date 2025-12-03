@@ -236,6 +236,23 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     },
   });
 
+  // Update plan review mutation
+  const updatePlanReviewMutation = useMutation({
+    mutationFn: ({ planId, customerRating, teamRating, reviewNotes }: { 
+      planId: string; 
+      customerRating?: number | null; 
+      teamRating?: number | null; 
+      reviewNotes?: string | null;
+    }) => api.updatePlanReview(planId, { customerRating, teamRating, reviewNotes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plans'] });
+      Alert.alert('Success', 'Review updated successfully');
+    },
+    onError: (error: Error) => {
+      Alert.alert('Error', `Failed to update review: ${error.message}`);
+    },
+  });
+
   const handleDeleteEvent = () => {
     setShowDeleteConfirm(true);
   };
@@ -743,23 +760,92 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                         iconName = 'cube';
                       }
 
+                      const isEventCompleted = event?.eventStatus === 'Completed';
+
                       return (
-                        <TouchableOpacity
-                          key={plan.id}
-                          style={[styles.planItem, { backgroundColor: colors.card }]}
-                          onPress={() => handleEditPlan(plan)}
-                          data-testid={`button-edit-plan-${plan.id}`}
-                        >
-                          <View style={styles.planHeader}>
-                            <Ionicons 
-                              name={iconName} 
-                              size={16} 
-                              color={colors.textSecondary} 
-                            />
-                            <Text style={[styles.planName, { color: colors.text }]}>{planDetails}</Text>
-                          </View>
-                          <Text style={[styles.planPayment, { color: colors.primary }]}>₹{parseFloat(plan.payment || '0').toLocaleString()}</Text>
-                        </TouchableOpacity>
+                        <View key={plan.id} style={[styles.planItem, { backgroundColor: colors.card }]}>
+                          <TouchableOpacity
+                            onPress={() => handleEditPlan(plan)}
+                            data-testid={`button-edit-plan-${plan.id}`}
+                          >
+                            <View style={styles.planHeader}>
+                              <Ionicons 
+                                name={iconName} 
+                                size={16} 
+                                color={colors.textSecondary} 
+                              />
+                              <Text style={[styles.planName, { color: colors.text }]}>{planDetails}</Text>
+                            </View>
+                            <Text style={[styles.planPayment, { color: colors.primary }]}>₹{parseFloat(plan.payment || '0').toLocaleString()}</Text>
+                          </TouchableOpacity>
+                          
+                          {isEventCompleted && (
+                            <View style={[styles.reviewSection, { borderTopColor: colors.border }]}>
+                              <View style={styles.reviewHeader}>
+                                <Ionicons name="chatbubble-outline" size={14} color={colors.textSecondary} />
+                                <Text style={[styles.reviewTitle, { color: colors.text }]}>Review</Text>
+                              </View>
+                              
+                              <View style={styles.ratingRow}>
+                                <Text style={[styles.ratingLabel, { color: colors.textSecondary }]}>Customer:</Text>
+                                <View style={styles.starsContainer}>
+                                  {[1, 2, 3, 4, 5].map((star) => (
+                                    <TouchableOpacity
+                                      key={star}
+                                      onPress={() => {
+                                        updatePlanReviewMutation.mutate({
+                                          planId: plan.id,
+                                          customerRating: star,
+                                          teamRating: plan.teamRating,
+                                          reviewNotes: plan.reviewNotes,
+                                        });
+                                      }}
+                                      disabled={updatePlanReviewMutation.isPending}
+                                    >
+                                      <Ionicons
+                                        name={plan.customerRating && star <= plan.customerRating ? 'star' : 'star-outline'}
+                                        size={18}
+                                        color={plan.customerRating && star <= plan.customerRating ? '#EAB308' : colors.textSecondary}
+                                      />
+                                    </TouchableOpacity>
+                                  ))}
+                                </View>
+                              </View>
+                              
+                              <View style={styles.ratingRow}>
+                                <Text style={[styles.ratingLabel, { color: colors.textSecondary }]}>Team:</Text>
+                                <View style={styles.starsContainer}>
+                                  {[1, 2, 3, 4, 5].map((star) => (
+                                    <TouchableOpacity
+                                      key={star}
+                                      onPress={() => {
+                                        updatePlanReviewMutation.mutate({
+                                          planId: plan.id,
+                                          customerRating: plan.customerRating,
+                                          teamRating: star,
+                                          reviewNotes: plan.reviewNotes,
+                                        });
+                                      }}
+                                      disabled={updatePlanReviewMutation.isPending}
+                                    >
+                                      <Ionicons
+                                        name={plan.teamRating && star <= plan.teamRating ? 'star' : 'star-outline'}
+                                        size={18}
+                                        color={plan.teamRating && star <= plan.teamRating ? '#EAB308' : colors.textSecondary}
+                                      />
+                                    </TouchableOpacity>
+                                  ))}
+                                </View>
+                              </View>
+                              
+                              {plan.reviewNotes && (
+                                <Text style={[styles.reviewNotes, { color: colors.textSecondary }]}>
+                                  "{plan.reviewNotes}"
+                                </Text>
+                              )}
+                            </View>
+                          )}
+                        </View>
                       );
                     })}
                 </View>
@@ -1124,9 +1210,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   planItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 6,
@@ -1145,6 +1228,39 @@ const styles = StyleSheet.create({
   planPayment: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  reviewSection: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  reviewTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  ratingLabel: {
+    fontSize: 12,
+    width: 70,
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  reviewNotes: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   button: {
     paddingHorizontal: 24,

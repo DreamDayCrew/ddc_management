@@ -201,6 +201,8 @@ export const api = {
     apiClient.patch<FulfillmentPlan>(`/api/plans/${planId}`, data),
   deletePlan: (planId: string) => 
     apiClient.delete<void>(`/api/plans/${planId}`),
+  updatePlanReview: (planId: string, data: { customerRating?: number | null; teamRating?: number | null; reviewNotes?: string | null }) =>
+    apiClient.patch<FulfillmentPlan>(`/api/plans/${planId}/review`, data),
 
   // Budget Update
   updateEventBudget: (eventId: string, data: { finalizedQuote?: string; ddcCost?: string }) =>

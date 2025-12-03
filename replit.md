@@ -18,6 +18,23 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### December 3, 2025 - Plan-Level Review System
+- **Review Feature**: Added review capability at the fulfillment plan level for granular vendor/team feedback
+- **Review Fields**: Customer rating (1-5 stars), Team rating (1-5 stars), Review notes (text)
+- **Visibility**: Reviews only appear when event status is "Completed"
+- **Web App Implementation**: 
+  - StarRating component with clickable stars
+  - Inline editing with Cancel/Save buttons
+  - Display mode shows existing ratings and notes
+  - Located in `client/src/components/requirement-item.tsx`
+- **Mobile App Implementation**:
+  - Star ratings using Ionicons (star/star-outline)
+  - Tappable stars for instant rating updates
+  - Review section in each plan item
+  - Located in `mobile/src/screens/EventDetailsScreen.tsx`
+- **API Endpoint**: `PATCH /api/plans/:id/review` for updating plan reviews
+- **Schema Changes**: Added `customerRating`, `teamRating`, `reviewNotes` columns to `fulfillment_plans` table
+
 ### December 2, 2025 - Unified Invoice Templates with Conditional DISCOUNT Column
 - **Identical PDF Output**: Web app and mobile app now generate identical invoice PDFs
 - **Invoice Layout**: Three-column header (logo left, business info center, "Invoice" title right)
