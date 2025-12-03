@@ -18,6 +18,29 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### December 3, 2025 - Service Catalog Feature
+- **Tiered Catalog System**: Full catalog management for customer service offerings
+- **Package Tiers**: Three-tier system (Ultra, Premium, Budget) with color-coded badges
+  - Ultra: Purple theme
+  - Premium: Amber/Gold theme
+  - Budget: Green theme
+- **Schema**: New `catalog_items` table with id, serviceType, package, itemName, description, price
+- **Configuration**: Added `packages` array to Configuration for tier customization
+- **API Endpoints**: Full CRUD at `/api/catalog`, plus filtering by service/package and PDF generation
+- **Web App Implementation**:
+  - Catalog management page at `/catalog` with add/edit/delete
+  - Group by service view with package columns
+  - PDF download with maroon branding
+  - Located in `client/src/pages/catalog.tsx`
+- **Mobile App Implementation**:
+  - CatalogScreen with list and grouped view modes
+  - Search and filter by service/package
+  - Add/Edit modal with form validation
+  - PDF download and Share functionality
+  - Located in `mobile/src/screens/CatalogScreen.tsx`
+  - Accessible via More menu in navigation
+- **PDF Catalog**: Downloadable PDF with business branding for customer inquiries
+
 ### December 3, 2025 - Dashboard Swipeable Carousel
 - **Disney+ Hotstar Style Carousel**: Added swipeable card carousel at the top of the Dashboard
 - **Two Cards**: 
