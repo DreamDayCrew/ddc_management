@@ -168,12 +168,12 @@ export default function DashboardScreen() {
         <LinearGradient
           colors={
             isDark 
-              ? ['#0f172a', '#1e293b', '#334155'] 
-              : ['#334155', '#475569', '#64748b']
+              ? ['#150507', '#400C10', '#2A0E13']
+              : ['#C0A050','#400C10', '#E0D080']
           }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.gradientCard}
+          style={[styles.gradientCard, styles.glassMorphism]}
         >
           <View style={styles.gradientContent}>
             <View style={styles.mainBalanceSection}>
@@ -186,13 +186,17 @@ export default function DashboardScreen() {
             <View style={styles.financialMetrics}>
               <View style={styles.metricRow}>
                 <View style={styles.metricItem}>
-                  <MaterialCommunityIcons name="plus-circle-outline" size={20} color="#fff" />
+                  <View style={styles.metricIconContainer}>
+                    <MaterialCommunityIcons name="plus-circle-outline" size={20} color="#4ade80" />
+                  </View>
                   <Text style={styles.metricValue}>₹{totalIncome.toLocaleString()}</Text>
                   <Text style={styles.metricLabel}>Credit</Text>
                 </View>
                 
                 <View style={styles.metricItem}>
-                  <MaterialCommunityIcons name="minus-circle-outline" size={20} color="#fff" />
+                  <View style={styles.metricIconContainer}>
+                    <MaterialCommunityIcons name="minus-circle-outline" size={20} color="#f87171" />
+                  </View>
                   <Text style={styles.metricValue}>₹{totalExpense.toLocaleString()}</Text>
                   <Text style={styles.metricLabel}>Debit</Text>
                 </View>
@@ -202,7 +206,9 @@ export default function DashboardScreen() {
                   onPress={() => setRepaymentModalVisible(true)}
                   activeOpacity={0.7}
                 >
-                  <MaterialCommunityIcons name="clock-outline" size={20} color="#fff" />
+                  <View style={styles.metricIconContainer}>
+                    <MaterialCommunityIcons name="clock-outline" size={20} color="#fbbf24" />
+                  </View>
                   <Text style={styles.metricValue}>₹{pendingRepayment.toLocaleString()}</Text>
                   <Text style={styles.metricLabel}>Pending</Text>
                 </TouchableOpacity>
@@ -217,39 +223,42 @@ export default function DashboardScreen() {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Resources</Text>
         <View style={styles.resourceGrid}>
           <TouchableOpacity 
-            style={[styles.resourceCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={[styles.resourceCard, styles.modernCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => navigation.navigate('More', { screen: 'Assets' })}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
-            <View style={[styles.resourceIcon, { backgroundColor: isDark ? colors.surface : 'rgba(212, 175, 55, 0.15)' }]}>
-              <Ionicons name="cube-outline" size={26} color={colors.primary} />
+            <View style={[styles.resourceIcon, styles.modernResourceIcon, { backgroundColor: isDark ? colors.surface : 'rgba(212, 175, 55, 0.2)' }]}>
+              <Ionicons name="cube-outline" size={28} color={colors.primary} />
             </View>
             <Text style={[styles.resourceNumber, { color: colors.text }]}>{safeAssets.length}</Text>
             <Text style={[styles.resourceLabel, { color: colors.textSecondary }]}>Assets</Text>
+            <View style={[styles.resourcePulse, { backgroundColor: colors.primary }]} />
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={[styles.resourceCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={[styles.resourceCard, styles.modernCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => navigation.navigate('More', { screen: 'Team' })}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
-            <View style={[styles.resourceIcon, { backgroundColor: isDark ? colors.surface : 'rgba(22, 33, 62, 0.15)' }]}>
-              <Ionicons name="people-outline" size={26} color={colors.primary} />
+            <View style={[styles.resourceIcon, styles.modernResourceIcon, { backgroundColor: isDark ? colors.surface : 'rgba(22, 33, 62, 0.2)' }]}>
+              <Ionicons name="people-outline" size={28} color={colors.primary} />
             </View>
             <Text style={[styles.resourceNumber, { color: colors.text }]}>{safeTeam.length}</Text>
             <Text style={[styles.resourceLabel, { color: colors.textSecondary }]}>Team</Text>
+            <View style={[styles.resourcePulse, { backgroundColor: colors.primary }]} />
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={[styles.resourceCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={[styles.resourceCard, styles.modernCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => navigation.navigate('Expenses')}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
-            <View style={[styles.resourceIcon, { backgroundColor: isDark ? colors.surface : 'rgba(128, 0, 32, 0.15)' }]}>
-              <Ionicons name="card-outline" size={26} color={colors.primary} />
+            <View style={[styles.resourceIcon, styles.modernResourceIcon, { backgroundColor: isDark ? colors.surface : 'rgba(128, 0, 32, 0.2)' }]}>
+              <Ionicons name="card-outline" size={28} color={colors.primary} />
             </View>
             <Text style={[styles.resourceNumber, { color: colors.text }]}>{safeExpenses.length}</Text>
             <Text style={[styles.resourceLabel, { color: colors.textSecondary }]}>Expenses</Text>
+            <View style={[styles.resourcePulse, { backgroundColor: colors.primary }]} />
           </TouchableOpacity>
         </View>
       </View>
@@ -265,24 +274,24 @@ export default function DashboardScreen() {
             return (
               <TouchableOpacity 
                 key={event.id} 
-                style={[styles.timelineItem, { backgroundColor: colors.card, borderColor: colors.border }]}
+                style={[styles.timelineItem, styles.modernTimelineItem, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => navigation.navigate('Events', { screen: 'EventDetails', params: { eventId: event.id } })}
-                activeOpacity={0.7}
+                activeOpacity={0.8}
               >
-                <View style={styles.timelineDate}>
+                <View style={[styles.timelineDate, styles.modernTimelineDate]}>
                   <Text style={[styles.timelineDays, { color: colors.primary }]}>{daysUntil}</Text>
                   <Text style={[styles.timelineDaysLabel, { color: colors.textSecondary }]}>days</Text>
                 </View>
                 <View style={styles.timelineContent}>
-                  <Text style={[styles.timelineEventName, { color: colors.text }]}>{event.eventName}</Text>
-                  <Text style={[styles.timelineEventDetails, { color: colors.textSecondary }]}>{event.providedService}</Text>
+                  <Text style={[styles.timelineEventName, { color: colors.text }]} numberOfLines={1}>{event.eventName}</Text>
+                  <Text style={[styles.timelineEventDetails, { color: colors.textSecondary }]} numberOfLines={1}>{event.providedService}</Text>
                   <View style={styles.timelineEventMeta}>
                     <Ionicons name="location" size={12} color={colors.textSecondary} />
-                    <Text style={[styles.timelineEventVenue, { color: colors.textSecondary }]}>{event.venue}</Text>
+                    <Text style={[styles.timelineEventVenue, { color: colors.textSecondary }]} numberOfLines={1}>{event.venue}</Text>
                   </View>
                 </View>
-                <View style={styles.timelineArrow}>
-                  <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+                <View style={[styles.timelineArrow, styles.modernTimelineArrow]}>
+                  <Ionicons name="chevron-forward" size={18} color={colors.primary} />
                 </View>
               </TouchableOpacity>
             );
@@ -306,26 +315,34 @@ export default function DashboardScreen() {
       >
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Event Statistics</Text>
         <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: colors.primary, borderLeftWidth: 4 }]}>
-            <Ionicons name="calendar-outline" size={32} color={colors.primary} />
+          <View style={[styles.statCard, styles.modernStatCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: colors.primary, borderLeftWidth: 4 }]}>
+            <View style={[styles.statIconContainer, { backgroundColor: `${colors.primary}20` }]}>
+              <Ionicons name="calendar-outline" size={28} color={colors.primary} />
+            </View>
             <Text style={[styles.statNumber, { color: colors.text }]}>{totalEvents}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Events</Text>
           </View>
 
-          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: colors.primary, borderLeftWidth: 4 }]}>
-            <Ionicons name="time-outline" size={32} color={colors.primary} />
+          <View style={[styles.statCard, styles.modernStatCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: colors.primary, borderLeftWidth: 4 }]}>
+            <View style={[styles.statIconContainer, { backgroundColor: `${colors.primary}20` }]}>
+              <Ionicons name="time-outline" size={28} color={colors.primary} />
+            </View>
             <Text style={[styles.statNumber, { color: colors.text }]}>{upcomingEvents}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Upcoming</Text>
           </View>
 
-          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: '#fdcb6e', borderLeftWidth: 4 }]}>
-            <Ionicons name="hourglass-outline" size={32} color="#fdcb6e" />
+          <View style={[styles.statCard, styles.modernStatCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: '#fbbf24', borderLeftWidth: 4 }]}>
+            <View style={[styles.statIconContainer, { backgroundColor: '#fbbf2420' }]}>
+              <Ionicons name="hourglass-outline" size={28} color="#fbbf24" />
+            </View>
             <Text style={[styles.statNumber, { color: colors.text }]}>{inProgressEvents}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>In Progress</Text>
           </View>
 
-          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: '#00b894', borderLeftWidth: 4 }]}>
-            <Ionicons name="checkmark-circle-outline" size={32} color="#00b894" />
+          <View style={[styles.statCard, styles.modernStatCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: '#10b981', borderLeftWidth: 4 }]}>
+            <View style={[styles.statIconContainer, { backgroundColor: '#10b98120' }]}>
+              <Ionicons name="checkmark-circle-outline" size={28} color="#10b981" />
+            </View>
             <Text style={[styles.statNumber, { color: colors.text }]}>{completedEvents}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Completed</Text>
           </View>
@@ -400,7 +417,7 @@ export default function DashboardScreen() {
               <View 
                 style={[
                   styles.progressFill, 
-                  { width: `${(completedRequirements / totalRequirements) * 100}%`, backgroundColor: SUCCESS_GREEN }
+                  { width: `${(completedRequirements / totalRequirements) * 100}%`, backgroundColor: '#10b981' }
                 ]} 
               />
             </View>
@@ -455,20 +472,20 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: 16,
-    marginTop: 24,
+    marginTop: 28,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '700',
     color: PREMIUM_DARK,
-    marginBottom: 16,
-    letterSpacing: 0.5,
+    marginBottom: 20,
+    letterSpacing: 0.3,
   },
   sectionCount: {
     fontSize: 14,
@@ -566,38 +583,55 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: '47%',
     backgroundColor: '#ffffff',
-    padding: 20,
-    borderRadius: 16,
+    padding: 24,
+    borderRadius: 20,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
   },
+  modernStatCard: {
+    transform: [{ scale: 1 }],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  statIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
   statNumber: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 32,
+    fontWeight: '700',
     color: PREMIUM_DARK,
-    marginTop: 8,
-    marginBottom: 4,
+    marginBottom: 8,
+    letterSpacing: -1,
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 15,
     color: NEUTRAL_GRAY,
     fontWeight: '600',
+    letterSpacing: 0.3,
   },
   progressCard: {
     backgroundColor: '#ffffff',
-    padding: 24,
-    borderRadius: 16,
+    padding: 28,
+    borderRadius: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
   },
@@ -656,7 +690,7 @@ const styles = StyleSheet.create({
   timelineDate: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: PREMIUM_DARK,
+    backgroundColor: 'rgba(79, 70, 229, 0.1)',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
@@ -665,11 +699,11 @@ const styles = StyleSheet.create({
   timelineDays: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: '#4f46e5',
   },
   timelineDaysLabel: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: '#6366f1',
     fontWeight: '500',
   },
   timelineContent: {
@@ -711,14 +745,14 @@ const styles = StyleSheet.create({
   resourceCard: {
     flex: 1,
     backgroundColor: '#ffffff',
-    padding: 20,
-    borderRadius: 16,
+    padding: 24,
+    borderRadius: 20,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
   },
@@ -731,44 +765,52 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   resourceNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 26,
+    fontWeight: '700',
     color: PREMIUM_DARK,
-    marginBottom: 6,
+    marginBottom: 8,
+    letterSpacing: -0.5,
   },
   resourceLabel: {
-    fontSize: 13,
+    fontSize: 14,
     color: NEUTRAL_GRAY,
     fontWeight: '600',
+    letterSpacing: 0.3,
   },
   
   // Gradient Card Styles
   gradientCard: {
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 24,
+    padding: 28,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  glassMorphism: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   gradientContent: {
     alignItems: 'center',
   },
   mainBalanceSection: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   balanceLabel: {
-    fontSize: 16,
+    fontSize: 18,
     color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 12,
+    letterSpacing: 0.5,
   },
   mainBalance: {
-    fontSize: 36,
+    fontSize: 42,
     fontWeight: 'bold',
-    letterSpacing: -1,
+    letterSpacing: -1.5,
   },
   positiveBalance: {
     color: '#fff',
@@ -782,24 +824,85 @@ const styles = StyleSheet.create({
   metricRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 16,
+    paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+    borderTopColor: 'rgba(255, 255, 255, 0.3)',
   },
   metricItem: {
     alignItems: 'center',
     flex: 1,
   },
+  metricIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
   metricValue: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
-    marginTop: 4,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   metricLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.85)',
     fontWeight: '600',
+  },
+  
+  // Modern Card Styles
+  modernCard: {
+    position: 'relative',
+    overflow: 'hidden',
+    transform: [{ scale: 1 }],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  modernResourceIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  resourcePulse: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    opacity: 0.6,
+  },
+  
+  // Modern Timeline Styles
+  modernTimelineItem: {
+    borderLeftWidth: 4,
+    borderLeftColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  modernTimelineDate: {
+    backgroundColor: 'rgba(79, 70, 229, 0.15)',
+    borderRadius: 12,
+    padding: 4,
+  },
+  modernTimelineArrow: {
+    backgroundColor: 'rgba(79, 70, 229, 0.15)',
+    borderRadius: 12,
+    padding: 4,
   },
 });

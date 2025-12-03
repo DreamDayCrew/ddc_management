@@ -57,6 +57,7 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
   const [selectedRequirement, setSelectedRequirement] = useState<Requirement | undefined>();
   const [selectedPlan, setSelectedPlan] = useState<FulfillmentPlan | undefined>();
   const [selectedRequirementId, setSelectedRequirementId] = useState<string | null>(null);
+  const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set());
 
   // Fetch event data
   const { data: event, isLoading: eventLoading, refetch: refetchEvent } = useQuery({
@@ -307,6 +308,18 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     setEventModalVisible(true);
   };
 
+  const togglePlanExpansion = (planId: string) => {
+    setExpandedPlans(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(planId)) {
+        newSet.delete(planId);
+      } else {
+        newSet.add(planId);
+      }
+      return newSet;
+    });
+  };
+
   const handleDownloadInvoice = async () => {
     console.log('📥 Starting invoice download process...');
     console.log('📥 Event ID:', eventId);
@@ -357,34 +370,19 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       console.log('  Full download URL:', downloadUrl);
       console.log('  Invoice number:', invoiceNumber);
       
-      // On web, use window.confirm instead of Alert.alert
+      // Download invoice directly
       if (Platform.OS === 'web') {
-        const message = `Invoice ${invoiceNumber}\nGross Amount: ₹${invoiceValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalInvoiceValue.toLocaleString()}\n\nClick OK to download the PDF.`;
-        if (window.confirm(message)) {
-          console.log('🔗 Opening invoice URL:', downloadUrl);
-          window.open(downloadUrl, '_blank');
-          console.log('✅ Opened in new tab (web)');
-        }
+        console.log('🔗 Opening invoice URL:', downloadUrl);
+        window.open(downloadUrl, '_blank');
+        console.log('✅ Opened in new tab (web)');
       } else {
-        Alert.alert(
-          'Download Invoice',
-          `Invoice ${invoiceNumber}\nGross Amount: ₹${invoiceValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalInvoiceValue.toLocaleString()}\n\nThis will open your browser to download the PDF.`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Download', 
-              onPress: () => {
-                console.log('🔗 Opening invoice URL:', downloadUrl);
-                Linking.openURL(downloadUrl)
-                  .then(() => console.log('✅ Opened URL in browser'))
-                  .catch((error) => {
-                    console.error('❌ Failed to open URL:', error);
-                    Alert.alert('Error', 'Cannot open browser');
-                  });
-              }
-            }
-          ]
-        );
+        console.log('🔗 Opening invoice URL:', downloadUrl);
+        Linking.openURL(downloadUrl)
+          .then(() => console.log('✅ Opened URL in browser'))
+          .catch((error) => {
+            console.error('❌ Failed to open URL:', error);
+            Alert.alert('Error', 'Cannot open browser');
+          });
       }
     } catch (error) {
       console.error('💥 Invoice download error:', error);
@@ -433,34 +431,19 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       console.log('  Full download URL:', downloadUrl);
       console.log('  Quotation number:', quotationNumber);
       
-      // On web, use window.confirm instead of Alert.alert
+      // Download quote directly
       if (Platform.OS === 'web') {
-        const message = `Quotation ${quotationNumber}\nGross Amount: ₹${quoteValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalQuoteValue.toLocaleString()}\n\nClick OK to download the PDF.`;
-        if (window.confirm(message)) {
-          console.log('🔗 Opening quotation URL:', downloadUrl);
-          window.open(downloadUrl, '_blank');
-          console.log('✅ Opened in new tab (web)');
-        }
+        console.log('🔗 Opening quotation URL:', downloadUrl);
+        window.open(downloadUrl, '_blank');
+        console.log('✅ Opened in new tab (web)');
       } else {
-        Alert.alert(
-          'Download Quotation',
-          `Quotation ${quotationNumber}\nGross Amount: ₹${quoteValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalQuoteValue.toLocaleString()}\n\nThis will open your browser to download the PDF.`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Download', 
-              onPress: () => {
-                console.log('🔗 Opening quotation URL:', downloadUrl);
-                Linking.openURL(downloadUrl)
-                  .then(() => console.log('✅ Opened URL in browser'))
-                  .catch((error) => {
-                    console.error('❌ Failed to open URL:', error);
-                    Alert.alert('Error', 'Cannot open browser');
-                  });
-              }
-            }
-          ]
-        );
+        console.log('🔗 Opening quotation URL:', downloadUrl);
+        Linking.openURL(downloadUrl)
+          .then(() => console.log('✅ Opened URL in browser'))
+          .catch((error) => {
+            console.error('❌ Failed to open URL:', error);
+            Alert.alert('Error', 'Cannot open browser');
+          });
       }
     } catch (error) {
       console.error('💥 Quote download error:', error);
@@ -761,12 +744,14 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                       }
 
                       const isEventCompleted = event?.eventStatus === 'Completed';
+                      const isExpanded = expandedPlans.has(plan.id);
 
                       return (
                         <View key={plan.id} style={[styles.planItem, { backgroundColor: colors.card }]}>
                           <TouchableOpacity
                             onPress={() => handleEditPlan(plan)}
                             data-testid={`button-edit-plan-${plan.id}`}
+                            style={styles.planContent}
                           >
                             <View style={styles.planHeader}>
                               <Ionicons 
@@ -775,11 +760,24 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                                 color={colors.textSecondary} 
                               />
                               <Text style={[styles.planName, { color: colors.text }]}>{planDetails}</Text>
+                              <Text style={[styles.planPayment, { color: colors.primary }]}>₹{parseFloat(plan.payment || '0').toLocaleString()}</Text>
+                              {isEventCompleted && (
+                                <TouchableOpacity
+                                  onPress={() => togglePlanExpansion(plan.id)}
+                                  style={styles.expandButton}
+                                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                >
+                                  <Ionicons
+                                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                                    size={18}
+                                    color={colors.textSecondary}
+                                  />
+                                </TouchableOpacity>
+                              )}
                             </View>
-                            <Text style={[styles.planPayment, { color: colors.primary }]}>₹{parseFloat(plan.payment || '0').toLocaleString()}</Text>
                           </TouchableOpacity>
                           
-                          {isEventCompleted && (
+                          {isEventCompleted && isExpanded && (
                             <View style={[styles.reviewSection, { borderTopColor: colors.border }]}>
                               <View style={styles.reviewHeader}>
                                 <Ionicons name="chatbubble-outline" size={14} color={colors.textSecondary} />
@@ -1215,6 +1213,9 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginBottom: 6,
   },
+  planContent: {
+    flex: 1,
+  },
   planHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1228,6 +1229,10 @@ const styles = StyleSheet.create({
   planPayment: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  expandButton: {
+    padding: 4,
+    marginLeft: 8,
   },
   reviewSection: {
     marginTop: 10,
