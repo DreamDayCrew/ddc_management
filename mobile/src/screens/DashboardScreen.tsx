@@ -8,7 +8,7 @@ import { useEvents, useExpenses, useAssets, useTeamMembers, useRepayments } from
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useTheme } from '../contexts';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import RepaymentDetailsModal from '../components/RepaymentDetailsModal';
 
 type RootTabParamList = {
@@ -58,6 +58,18 @@ export default function DashboardScreen() {
     const contentOffset = event.nativeEvent.contentOffset.x;
     const index = Math.round(contentOffset / CAROUSEL_PAGE_WIDTH);
     setActiveCardIndex(index);
+  }, []);
+
+  useEffect(() => {
+    const autoSwipeInterval = setInterval(() => {
+      setActiveCardIndex((prevIndex) => {
+        const nextIndex = prevIndex === 0 ? 1 : 0;
+        flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+        return nextIndex;
+      });
+    }, 5000);
+
+    return () => clearInterval(autoSwipeInterval);
   }, []);
   
   const { data: requirements = [] } = useQuery({
@@ -277,12 +289,16 @@ export default function DashboardScreen() {
                 flatListRef.current?.scrollToIndex({ index, animated: true });
                 setActiveCardIndex(index);
               }}
-              style={[
-                styles.paginationDot,
-                activeCardIndex === index && styles.paginationDotActive,
-              ]}
+              style={styles.paginationDotTouchable}
               activeOpacity={0.7}
-            />
+            >
+              <View
+                style={[
+                  styles.paginationDot,
+                  activeCardIndex === index && styles.paginationDotActive,
+                ]}
+              />
+            </TouchableOpacity>
           ))}
         </View>
       </View>
@@ -889,15 +905,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   paginationDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 24,
+    height: 4,
+    borderRadius: 2,
     backgroundColor: 'rgba(128, 0, 32, 0.3)',
-    padding: 8,
   },
   paginationDotActive: {
     backgroundColor: BRAND_MAROON,
     width: 32,
+  },
+  paginationDotTouchable: {
+    padding: 8,
   },
   
   // Gradient Card Styles
