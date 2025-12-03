@@ -13,6 +13,7 @@ import {
   events,
   requirements,
   fulfillmentPlans,
+  catalogItems,
   type Configuration,
   type InsertConfiguration,
   type Asset,
@@ -33,6 +34,8 @@ import {
   type InsertRequirement,
   type FulfillmentPlan,
   type InsertFulfillmentPlan,
+  type CatalogItem,
+  type InsertCatalogItem,
 } from "@shared/schema";
 import { eq } from 'drizzle-orm';
 import { type IStorage } from './storage';
@@ -1082,6 +1085,90 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Database: Error deleting fulfillment plan:', error);
       throw error;
+    }
+  }
+
+  // Catalog Items
+  async getCatalogItems(): Promise<CatalogItem[]> {
+    try {
+      const result = await db.select().from(catalogItems).orderBy(catalogItems.serviceType, catalogItems.package);
+      return result;
+    } catch (error) {
+      console.error('[DB] Error fetching catalog items:', error);
+      return [];
+    }
+  }
+
+  async getCatalogItem(id: string): Promise<CatalogItem | undefined> {
+    try {
+      const result = await db.select().from(catalogItems).where(eq(catalogItems.id, id));
+      return result[0];
+    } catch (error) {
+      console.error('[DB] Error fetching catalog item:', error);
+      return undefined;
+    }
+  }
+
+  async getCatalogItemsByService(serviceType: string): Promise<CatalogItem[]> {
+    try {
+      const result = await db.select().from(catalogItems)
+        .where(eq(catalogItems.serviceType, serviceType))
+        .orderBy(catalogItems.package);
+      return result;
+    } catch (error) {
+      console.error('[DB] Error fetching catalog items by service:', error);
+      return [];
+    }
+  }
+
+  async getCatalogItemsByPackage(packageName: string): Promise<CatalogItem[]> {
+    try {
+      const result = await db.select().from(catalogItems)
+        .where(eq(catalogItems.package, packageName))
+        .orderBy(catalogItems.serviceType);
+      return result;
+    } catch (error) {
+      console.error('[DB] Error fetching catalog items by package:', error);
+      return [];
+    }
+  }
+
+  async createCatalogItem(item: InsertCatalogItem): Promise<CatalogItem> {
+    const result = await db.insert(catalogItems).values({
+      serviceType: item.serviceType,
+      package: item.package,
+      itemName: item.itemName,
+      description: item.description || null,
+      price: item.price || '0',
+    }).returning();
+    return result[0];
+  }
+
+  async updateCatalogItem(id: string, item: Partial<InsertCatalogItem>): Promise<CatalogItem | undefined> {
+    const updateData: Record<string, any> = { ...item };
+    
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    });
+
+    const result = await db.update(catalogItems)
+      .set(updateData)
+      .where(eq(catalogItems.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteCatalogItem(id: string): Promise<boolean> {
+    try {
+      const result = await db.delete(catalogItems)
+        .where(eq(catalogItems.id, id))
+        .returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('[DB] Error deleting catalog item:', error);
+      return false;
     }
   }
   

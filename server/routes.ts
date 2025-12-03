@@ -17,6 +17,7 @@ import {
   insertFulfillmentPlanSchema,
   insertAccountBalanceSchema,
   insertRepaymentSchema,
+  insertCatalogItemSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1359,6 +1360,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       res.json(reports);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Catalog Items routes
+  app.get("/api/catalog", async (_req, res) => {
+    try {
+      const items = await storage.getCatalogItems();
+      res.json(items);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/catalog/:id", async (req, res) => {
+    try {
+      const item = await storage.getCatalogItem(req.params.id);
+      if (!item) {
+        return res.status(404).json({ error: "Catalog item not found" });
+      }
+      res.json(item);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/catalog/service/:serviceType", async (req, res) => {
+    try {
+      const items = await storage.getCatalogItemsByService(req.params.serviceType);
+      res.json(items);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/catalog/package/:packageName", async (req, res) => {
+    try {
+      const items = await storage.getCatalogItemsByPackage(req.params.packageName);
+      res.json(items);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/catalog", async (req, res) => {
+    try {
+      const validatedData = insertCatalogItemSchema.parse(req.body);
+      const item = await storage.createCatalogItem(validatedData);
+      res.status(201).json(item);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/catalog/:id", async (req, res) => {
+    try {
+      const item = await storage.updateCatalogItem(req.params.id, req.body);
+      if (!item) {
+        return res.status(404).json({ error: "Catalog item not found" });
+      }
+      res.json(item);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/catalog/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteCatalogItem(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Catalog item not found" });
+      }
+      res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

@@ -28,6 +28,19 @@ export const configurations = pgTable("configurations", {
   paymentStatuses: text("payment_statuses").array().notNull().default(sql`ARRAY['Pending', 'Paid','Partial']::text[]`),
   vendorCategories: text("vendor_categories").array().notNull().default(sql`ARRAY['Decoration','Photography','Catering','Audio/Visual','Venue','Transportation','Lightings']::text[]`),
   expenseCategories: text("expense_categories").array().notNull().default(sql`ARRAY['Office','Event','Asset']::text[]`),
+  packages: text("packages").array().notNull().default(sql`ARRAY['Ultra', 'Premium', 'Budget']::text[]`),
+});
+
+// Catalog Items Schema
+export const catalogItems = pgTable("catalog_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  serviceType: text("service_type").notNull(),
+  package: text("package").notNull(),
+  itemName: text("item_name").notNull(),
+  description: text("description"),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Assets Schema
@@ -319,3 +332,16 @@ export type FulfillmentPlanForm = Omit<FulfillmentPlan, 'payment'> & {
 export type InsertFulfillmentPlan = Omit<z.infer<typeof insertFulfillmentPlanSchema>, 'payment'> & {
   payment?: string | number | null;
 };
+
+// Catalog Items schemas and types
+export const insertCatalogItemSchema = createInsertSchema(catalogItems).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+}).extend({
+  price: z.union([z.string(), z.number()])
+    .transform(val => val === "" ? "0" : String(val)),
+});
+
+export type CatalogItem = typeof catalogItems.$inferSelect;
+export type InsertCatalogItem = z.infer<typeof insertCatalogItemSchema>;

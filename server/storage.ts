@@ -19,6 +19,8 @@ import {
   type InsertAccountBalance,
   type Repayment,
   type InsertRepayment,
+  type CatalogItem,
+  type InsertCatalogItem,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -92,6 +94,15 @@ export interface IStorage {
   createFulfillmentPlan(plan: InsertFulfillmentPlan): Promise<FulfillmentPlan>;
   updateFulfillmentPlan(id: string, plan: Partial<InsertFulfillmentPlan>): Promise<FulfillmentPlan | undefined>;
   deleteFulfillmentPlan(id: string): Promise<boolean>;
+
+  // Catalog Items
+  getCatalogItems(): Promise<CatalogItem[]>;
+  getCatalogItem(id: string): Promise<CatalogItem | undefined>;
+  getCatalogItemsByService(serviceType: string): Promise<CatalogItem[]>;
+  getCatalogItemsByPackage(packageName: string): Promise<CatalogItem[]>;
+  createCatalogItem(item: InsertCatalogItem): Promise<CatalogItem>;
+  updateCatalogItem(id: string, item: Partial<InsertCatalogItem>): Promise<CatalogItem | undefined>;
+  deleteCatalogItem(id: string): Promise<boolean>;
   
   // Debug method
   getStorageType(): string;
@@ -108,6 +119,7 @@ export class MemStorage implements IStorage {
   private fulfillmentPlans: Map<string, FulfillmentPlan> = new Map();
   private accountBalance: Map<number, AccountBalance> = new Map();
   private repayments: Map<number, Repayment> = new Map();
+  private catalogItems: Map<string, CatalogItem> = new Map();
   private currentAccountBalanceId: number = 1;
   private currentRepaymentId: number = 1;
 
@@ -140,6 +152,7 @@ export class MemStorage implements IStorage {
       paymentStatuses: config.paymentStatuses || ['Pending', 'Paid','Partial'],
       vendorCategories: config.vendorCategories || ['Decoration','Photography','Catering','Audio/Visual','Venue','Transportation','Lightings'],
       expenseCategories: config.expenseCategories || ['Office','Event','Asset'],
+      packages: config.packages || ['Ultra', 'Premium', 'Budget'],
     };
     this.configuration = newConfig;
     return newConfig;
@@ -929,6 +942,61 @@ export class MemStorage implements IStorage {
 
   async deleteFulfillmentPlan(id: string): Promise<boolean> {
     return this.fulfillmentPlans.delete(id);
+  }
+
+  // Catalog Items
+  async getCatalogItems(): Promise<CatalogItem[]> {
+    return Array.from(this.catalogItems.values());
+  }
+
+  async getCatalogItem(id: string): Promise<CatalogItem | undefined> {
+    return this.catalogItems.get(id);
+  }
+
+  async getCatalogItemsByService(serviceType: string): Promise<CatalogItem[]> {
+    return Array.from(this.catalogItems.values()).filter(item => item.serviceType === serviceType);
+  }
+
+  async getCatalogItemsByPackage(packageName: string): Promise<CatalogItem[]> {
+    return Array.from(this.catalogItems.values()).filter(item => item.package === packageName);
+  }
+
+  async createCatalogItem(item: InsertCatalogItem): Promise<CatalogItem> {
+    const now = new Date();
+    const newItem: CatalogItem = {
+      id: randomUUID(),
+      serviceType: item.serviceType,
+      package: item.package,
+      itemName: item.itemName,
+      description: item.description || null,
+      price: item.price || '0',
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.catalogItems.set(newItem.id, newItem);
+    return newItem;
+  }
+
+  async updateCatalogItem(id: string, item: Partial<InsertCatalogItem>): Promise<CatalogItem | undefined> {
+    const existing = this.catalogItems.get(id);
+    if (!existing) return undefined;
+    
+    const updated: CatalogItem = {
+      ...existing,
+      ...(item.serviceType !== undefined && { serviceType: item.serviceType }),
+      ...(item.package !== undefined && { package: item.package }),
+      ...(item.itemName !== undefined && { itemName: item.itemName }),
+      ...(item.description !== undefined && { description: item.description }),
+      ...(item.price !== undefined && { price: item.price }),
+      updatedAt: new Date(),
+    };
+    
+    this.catalogItems.set(id, updated);
+    return updated;
+  }
+
+  async deleteCatalogItem(id: string): Promise<boolean> {
+    return this.catalogItems.delete(id);
   }
   
   getStorageType(): string {
