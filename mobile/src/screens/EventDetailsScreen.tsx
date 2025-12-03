@@ -340,22 +340,24 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       console.log('  Full download URL:', downloadUrl);
       console.log('  Invoice number:', invoiceNumber);
       
-      Alert.alert(
-        'Download Invoice',
-        `Invoice ${invoiceNumber}\nGross Amount: ₹${invoiceValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalInvoiceValue.toLocaleString()}\n\nThis will open your browser to download the PDF.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Download', 
-            onPress: () => {
-              console.log('🔗 Opening invoice URL:', downloadUrl);
-              
-              // On web, use window.open for better download experience
-              if (Platform.OS === 'web') {
-                window.open(downloadUrl, '_blank');
-                console.log('✅ Opened in new tab (web)');
-              } else {
-                // On native, use Linking
+      // On web, use window.confirm instead of Alert.alert
+      if (Platform.OS === 'web') {
+        const message = `Invoice ${invoiceNumber}\nGross Amount: ₹${invoiceValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalInvoiceValue.toLocaleString()}\n\nClick OK to download the PDF.`;
+        if (window.confirm(message)) {
+          console.log('🔗 Opening invoice URL:', downloadUrl);
+          window.open(downloadUrl, '_blank');
+          console.log('✅ Opened in new tab (web)');
+        }
+      } else {
+        Alert.alert(
+          'Download Invoice',
+          `Invoice ${invoiceNumber}\nGross Amount: ₹${invoiceValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalInvoiceValue.toLocaleString()}\n\nThis will open your browser to download the PDF.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Download', 
+              onPress: () => {
+                console.log('🔗 Opening invoice URL:', downloadUrl);
                 Linking.openURL(downloadUrl)
                   .then(() => console.log('✅ Opened URL in browser'))
                   .catch((error) => {
@@ -364,9 +366,9 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                   });
               }
             }
-          }
-        ]
-      );
+          ]
+        );
+      }
     } catch (error) {
       console.error('💥 Invoice download error:', error);
       console.error('💥 Error details:', JSON.stringify(error, null, 2));
@@ -414,22 +416,24 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       console.log('  Full download URL:', downloadUrl);
       console.log('  Quotation number:', quotationNumber);
       
-      Alert.alert(
-        'Download Quotation',
-        `Quotation ${quotationNumber}\nGross Amount: ₹${quoteValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalQuoteValue.toLocaleString()}\n\nThis will open your browser to download the PDF.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Download', 
-            onPress: () => {
-              console.log('🔗 Opening quotation URL:', downloadUrl);
-              
-              // On web, use window.open for better download experience
-              if (Platform.OS === 'web') {
-                window.open(downloadUrl, '_blank');
-                console.log('✅ Opened in new tab (web)');
-              } else {
-                // On native, use Linking
+      // On web, use window.confirm instead of Alert.alert
+      if (Platform.OS === 'web') {
+        const message = `Quotation ${quotationNumber}\nGross Amount: ₹${quoteValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalQuoteValue.toLocaleString()}\n\nClick OK to download the PDF.`;
+        if (window.confirm(message)) {
+          console.log('🔗 Opening quotation URL:', downloadUrl);
+          window.open(downloadUrl, '_blank');
+          console.log('✅ Opened in new tab (web)');
+        }
+      } else {
+        Alert.alert(
+          'Download Quotation',
+          `Quotation ${quotationNumber}\nGross Amount: ₹${quoteValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Amount: ₹${finalQuoteValue.toLocaleString()}\n\nThis will open your browser to download the PDF.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Download', 
+              onPress: () => {
+                console.log('🔗 Opening quotation URL:', downloadUrl);
                 Linking.openURL(downloadUrl)
                   .then(() => console.log('✅ Opened URL in browser'))
                   .catch((error) => {
@@ -438,9 +442,9 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                   });
               }
             }
-          }
-        ]
-      );
+          ]
+        );
+      }
     } catch (error) {
       console.error('💥 Quote download error:', error);
       console.error('💥 Error details:', JSON.stringify(error, null, 2));
