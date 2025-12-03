@@ -20,6 +20,8 @@ export type {
   InsertAccountBalance,
   Repayment,
   InsertRepayment,
+  CatalogItem,
+  InsertCatalogItem,
 } from '../../../shared/schema';
 
 // API Response types

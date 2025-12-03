@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import type { ApiError, Event, Expense, TeamMember, Asset, Requirement, Configuration, Vendor, FulfillmentPlan, AccountBalance, Repayment, InsertEvent, InsertExpense, InsertTeamMember, InsertAsset, InsertRequirement, InsertFulfillmentPlan, InsertVendor } from '../types';
+import type { ApiError, Event, Expense, TeamMember, Asset, Requirement, Configuration, Vendor, FulfillmentPlan, AccountBalance, Repayment, InsertEvent, InsertExpense, InsertTeamMember, InsertAsset, InsertRequirement, InsertFulfillmentPlan, InsertVendor, CatalogItem, InsertCatalogItem } from '../types';
 import { config } from '../config/environment';
 
 // API Configuration from environment
@@ -207,6 +207,20 @@ export const api = {
   // Budget Update
   updateEventBudget: (eventId: string, data: { finalizedQuote?: string; ddcCost?: string }) =>
     apiClient.patch<Event>(`/api/events/${eventId}/budget`, data),
+
+  // Catalog Items
+  getCatalogItems: () => apiClient.get<CatalogItem[]>('/api/catalog'),
+  getCatalogItem: (id: string) => apiClient.get<CatalogItem>(`/api/catalog/${id}`),
+  getCatalogItemsByService: (serviceType: string) => 
+    apiClient.get<CatalogItem[]>(`/api/catalog/service/${encodeURIComponent(serviceType)}`),
+  getCatalogItemsByPackage: (packageName: string) => 
+    apiClient.get<CatalogItem[]>(`/api/catalog/package/${encodeURIComponent(packageName)}`),
+  createCatalogItem: (data: InsertCatalogItem) => 
+    apiClient.post<CatalogItem>('/api/catalog', data),
+  updateCatalogItem: (id: string, data: Partial<InsertCatalogItem>) => 
+    apiClient.patch<CatalogItem>(`/api/catalog/${id}`, data),
+  deleteCatalogItem: (id: string) => 
+    apiClient.delete<void>(`/api/catalog/${id}`),
 };
 
 // Log final API client configuration

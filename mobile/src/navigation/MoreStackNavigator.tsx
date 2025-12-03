@@ -3,6 +3,7 @@ import MoreScreen from '../screens/MoreScreen';
 import AssetsScreen from '../screens/AssetsScreen';
 import TeamScreen from '../screens/TeamScreen';
 import VendorsScreen from '../screens/VendorsScreen';
+import CatalogScreen from '../screens/CatalogScreen';
 import ConfigurationScreen from '../screens/ConfigurationScreen';
 import AppConfigurationScreen from '../screens/AppConfigurationScreen';
 import { useTheme } from '../contexts';
@@ -12,6 +13,7 @@ export type MoreStackParamList = {
   Assets: undefined;
   Team: undefined;
   Vendors: undefined;
+  Catalog: undefined;
   Configuration: undefined;
   AppConfiguration: undefined;
 };
@@ -57,6 +59,11 @@ export default function MoreStackNavigator() {
         name="Vendors" 
         component={VendorsScreen}
         options={{ title: 'Vendors' }}
+      />
+      <Stack.Screen 
+        name="Catalog" 
+        component={CatalogScreen}
+        options={{ title: 'Service Catalog' }}
       />
       <Stack.Screen 
         name="Configuration" 
