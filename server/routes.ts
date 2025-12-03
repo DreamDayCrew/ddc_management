@@ -1376,9 +1376,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/catalog/pdf", async (_req, res) => {
+  app.get("/api/catalog/pdf", async (req, res) => {
     try {
-      const [catalogItems, configuration] = await Promise.all([
+      const { service, package: packageType } = req.query;
+      
+      console.log('[PDF] Received query parameters:', { service, package: packageType });
+      
+      const [allCatalogItems, configuration] = await Promise.all([
         storage.getCatalogItems(),
         storage.getConfiguration(),
       ]);
@@ -1387,18 +1391,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Configuration not found" });
       }
 
+      // Filter catalog items based on query parameters
+      let filteredCatalogItems = allCatalogItems;
+      
+      if (service && typeof service === 'string' && service.trim() !== '') {
+        filteredCatalogItems = filteredCatalogItems.filter(item => 
+          item.serviceType === service.trim()
+        );
+        console.log(`[PDF] Filtered by service "${service}": ${filteredCatalogItems.length} items`);
+      }
+      
+      if (packageType && typeof packageType === 'string' && packageType.trim() !== '') {
+        filteredCatalogItems = filteredCatalogItems.filter(item => 
+          item.package === packageType.trim()
+        );
+        console.log(`[PDF] Filtered by package "${packageType}": ${filteredCatalogItems.length} items`);
+      }
+
+      console.log(`[PDF] Final filtered catalog items: ${filteredCatalogItems.length} items`);
+
       const packages = configuration.packages || ['Ultra', 'Premium', 'Budget'];
+
+      // Generate dynamic filename based on filters
+      let filename = 'Dream_Day_Crew_Service_Catalog';
+      if (service || packageType) {
+        const servicePart = service ? `_${service.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+        const packagePart = packageType ? `_${packageType.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+        filename = `Dream_Day_Crew${servicePart}${packagePart}_Catalog`;
+      }
 
       const pdfBuffer = await renderToBuffer(
         React.createElement(ServerCatalogTemplate, {
-          catalogItems,
+          catalogItems: filteredCatalogItems,
           configuration,
           packages,
+          filterInfo: {
+            service: service as string || null,
+            package: packageType as string || null,
+            totalItems: filteredCatalogItems.length
+          }
         })
       );
 
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="Dream_Day_Crew_Service_Catalog.pdf"');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
       res.send(pdfBuffer);
     } catch (error: any) {
       console.error('[PDF] Error generating catalog PDF:', error);

@@ -151,6 +151,21 @@ export default function AuthenticationScreen() {
     }
   };
 
+  const handleDisableSecurity = async () => {
+    try {
+      await updateSecuritySettings({
+        ...securitySettings,
+        pinEnabled: false,
+        biometricEnabled: false,
+        pinCode: ''
+      });
+      setAuthenticated(true);
+      Alert.alert('Security Disabled', 'App security has been disabled.');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to disable security. Please try again.');
+    }
+  };
+
   const renderForgotPinSetup = () => {
     const [newPin, setNewPin] = useState('');
     const [confirmPin, setConfirmPin] = useState('');

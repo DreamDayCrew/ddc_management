@@ -540,7 +540,7 @@ export default function ExpensesScreen() {
                   {item.type === 'Credit' ? '+' : '-'}₹{parseFloat(item.amount as any).toLocaleString()}
                 </Text>
                 <Text style={[styles.closingBalance, { color: colors.textSecondary }]}>
-                  Closing Balance: ₹{parseFloat(item.closing_balance as any).toLocaleString()}
+                  Closing Balance: ₹{parseFloat((item as any).closing_balance || '0').toLocaleString()}
                 </Text>
                 <TouchableOpacity
                   style={styles.deleteButton}

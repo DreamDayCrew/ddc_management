@@ -258,9 +258,14 @@ interface CatalogTemplateProps {
   catalogItems: CatalogItem[];
   configuration: Configuration;
   packages: string[];
+  filterInfo?: {
+    service: string | null;
+    package: string | null;
+    totalItems: number;
+  };
 }
 
-export function ServerCatalogTemplate({ catalogItems, configuration, packages }: CatalogTemplateProps) {
+export function ServerCatalogTemplate({ catalogItems, configuration, packages, filterInfo }: CatalogTemplateProps) {
   const groupedByService = catalogItems.reduce((acc, item) => {
     if (!acc[item.serviceType]) {
       acc[item.serviceType] = {};
@@ -339,12 +344,17 @@ export function ServerCatalogTemplate({ catalogItems, configuration, packages }:
         <View style={styles.headerLine} />
 
         <View style={styles.introSection}>
-          <Text style={styles.introTitle}>Welcome to Our Service Catalog</Text>
+          <Text style={styles.introTitle}>
+            {filterInfo?.service || filterInfo?.package 
+              ? `${filterInfo.service ? filterInfo.service + ' ' : ''}${filterInfo.package ? filterInfo.package + ' ' : ''}Service Catalog`
+              : 'Welcome to Our Service Catalog'
+            }
+          </Text>
           <Text style={styles.introText}>
-            We offer three distinct service packages to meet your needs and budget. 
-            Our Ultra package provides the most comprehensive service with premium materials and features. 
-            The Premium package offers excellent value with high-quality options. 
-            The Budget package delivers essential services at competitive rates.
+            {filterInfo?.service || filterInfo?.package 
+              ? `Showing ${filterInfo.totalItems} items${filterInfo.service ? ` for ${filterInfo.service} service` : ''}${filterInfo.package ? ` in ${filterInfo.package} package` : ''}.`
+              : 'We offer three distinct service packages to meet your needs and budget. Our Ultra package provides the most comprehensive service with premium materials and features. The Premium package offers excellent value with high-quality options. The Budget package delivers essential services at competitive rates.'
+            }
           </Text>
         </View>
 

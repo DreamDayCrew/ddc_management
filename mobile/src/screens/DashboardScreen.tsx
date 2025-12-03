@@ -22,6 +22,7 @@ type RootTabParamList = {
         }; 
       };
   Expenses: undefined;
+  Services: undefined;
   More: {
     screen: string;
   } | undefined;
@@ -40,7 +41,7 @@ const LIGHT_GRAY = '#f8f9fa';
 const { width } = Dimensions.get('window');
 
 const CAROUSEL_PAGE_WIDTH = width; // Full screen width for each page
-const CAROUSEL_CARD_HEIGHT = 200;
+const CAROUSEL_CARD_HEIGHT = 250;
 
 export default function DashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootTabParamList>>();
@@ -206,17 +207,22 @@ export default function DashboardScreen() {
             if (item.key === 'logo') {
               return (
                 <View style={styles.carouselPage}>
-                  <ImageBackground 
-                    source={require('../../assets/adaptive-icon.png')}
-                    style={styles.logoBackgroundCard}
-                    imageStyle={styles.logoBackgroundImage}
-                    resizeMode="cover"
+                  <LinearGradient
+                    colors={
+                      isDark 
+                        ? ['rgba(128, 0, 32, 0.8)', 'rgba(128, 0, 32, 0.9)', '#1a1a2e']
+                        : ['rgba(128, 0, 32, 0.1)', 'rgba(128, 0, 32, 0.3)', '#f8f9fa']
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.carouselCard, styles.logoCard]}
                   >
-                    <LinearGradient
-                      colors={['rgba(128, 0, 32, 0.3)', 'rgba(128, 0, 32, 0.5)']}
-                      style={styles.logoOverlay}
+                    <Image
+                      source={require('../../assets/ddc_banner3.jpeg')}
+                      style={styles.logoImageFull}
+                      resizeMode="contain"
                     />
-                  </ImageBackground>
+                  </LinearGradient>
                 </View>
               );
             } else {
@@ -230,9 +236,9 @@ export default function DashboardScreen() {
                     }
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={[styles.carouselCard, styles.glassMorphism]}
+                    style={[styles.carouselCard, styles.balanceGradientCard]}
                   >
-                    <View style={styles.gradientContent}>
+                    <View style={styles.balanceCardContent}>
                       <View style={styles.mainBalanceSection}>
                         <Text style={styles.balanceLabel}>Account Balance</Text>
                         <Text style={[styles.mainBalance, accountBalance >= 0 ? styles.positiveBalance : styles.negativeBalance]}>
@@ -884,6 +890,38 @@ const styles = StyleSheet.create({
     elevation: 12,
     justifyContent: 'center',
   },
+  logoContainer: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    right: 16,
+    height: 48,
+    justifyContent: 'center',
+  },
+  logoImage: {
+    height: 48,
+    resizeMode: 'contain',
+  },
+  logoText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+    letterSpacing: -0.5,
+  },
+  logoSubtext: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
+    marginTop: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
   logoBackgroundCard: {
     width: '100%',
     height: CAROUSEL_CARD_HEIGHT,
@@ -891,11 +929,47 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   logoBackgroundImage: {
-    borderRadius: 24,
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+    alignSelf: 'center',
   },
   logoOverlay: {
     flex: 1,
     borderRadius: 24,
+  },
+  logoCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoContentContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  logoImageFull: {
+    width: '100%',
+    height: '100%',
+    alignSelf: 'center',
+  },
+  logoCardTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  logoCardSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   paginationContainer: {
     flexDirection: 'row',
@@ -933,12 +1007,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
+  balanceGradientCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'space-between',
+  },
+  balanceCardContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   gradientContent: {
     alignItems: 'center',
   },
   mainBalanceSection: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   balanceLabel: {
     fontSize: 18,
@@ -964,9 +1049,10 @@ const styles = StyleSheet.create({
   metricRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 20,
+    paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.3)',
+    width: '100%',
   },
   metricItem: {
     alignItems: 'center',

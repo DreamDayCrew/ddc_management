@@ -325,6 +325,8 @@ export const ServerInvoiceTemplate: React.FC<InvoiceTemplateProps> = ({
   documentType = 'Invoice'
 }) => {
   const invoiceDate = new Date();
+  const dueDate = new Date(invoiceDate);
+  dueDate.setDate(dueDate.getDate() + 7); // Add 7 days to current date
   
   const clientName = event.clientName || 'Customer';
   const clientPhone = event.clientPhone || '';
@@ -401,8 +403,16 @@ export const ServerInvoiceTemplate: React.FC<InvoiceTemplateProps> = ({
               <Text style={styles.invoiceValue}>{invoiceNumber}</Text>
             </View>
             <View style={styles.invoiceDetailRow}>
+              <Text style={styles.invoiceLabel}>Event Date:</Text>
+              <Text style={styles.invoiceValue}>{event.eventDate}</Text>
+            </View>
+            <View style={styles.invoiceDetailRow}>
               <Text style={styles.invoiceLabel}>Date:</Text>
               <Text style={styles.invoiceValue}>{formatDate(invoiceDate)}</Text>
+            </View>
+            <View style={styles.invoiceDetailRow}>
+              <Text style={styles.invoiceLabel}>Due Date:</Text>
+              <Text style={styles.invoiceValue}>{formatDate(dueDate)}</Text>
             </View>
           </View>
         </View>
@@ -477,7 +487,7 @@ export const ServerInvoiceTemplate: React.FC<InvoiceTemplateProps> = ({
             <View style={styles.tableRow}>
               <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colNumWithDiscount : styles.colNum]}></Text>
               <View style={hasAnyReqDiscount ? styles.colDescWithDiscount : styles.colDesc}>
-                <Text style={styles.descriptionMain}>Event Discount</Text>
+                <Text style={styles.descriptionMain}>Discount</Text>
               </View>
               <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colQtyWithDiscount : styles.colQty]}></Text>
               <Text style={[styles.tableCell, hasAnyReqDiscount ? styles.colPriceWithDiscount : styles.colPrice]}></Text>

@@ -7,27 +7,55 @@ import { api } from '../lib/api';
 import type { CatalogItem, InsertCatalogItem, Configuration } from '../types';
 import { useTheme } from '../contexts';
 import { config as envConfig } from '../config/environment';
+import AddCatalogModal from '../components/AddCatalogModal';
 
 const BRAND_MAROON = '#800020';
+const BRAND_GOLD = '#D4AF37';
+const PREMIUM_DARK = '#1a1a2e';
+const SUCCESS_GREEN = '#00b894';
+const WARNING_ORANGE = '#fdcb6e';
+const DANGER_RED = '#e17055';
+const NEUTRAL_GRAY = '#636e72';
+const LIGHT_GRAY = '#f8f9fa';
 
 function formatIndianCurrency(amount: number): string {
   const formatter = new Intl.NumberFormat('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  return `Rs.${formatter.format(amount)}`;
+  return `₹${formatter.format(amount)}`;
 }
 
 function getPackageColor(pkg: string, isDark: boolean) {
   switch (pkg.toLowerCase()) {
     case 'ultra':
-      return { bg: isDark ? '#581c87' : '#f3e8ff', text: isDark ? '#e9d5ff' : '#9333ea' };
+      return { 
+        bg: isDark ? 'rgba(147, 51, 234, 0.25)' : 'rgba(147, 51, 234, 0.1)',
+        text: isDark ? '#c084fc' : '#9333ea',
+        border: isDark ? '#9333ea' : '#e9d5ff',
+        gradient: ['#9333ea', '#7c3aed']
+      };
     case 'premium':
-      return { bg: isDark ? '#78350f' : '#fef3c7', text: isDark ? '#fde68a' : '#d97706' };
+      return { 
+        bg: isDark ? 'rgba(20, 184, 166, 0.25)' : 'rgba(20, 184, 166, 0.1)',
+        text: isDark ? '#5eead4' : '#0d9488',
+        border: isDark ? '#14b8a6' : '#a7f3d0',
+        gradient: ['#14b8a6', '#0d9488']
+      };
     case 'budget':
-      return { bg: isDark ? '#166534' : '#dcfce7', text: isDark ? '#86efac' : '#16a34a' };
+      return { 
+        bg: isDark ? 'rgba(34, 197, 94, 0.25)' : 'rgba(34, 197, 94, 0.1)',
+        text: isDark ? '#4ade80' : '#16a34a',
+        border: isDark ? '#22c55e' : '#bbf7d0',
+        gradient: ['#22c55e', '#16a34a']
+      };
     default:
-      return { bg: isDark ? '#374151' : '#f3f4f6', text: isDark ? '#9ca3af' : '#6b7280' };
+      return { 
+        bg: isDark ? 'rgba(120, 113, 108, 0.25)' : 'rgba(120, 113, 108, 0.1)',
+        text: isDark ? '#a8a29e' : '#78716c',
+        border: isDark ? '#78716c' : '#e7e5e4',
+        gradient: ['#78716c', '#57534e']
+      };
   }
 }
 
@@ -50,9 +78,20 @@ export default function CatalogScreen() {
   const [selectedPackage, setSelectedPackage] = useState('');
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [showPackageDropdown, setShowPackageDropdown] = useState(false);
+  const [showDownloadServiceDropdown, setShowDownloadServiceDropdown] = useState(false);
+  const [showDownloadPackageDropdown, setShowDownloadPackageDropdown] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
   const [viewMode, setViewMode] = useState<'grouped' | 'list'>('grouped');
+  const [showDownloadFilter, setShowDownloadFilter] = useState(false);
+  const [downloadAction, setDownloadAction] = useState<'share' | 'download'>('download');
+  const [downloadFilters, setDownloadFilters] = useState({
+    service: '',
+    package: ''
+  });
+  const [downloadValidationError, setDownloadValidationError] = useState('');
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<CatalogItem | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -121,18 +160,21 @@ export default function CatalogScreen() {
   };
 
   const handleDelete = (item: CatalogItem) => {
-    Alert.alert(
-      'Delete Item',
-      `Are you sure you want to delete "${item.itemName}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: () => deleteMutation.mutate(item.id)
-        },
-      ]
-    );
+    setItemToDelete(item);
+    setDeleteConfirmVisible(true);
+  };
+
+  const confirmDelete = () => {
+    if (itemToDelete) {
+      deleteMutation.mutate(itemToDelete.id);
+    }
+    setDeleteConfirmVisible(false);
+    setItemToDelete(null);
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirmVisible(false);
+    setItemToDelete(null);
   };
 
   const handleAddNew = () => {
@@ -140,9 +182,71 @@ export default function CatalogScreen() {
     setModalVisible(true);
   };
 
-  const handleDownloadPDF = async () => {
+  const showDownloadFilterModal = (action: 'share' | 'download') => {
+    // Close any existing dropdowns
+    setShowServiceDropdown(false);
+    setShowPackageDropdown(false);
+    setShowDownloadServiceDropdown(false);
+    setShowDownloadPackageDropdown(false);
+    
+    setDownloadAction(action);
+    setDownloadFilters({ service: '', package: '' });
+    setDownloadValidationError('');
+    setShowDownloadFilter(true);
+  };
+
+  const processFilteredAction = async () => {
+    const { service, package: pkg } = downloadFilters;
+    
+    console.log('Processing filtered action - Service:', service, 'Package:', pkg);
+    console.log('Download filters object:', downloadFilters);
+    
+    // Clear previous validation error
+    setDownloadValidationError('');
+    
+    // Validate if data exists for the selected filters
+    const filteredData = catalogItems.filter(item => {
+      const matchesService = !service || item.serviceType === service;
+      const matchesPackage = !pkg || item.package === pkg;
+      return matchesService && matchesPackage;
+    });
+    
+    console.log('Filtered data count:', filteredData.length);
+    
+    if (filteredData.length === 0) {
+      const errorMessage = `No catalog items found for ${service ? `service "${service}"` : 'all services'}${service && pkg ? ' and ' : ''}${pkg ? `package "${pkg}"` : pkg === '' && service ? '' : 'all packages'}.`;
+      setDownloadValidationError(errorMessage);
+      return;
+    }
+    
+    setShowDownloadFilter(false);
+    
+    if (downloadAction === 'share') {
+      await handleShare(service, pkg);
+    } else {
+      await handleDownloadPDF(service, pkg);
+    }
+  };
+
+  const handleDownloadPDF = async (service?: string, packageType?: string) => {
     try {
-      const pdfUrl = `${envConfig.API_URL}/api/catalog/pdf`;
+      console.log('Download PDF - Service:', service, 'Package:', packageType);
+      
+      let pdfUrl = `${envConfig.API_URL}/api/catalog/pdf`;
+      const params = new URLSearchParams();
+      
+      if (service && service.trim() !== '') {
+        params.append('service', service.trim());
+      }
+      if (packageType && packageType.trim() !== '') {
+        params.append('package', packageType.trim());
+      }
+      
+      if (params.toString()) {
+        pdfUrl += `?${params.toString()}`;
+      }
+      
+      console.log('Final PDF URL:', pdfUrl);
       
       if (Platform.OS === 'web') {
         window.open(pdfUrl, '_blank');
@@ -155,26 +259,53 @@ export default function CatalogScreen() {
         }
       }
     } catch (error) {
+      console.error('Download PDF error:', error);
       Alert.alert('Error', 'Failed to download catalog PDF');
     }
   };
 
-  const handleShare = async () => {
+  const handleShare = async (service?: string, packageType?: string) => {
     try {
-      const pdfUrl = `${envConfig.API_URL}/api/catalog/pdf`;
+      console.log('Share - Service:', service, 'Package:', packageType);
+      
+      let pdfUrl = `${envConfig.API_URL}/api/catalog/pdf`;
+      const params = new URLSearchParams();
+      
+      if (service && service.trim() !== '') {
+        params.append('service', service.trim());
+      }
+      if (packageType && packageType.trim() !== '') {
+        params.append('package', packageType.trim());
+      }
+      
+      if (params.toString()) {
+        pdfUrl += `?${params.toString()}`;
+      }
+      
+      console.log('Final Share URL:', pdfUrl);
+      
+      const title = service || packageType ? 
+        `Dream Day Crew - ${service ? service + ' ' : ''}${packageType ? packageType + ' ' : ''}Catalog` :
+        'Dream Day Crew Service Catalog';
+      
       await Share.share({
         message: `Check out our service catalog: ${pdfUrl}`,
-        title: 'Dream Day Crew Service Catalog',
+        title,
       });
     } catch (error) {
-      console.error('Error sharing:', error);
+      console.error('Share error:', error);
     }
   };
 
   const renderPackageBadge = (pkg: string) => {
     const pkgColors = getPackageColor(pkg, isDark);
     return (
-      <View style={[styles.packageBadge, { backgroundColor: pkgColors.bg }]}>
+      <View style={[styles.packageBadge, { 
+        backgroundColor: pkgColors.bg,
+        borderColor: pkgColors.border,
+        borderWidth: 1
+      }]}>
+        <View style={[styles.packageBadgeGlow, { backgroundColor: pkgColors.text, opacity: 0.3 }]} />
         <Text style={[styles.packageBadgeText, { color: pkgColors.text }]}>{pkg}</Text>
       </View>
     );
@@ -184,40 +315,76 @@ export default function CatalogScreen() {
     const pkgColors = getPackageColor(item.package, isDark);
     
     return (
-      <TouchableOpacity 
-        style={[styles.listItem, { backgroundColor: colors.card, borderColor: colors.border }]}
-        onPress={() => handleEdit(item)}
+      <View 
+        style={[styles.listItem, { 
+          backgroundColor: colors.card, 
+          borderColor: colors.border,
+          shadowColor: isDark ? '#000' : '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: isDark ? 0.3 : 0.1,
+          shadowRadius: 12,
+          elevation: 6,
+        }]}
       >
-        <View style={styles.listItemHeader}>
-          <View style={styles.listItemTitleRow}>
-            <Text style={[styles.itemName, { color: colors.text }]}>{item.itemName}</Text>
-            <View style={[styles.packageBadge, { backgroundColor: pkgColors.bg }]}>
-              <Text style={[styles.packageBadgeText, { color: pkgColors.text }]}>{item.package}</Text>
+        <View style={[styles.listItemGradient, { 
+          backgroundColor: `${pkgColors.text}10`,
+          borderLeftColor: pkgColors.text,
+          borderLeftWidth: 4
+        }]}>
+          <View style={styles.listItemHeader}>
+            <TouchableOpacity 
+              style={styles.listItemTitleRow}
+              onPress={() => handleEdit(item)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>{item.itemName}</Text>
+            </TouchableOpacity>
+            <View style={styles.listItemBadgeActions}>
+              <View style={[styles.packageBadge, { 
+                backgroundColor: pkgColors.bg,
+                borderColor: pkgColors.border,
+                borderWidth: 1
+              }]}>
+                <Text style={[styles.packageBadgeText, { color: pkgColors.text }]}>{item.package}</Text>
+              </View>
+              <View style={styles.listItemActions}>
+                <TouchableOpacity 
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleEdit(item);
+                  }}
+                  style={[styles.listActionButton, { backgroundColor: colors.textSecondary + '30' }]}
+                >
+                  <Ionicons name="create-outline" size={18} color={colors.text} />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleDelete(item);
+                  }}
+                  style={[styles.listActionButton, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : 'rgba(220, 38, 38, 0.1)'  }]}
+                >
+                  <Ionicons name="trash-outline" size={18} color={DANGER_RED} />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-          <View style={styles.listItemActions}>
-            <TouchableOpacity 
-              onPress={() => handleEdit(item)}
-              style={styles.actionButton}
-            >
-              <Ionicons name="pencil" size={18} color={colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              onPress={() => handleDelete(item)}
-              style={styles.actionButton}
-            >
-              <Ionicons name="trash-outline" size={18} color="#ef4444" />
-            </TouchableOpacity>
+          <View style={styles.serviceTypeContainer}>
+            <Ionicons name="briefcase-outline" size={14} color={colors.textSecondary} />
+            <Text style={[styles.serviceText, { color: colors.textSecondary }]}>{item.serviceType}</Text>
+          </View>
+          {item.description && (
+            <Text style={[styles.descriptionText, { color: colors.textSecondary }]} numberOfLines={2}>
+              {item.description}
+            </Text>
+          )}
+          <View style={styles.priceContainer}>
+            <Text style={[styles.priceText, { color: pkgColors.text }]}>
+              {formatIndianCurrency(parseFloat(item.price || '0'))}
+            </Text>
           </View>
         </View>
-        <Text style={[styles.serviceText, { color: colors.textSecondary }]}>{item.serviceType}</Text>
-        {item.description && (
-          <Text style={[styles.descriptionText, { color: colors.textSecondary }]} numberOfLines={2}>
-            {item.description}
-          </Text>
-        )}
-        <Text style={styles.priceText}>{formatIndianCurrency(parseFloat(item.price || '0'))}</Text>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -227,10 +394,15 @@ export default function CatalogScreen() {
     if (serviceKeys.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="book-outline" size={48} color={colors.textSecondary} />
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No catalog items found</Text>
+          <View style={[styles.emptyIconContainer, { backgroundColor: colors.textSecondary + '30' }]}>
+            <Ionicons name="book-outline" size={48} color={colors.text} />
+          </View>
+          <Text style={[styles.emptyText, { color: colors.text }]}>No catalog items found</Text>
+          <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+            Start building your service catalog
+          </Text>
           <TouchableOpacity 
-            style={[styles.addButton, { backgroundColor: BRAND_MAROON }]}
+            style={[styles.addButton, { backgroundColor: isDark ? '#4a5568' : BRAND_MAROON  }]}
             onPress={handleAddNew}
           >
             <Ionicons name="add" size={20} color="#fff" />
@@ -243,14 +415,30 @@ export default function CatalogScreen() {
     return (
       <ScrollView 
         style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
         }
       >
         {serviceKeys.map(service => (
-          <View key={service} style={[styles.serviceSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.serviceTitleRow, { backgroundColor: BRAND_MAROON }]}>
-              <Text style={styles.serviceTitle}>{service}</Text>
+          <View key={service} style={[styles.serviceSection, { 
+            backgroundColor: colors.card, 
+            borderColor: colors.border,
+            shadowColor: isDark ? '#000' : '#000',
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: isDark ? 0.4 : 0.1,
+            shadowRadius: 16,
+            elevation: 8,
+          }]}>
+            <View style={[styles.serviceTitleRow, { 
+              backgroundColor: isDark ? '#374151' : BRAND_MAROON,
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+            }]}>
+              <View style={styles.serviceTitleContainer}>
+                <Ionicons name="briefcase" size={20} color="#fff" style={styles.serviceTitleIcon} />
+                <Text style={styles.serviceTitle}>{service}</Text>
+              </View>
             </View>
             
             <View style={styles.packageColumns}>
@@ -260,23 +448,47 @@ export default function CatalogScreen() {
                 
                 return (
                   <View key={pkg} style={styles.packageColumn}>
-                    <View style={[styles.packageHeader, { backgroundColor: pkgColors.bg }]}>
+                    <View style={[styles.packageHeader, { 
+                      backgroundColor: pkgColors.bg,
+                      borderColor: pkgColors.border,
+                      borderWidth: 1,
+                      borderBottomWidth: 0,
+                    }]}>
                       <Text style={[styles.packageHeaderText, { color: pkgColors.text }]}>{pkg}</Text>
+                      <View style={[styles.packageHeaderIcon, { backgroundColor: pkgColors.text }]}>
+                        <Ionicons 
+                          name={pkg.toLowerCase() === 'ultra' ? 'diamond' : pkg.toLowerCase() === 'premium' ? 'star' : 'heart'} 
+                          size={12} 
+                          color="#fff" 
+                        />
+                      </View>
                     </View>
-                    <View style={styles.packageItems}>
+                    <View style={[styles.packageItems, { backgroundColor: `${pkgColors.text}05` }]}>
                       {items.length === 0 ? (
-                        <Text style={[styles.noItemsText, { color: colors.textSecondary }]}>No items</Text>
+                        <View style={styles.noItemsContainer}>
+                          <Ionicons name="add-circle-outline" size={24} color={colors.textSecondary} />
+                          <Text style={[styles.noItemsText, { color: colors.textSecondary }]}>No items</Text>
+                        </View>
                       ) : (
                         items.map(item => (
                           <TouchableOpacity 
                             key={item.id} 
-                            style={[styles.packageItem, { borderColor: colors.border }]}
+                            style={[styles.packageItem, { 
+                              borderColor: colors.border,
+                              backgroundColor: colors.background,
+                              shadowColor: isDark ? '#000' : '#000',
+                              shadowOffset: { width: 0, height: 2 },
+                              shadowOpacity: isDark ? 0.3 : 0.08,
+                              shadowRadius: 8,
+                              elevation: 3,
+                            }]}
                             onPress={() => handleEdit(item)}
+                            activeOpacity={0.8}
                           >
                             <Text style={[styles.packageItemName, { color: colors.text }]} numberOfLines={1}>
                               {item.itemName}
                             </Text>
-                            <Text style={styles.packageItemPrice}>
+                            <Text style={[styles.packageItemPrice, { color: pkgColors.text }]}>
                               {formatIndianCurrency(parseFloat(item.price || '0'))}
                             </Text>
                           </TouchableOpacity>
@@ -296,8 +508,10 @@ export default function CatalogScreen() {
   if (isLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={BRAND_MAROON} />
-        <Text style={[styles.loadingText, { color: colors.text }]}>Loading catalog...</Text>
+        <View style={[styles.loadingSpinner, { backgroundColor: colors.card }]}>
+          <ActivityIndicator size="large" color={colors.text} />
+          <Text style={[styles.loadingText, { color: colors.text }]}>Loading catalog...</Text>
+        </View>
       </View>
     );
   }
@@ -305,145 +519,165 @@ export default function CatalogScreen() {
   if (error) {
     return (
       <View style={[styles.errorContainer, { backgroundColor: colors.background }]}>
-        <Ionicons name="alert-circle" size={48} color="#ef4444" />
+        <Ionicons name="alert-circle" size={48} color={colors.error || DANGER_RED} />
         <Text style={[styles.errorText, { color: colors.text }]}>Failed to load catalog</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
+        <TouchableOpacity style={[styles.retryButton, { backgroundColor: isDark ? '#4B5563' : BRAND_MAROON }]} onPress={() => refetch()}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Service Catalog</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
-            <Ionicons name="share-outline" size={22} color={colors.text} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton} onPress={handleDownloadPDF}>
-            <Ionicons name="download-outline" size={22} color={colors.text} />
-          </TouchableOpacity>
-        </View>
-      </View>
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
 
-      <View style={styles.filtersSection}>
-        <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Ionicons name="search" size={20} color={colors.textSecondary} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Search catalog..."
-            placeholderTextColor={colors.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery !== '' && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
-          <TouchableOpacity 
-            style={[
-              styles.filterChip, 
-              { backgroundColor: colors.card, borderColor: colors.border },
-              selectedService && { backgroundColor: BRAND_MAROON }
-            ]}
-            onPress={() => setShowServiceDropdown(true)}
-          >
-            <Text style={[
-              styles.filterChipText, 
-              { color: selectedService ? '#fff' : colors.text }
-            ]}>
-              {selectedService || 'All Services'}
-            </Text>
-            <Ionicons name="chevron-down" size={16} color={selectedService ? '#fff' : colors.text} />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[
-              styles.filterChip, 
-              { backgroundColor: colors.card, borderColor: colors.border },
-              selectedPackage && { backgroundColor: BRAND_MAROON }
-            ]}
-            onPress={() => setShowPackageDropdown(true)}
-          >
-            <Text style={[
-              styles.filterChipText, 
-              { color: selectedPackage ? '#fff' : colors.text }
-            ]}>
-              {selectedPackage || 'All Packages'}
-            </Text>
-            <Ionicons name="chevron-down" size={16} color={selectedPackage ? '#fff' : colors.text} />
-          </TouchableOpacity>
-
-          {(selectedService || selectedPackage || searchQuery) && (
-            <TouchableOpacity 
-              style={[styles.clearFilterChip, { borderColor: '#ef4444' }]}
-              onPress={clearFilters}
-            >
-              <Ionicons name="close" size={16} color="#ef4444" />
-              <Text style={styles.clearFilterText}>Clear</Text>
-            </TouchableOpacity>
-          )}
-        </ScrollView>
-
-        <View style={styles.viewToggle}>
-          <TouchableOpacity 
-            style={[
-              styles.viewToggleButton, 
-              viewMode === 'grouped' && { backgroundColor: BRAND_MAROON }
-            ]}
-            onPress={() => setViewMode('grouped')}
-          >
-            <Ionicons name="grid-outline" size={18} color={viewMode === 'grouped' ? '#fff' : colors.text} />
-            <Text style={[styles.viewToggleText, { color: viewMode === 'grouped' ? '#fff' : colors.text }]}>By Service</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[
-              styles.viewToggleButton, 
-              viewMode === 'list' && { backgroundColor: BRAND_MAROON }
-            ]}
-            onPress={() => setViewMode('list')}
-          >
-            <Ionicons name="list-outline" size={18} color={viewMode === 'list' ? '#fff' : colors.text} />
-            <Text style={[styles.viewToggleText, { color: viewMode === 'list' ? '#fff' : colors.text }]}>List</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {viewMode === 'grouped' ? (
-        renderGroupedView()
-      ) : (
-        <FlatList
-          data={filteredItems}
-          keyExtractor={(item) => item.id}
-          renderItem={renderListItem}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="book-outline" size={48} color={colors.textSecondary} />
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No catalog items found</Text>
+        <View style={[styles.filtersSection, { backgroundColor: colors.background }]}>
+          <View style={[styles.searchFilterContainer, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 16 }]}>
+            <View style={styles.searchContainer}>
+              <View style={[styles.searchInputContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+                <TextInput
+                  style={[styles.searchInput, { color: colors.text }]}
+                  placeholder="Search catalog..."
+                  placeholderTextColor={colors.textSecondary}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Ionicons name="close" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
-          }
-        />
-      )}
+            
+            <TouchableOpacity 
+              style={[styles.actionIconButton, { backgroundColor: colors.background }]} 
+              onPress={() => showDownloadFilterModal('share')}
+            >
+              <Ionicons name="share-outline" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.actionIconButton, { backgroundColor: colors.background }]} 
+              onPress={() => showDownloadFilterModal('download')}
+            >
+              <Ionicons name="download-outline" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
 
-      <TouchableOpacity 
-        style={[styles.fab, { backgroundColor: BRAND_MAROON }]} 
-        onPress={handleAddNew}
-      >
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
+            <TouchableOpacity 
+              style={[
+                styles.filterChip, 
+                { backgroundColor: colors.card, borderColor: colors.border },
+                selectedService && { backgroundColor: isDark ? '#374151' : BRAND_MAROON, borderColor: isDark ? '#374151' : BRAND_MAROON }
+              ]}
+              onPress={() => setShowServiceDropdown(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="briefcase-outline" size={16} color={selectedService ? '#fff' : colors.text} />
+              <Text style={[
+                styles.filterChipText, 
+                { color: selectedService ? '#fff' : colors.text }
+              ]}>
+                {selectedService || 'All Services'}
+              </Text>
+              <Ionicons name="chevron-down" size={16} color={selectedService ? '#fff' : colors.text} />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[
+                styles.filterChip, 
+                { backgroundColor: colors.card, borderColor: colors.border },
+                selectedPackage && { backgroundColor: isDark ? '#374151' : BRAND_MAROON, borderColor: isDark ? '#374151' : BRAND_MAROON }
+              ]}
+              onPress={() => setShowPackageDropdown(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="pricetag-outline" size={16} color={selectedPackage ? '#fff' : colors.text} />
+              <Text style={[
+                styles.filterChipText, 
+                { color: selectedPackage ? '#fff' : colors.text }
+              ]}>
+                {selectedPackage || 'All Packages'}
+              </Text>
+              <Ionicons name="chevron-down" size={16} color={selectedPackage ? '#fff' : colors.text} />
+            </TouchableOpacity>
+
+            {(selectedService || selectedPackage || searchQuery) && (
+              <TouchableOpacity 
+                style={[styles.clearFilterChip, { borderColor: DANGER_RED, backgroundColor: `${DANGER_RED}15` }]}
+                onPress={clearFilters}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="close" size={16} color={DANGER_RED} />
+                <Text style={[styles.clearFilterText, { color: DANGER_RED }]}>Clear</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+
+          <View style={[styles.viewToggle, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <TouchableOpacity 
+              style={[
+                styles.viewToggleButton, 
+                viewMode === 'grouped' && { backgroundColor: isDark ? '#374151' : BRAND_MAROON }
+              ]}
+              onPress={() => setViewMode('grouped')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="grid-outline" size={18} color={viewMode === 'grouped' ? '#fff' : colors.text} />
+              <Text style={[styles.viewToggleText, { color: viewMode === 'grouped' ? '#fff' : colors.text }]}>By Service</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[
+                styles.viewToggleButton, 
+                viewMode === 'list' && { backgroundColor: isDark ? '#374151' : BRAND_MAROON }
+              ]}
+              onPress={() => setViewMode('list')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="list-outline" size={18} color={viewMode === 'list' ? '#fff' : colors.text} />
+              <Text style={[styles.viewToggleText, { color: viewMode === 'list' ? '#fff' : colors.text }]}>List</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {viewMode === 'grouped' ? (
+          renderGroupedView()
+        ) : (
+          <FlatList
+            data={filteredItems}
+            keyExtractor={(item) => item.id}
+            renderItem={renderListItem}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <View style={[styles.emptyIconContainer, { backgroundColor: colors.textSecondary + '30' }]}>
+                  <Ionicons name="book-outline" size={48} color={colors.text} />
+                </View>
+                <Text style={[styles.emptyText, { color: colors.text }]}>No catalog items found</Text>
+                <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                  Start building your service catalog
+                </Text>
+              </View>
+            }
+          />
+        )}
+
+        <TouchableOpacity 
+          style={[styles.fab, { backgroundColor: isDark ? '#4B5563' : BRAND_MAROON }]} 
+          onPress={handleAddNew}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
 
       <Modal
-        visible={showServiceDropdown}
+        visible={showServiceDropdown && !showDownloadFilter}
         transparent
         animationType="fade"
         onRequestClose={() => setShowServiceDropdown(false)}
@@ -463,7 +697,7 @@ export default function CatalogScreen() {
               }}
             >
               <Text style={[styles.dropdownItemText, { color: colors.text }]}>All Services</Text>
-              {!selectedService && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+              {!selectedService && <Ionicons name="checkmark" size={20} color={colors.text} />}
             </TouchableOpacity>
             {services.map((service) => (
               <TouchableOpacity
@@ -475,7 +709,7 @@ export default function CatalogScreen() {
                 }}
               >
                 <Text style={[styles.dropdownItemText, { color: colors.text }]}>{service}</Text>
-                {selectedService === service && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+                {selectedService === service && <Ionicons name="checkmark" size={20} color={colors.text} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -483,7 +717,7 @@ export default function CatalogScreen() {
       </Modal>
 
       <Modal
-        visible={showPackageDropdown}
+        visible={showPackageDropdown && !showDownloadFilter}
         transparent
         animationType="fade"
         onRequestClose={() => setShowPackageDropdown(false)}
@@ -503,7 +737,7 @@ export default function CatalogScreen() {
               }}
             >
               <Text style={[styles.dropdownItemText, { color: colors.text }]}>All Packages</Text>
-              {!selectedPackage && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+              {!selectedPackage && <Ionicons name="checkmark" size={20} color={colors.text} />}
             </TouchableOpacity>
             {packages.map((pkg) => (
               <TouchableOpacity
@@ -515,14 +749,14 @@ export default function CatalogScreen() {
                 }}
               >
                 <Text style={[styles.dropdownItemText, { color: colors.text }]}>{pkg}</Text>
-                {selectedPackage === pkg && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+                {selectedPackage === pkg && <Ionicons name="checkmark" size={20} color={colors.text} />}
               </TouchableOpacity>
             ))}
           </View>
         </TouchableOpacity>
       </Modal>
 
-      <AddCatalogItemModal
+      <AddCatalogModal
         visible={modalVisible}
         onClose={() => {
           setModalVisible(false);
@@ -532,247 +766,236 @@ export default function CatalogScreen() {
         services={services}
         packages={packages}
       />
-    </View>
-  );
-}
 
-interface AddCatalogItemModalProps {
-  visible: boolean;
-  onClose: () => void;
-  editingItem: CatalogItem | null;
-  services: string[];
-  packages: string[];
-}
-
-function AddCatalogItemModal({ visible, onClose, editingItem, services, packages }: AddCatalogItemModalProps) {
-  const { colors, isDark } = useTheme();
-  const queryClient = useQueryClient();
-  
-  const [serviceType, setServiceType] = useState('');
-  const [packageName, setPackageName] = useState('');
-  const [itemName, setItemName] = useState('');
-  const [description, setDescription] = useState('');
-  const [price, setPrice] = useState('');
-  const [showServicePicker, setShowServicePicker] = useState(false);
-  const [showPackagePicker, setShowPackagePicker] = useState(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (editingItem) {
-        setServiceType(editingItem.serviceType);
-        setPackageName(editingItem.package);
-        setItemName(editingItem.itemName);
-        setDescription(editingItem.description || '');
-        setPrice(editingItem.price || '0');
-      } else {
-        setServiceType('');
-        setPackageName('');
-        setItemName('');
-        setDescription('');
-        setPrice('');
-      }
-    }, [editingItem])
-  );
-
-  const createMutation = useMutation({
-    mutationFn: (data: InsertCatalogItem) => api.createCatalogItem(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['catalogItems'] });
-      Alert.alert('Success', 'Catalog item created successfully');
-      onClose();
-    },
-    onError: (error: Error) => {
-      Alert.alert('Error', `Failed to create item: ${error.message}`);
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<InsertCatalogItem> }) => 
-      api.updateCatalogItem(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['catalogItems'] });
-      Alert.alert('Success', 'Catalog item updated successfully');
-      onClose();
-    },
-    onError: (error: Error) => {
-      Alert.alert('Error', `Failed to update item: ${error.message}`);
-    },
-  });
-
-  const handleSubmit = () => {
-    if (!serviceType || !packageName || !itemName) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
-
-    const data: InsertCatalogItem = {
-      serviceType,
-      package: packageName,
-      itemName,
-      description: description || null,
-      price: price || '0',
-    };
-
-    if (editingItem) {
-      updateMutation.mutate({ id: editingItem.id, data });
-    } else {
-      createMutation.mutate(data);
-    }
-  };
-
-  const isLoading = createMutation.isPending || updateMutation.isPending;
-
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-        <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={[styles.modalTitle, { color: colors.text }]}>
-            {editingItem ? 'Edit Catalog Item' : 'Add Catalog Item'}
-          </Text>
-          <TouchableOpacity 
-            onPress={handleSubmit} 
-            style={[styles.saveButton, isLoading && styles.disabledButton]}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.saveButtonText}>Save</Text>
-            )}
-          </TouchableOpacity>
+      {/* Download Filter Modal */}
+      <Modal
+        visible={showDownloadFilter}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setShowDownloadFilter(false);
+          setShowDownloadServiceDropdown(false);
+          setShowDownloadPackageDropdown(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.downloadFilterModal, { backgroundColor: colors.card }]}>
+            <View style={[styles.downloadFilterHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.downloadFilterTitle, { color: colors.text }]}>
+                {downloadAction === 'share' ? 'Share Catalog' : 'Download Catalog'}
+              </Text>
+              <TouchableOpacity 
+                onPress={() => {
+                  setShowDownloadFilter(false);
+                  setShowDownloadServiceDropdown(false);
+                  setShowDownloadPackageDropdown(false);
+                }}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.downloadFilterContent}>
+              <Text style={[styles.downloadFilterSubtext, { color: colors.textSecondary }]}>
+                Select service and package to filter the catalog
+              </Text>
+              
+              {/* Service Selection */}
+              <View style={styles.filterGroup}>
+                <Text style={[styles.filterLabel, { color: colors.text }]}>Service Type</Text>
+                <TouchableOpacity 
+                  style={[styles.filterDropdown, { backgroundColor: colors.background, borderColor: colors.border }]}
+                  onPress={() => setShowDownloadServiceDropdown(true)}
+                >
+                  <Text style={[styles.filterDropdownText, { color: downloadFilters.service ? colors.text : colors.textSecondary }]}>
+                    {downloadFilters.service || 'All Services'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              
+              {/* Package Selection */}
+              <View style={styles.filterGroup}>
+                <Text style={[styles.filterLabel, { color: colors.text }]}>Package Type</Text>
+                <TouchableOpacity 
+                  style={[styles.filterDropdown, { backgroundColor: colors.background, borderColor: colors.border }]}
+                  onPress={() => setShowDownloadPackageDropdown(true)}
+                >
+                  <Text style={[styles.filterDropdownText, { color: downloadFilters.package ? colors.text : colors.textSecondary }]}>
+                    {downloadFilters.package || 'All Packages'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              
+              {/* Validation Error Message */}
+              {downloadValidationError ? (
+                <View style={[styles.validationErrorContainer, { backgroundColor: '#fee2e2', borderColor: '#fca5a5' }]}>
+                  <Ionicons name="alert-circle" size={20} color="#dc2626" />
+                  <Text style={[styles.validationErrorText, { color: '#dc2626' }]}>
+                    {downloadValidationError}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            
+            <View style={[styles.downloadFilterFooter, { borderTopColor: colors.border }]}>
+              <TouchableOpacity 
+                style={[styles.downloadFilterButton, styles.cancelButton, { borderColor: colors.border }]}
+                onPress={() => {
+                  setShowDownloadFilter(false);
+                  setShowDownloadServiceDropdown(false);
+                  setShowDownloadPackageDropdown(false);
+                }}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.downloadFilterButton, styles.modalActionButton, { backgroundColor: isDark ? '#4B5563' : BRAND_MAROON }]}
+                onPress={processFilteredAction}
+              >
+                <Ionicons 
+                  name={downloadAction === 'share' ? 'share' : 'download'} 
+                  size={18} 
+                  color="#fff" 
+                />
+                <Text style={styles.actionButtonText}>
+                  {downloadAction === 'share' ? 'Share' : 'Download'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
+      </Modal>
 
-        <ScrollView style={styles.modalContent} contentContainerStyle={styles.modalContentContainer}>
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Service Type *</Text>
-            <TouchableOpacity 
-              style={[styles.picker, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => setShowServicePicker(true)}
-            >
-              <Text style={[styles.pickerText, { color: serviceType ? colors.text : colors.textSecondary }]}>
-                {serviceType || 'Select a service'}
-              </Text>
-              <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Package *</Text>
-            <TouchableOpacity 
-              style={[styles.picker, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => setShowPackagePicker(true)}
-            >
-              <Text style={[styles.pickerText, { color: packageName ? colors.text : colors.textSecondary }]}>
-                {packageName || 'Select a package'}
-              </Text>
-              <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Item Name *</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
-              placeholder="Enter item name"
-              placeholderTextColor={colors.textSecondary}
-              value={itemName}
-              onChangeText={setItemName}
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Description</Text>
-            <TextInput
-              style={[styles.textArea, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
-              placeholder="Enter description (optional)"
-              placeholderTextColor={colors.textSecondary}
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Price</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
-              placeholder="Enter price"
-              placeholderTextColor={colors.textSecondary}
-              value={price}
-              onChangeText={setPrice}
-              keyboardType="numeric"
-            />
-          </View>
-        </ScrollView>
-
-        <Modal
-          visible={showServicePicker}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowServicePicker(false)}
-        >
+      {/* Download Filter Service Dropdown */}
+      <Modal
+        visible={showDownloadServiceDropdown}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDownloadServiceDropdown(false)}
+      >
+        <View style={[styles.modalOverlay, { zIndex: 1000 }]}>
           <TouchableOpacity 
-            style={styles.modalOverlay}
+            style={[styles.modalOverlay, { zIndex: 1000 }]}
             activeOpacity={1}
-            onPress={() => setShowServicePicker(false)}
+            onPress={() => setShowDownloadServiceDropdown(false)}
           >
-            <View style={[styles.dropdownContainer, { backgroundColor: colors.card }]}>
+            <View style={[styles.dropdownContainer, { backgroundColor: colors.card, zIndex: 1001 }]}>
               <Text style={[styles.dropdownTitle, { color: colors.text }]}>Select Service</Text>
-              <ScrollView style={styles.dropdownScroll}>
-                {services.map((service) => (
-                  <TouchableOpacity
-                    key={service}
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      setServiceType(service);
-                      setShowServicePicker(false);
-                    }}
-                  >
-                    <Text style={[styles.dropdownItemText, { color: colors.text }]}>{service}</Text>
-                    {serviceType === service && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              <TouchableOpacity
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setDownloadFilters(prev => ({ ...prev, service: '' }));
+                  setShowDownloadServiceDropdown(false);
+                }}
+              >
+                <Text style={[styles.dropdownItemText, { color: colors.text }]}>All Services</Text>
+                {!downloadFilters.service && <Ionicons name="checkmark" size={20} color={colors.text} />}
+              </TouchableOpacity>
+              {services.map((service) => (
+                <TouchableOpacity
+                  key={service}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    setDownloadFilters(prev => ({ ...prev, service }));
+                    setDownloadValidationError('');
+                    setShowDownloadServiceDropdown(false);
+                  }}
+                >
+                  <Text style={[styles.dropdownItemText, { color: colors.text }]}>{service}</Text>
+                  {downloadFilters.service === service && <Ionicons name="checkmark" size={20} color={colors.text} />}
+                </TouchableOpacity>
+              ))}
             </View>
           </TouchableOpacity>
-        </Modal>
+        </View>
+      </Modal>
 
-        <Modal
-          visible={showPackagePicker}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowPackagePicker(false)}
-        >
+      {/* Download Filter Package Dropdown */}
+      <Modal
+        visible={showDownloadPackageDropdown}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDownloadPackageDropdown(false)}
+      >
+        <View style={[styles.modalOverlay, { zIndex: 1000 }]}>
           <TouchableOpacity 
-            style={styles.modalOverlay}
+            style={[styles.modalOverlay, { zIndex: 1000 }]}
             activeOpacity={1}
-            onPress={() => setShowPackagePicker(false)}
+            onPress={() => setShowDownloadPackageDropdown(false)}
           >
-            <View style={[styles.dropdownContainer, { backgroundColor: colors.card }]}>
+            <View style={[styles.dropdownContainer, { backgroundColor: colors.card, zIndex: 1001 }]}>
               <Text style={[styles.dropdownTitle, { color: colors.text }]}>Select Package</Text>
+              <TouchableOpacity
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setDownloadFilters(prev => ({ ...prev, package: '' }));
+                  setShowDownloadPackageDropdown(false);
+                }}
+              >
+                <Text style={[styles.dropdownItemText, { color: colors.text }]}>All Packages</Text>
+                {!downloadFilters.package && <Ionicons name="checkmark" size={20} color={colors.text} />}
+              </TouchableOpacity>
               {packages.map((pkg) => (
                 <TouchableOpacity
                   key={pkg}
                   style={styles.dropdownItem}
                   onPress={() => {
-                    setPackageName(pkg);
-                    setShowPackagePicker(false);
+                    setDownloadFilters(prev => ({ ...prev, package: pkg }));
+                    setDownloadValidationError('');
+                    setShowDownloadPackageDropdown(false);
                   }}
                 >
                   <Text style={[styles.dropdownItemText, { color: colors.text }]}>{pkg}</Text>
-                  {packageName === pkg && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+                  {downloadFilters.package === pkg && <Ionicons name="checkmark" size={20} color={colors.text} />}
                 </TouchableOpacity>
               ))}
             </View>
           </TouchableOpacity>
-        </Modal>
-      </View>
-    </Modal>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={deleteConfirmVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={cancelDelete}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.deleteConfirmModal, { backgroundColor: colors.card }]}>
+            <View style={styles.deleteConfirmHeader}>
+              <Ionicons name="alert-circle" size={32} color={colors.error || DANGER_RED} />
+              <Text style={[styles.deleteConfirmTitle, { color: colors.text }]}>Delete Item</Text>
+            </View>
+            <Text style={[styles.deleteConfirmMessage, { color: colors.textSecondary }]}>
+              Are you sure you want to delete "{itemToDelete?.itemName}"? This action cannot be undone.
+            </Text>
+            <View style={styles.deleteConfirmActions}>
+              <TouchableOpacity 
+                style={[styles.deleteConfirmButton, styles.cancelDeleteButton, { borderColor: colors.border }]}
+                onPress={cancelDelete}
+              >
+                <Text style={[styles.cancelDeleteText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.deleteConfirmButton, styles.confirmDeleteButton, { backgroundColor: colors.error || DANGER_RED }]}
+                onPress={confirmDelete}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.confirmDeleteText}>Delete</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
@@ -784,10 +1007,22 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
+  },
+  loadingSpinner: {
+    padding: 32,
+    borderRadius: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: 16,
     fontSize: 16,
+    fontWeight: '500',
   },
   errorContainer: {
     flex: 1,
@@ -803,7 +1038,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 10,
-    backgroundColor: BRAND_MAROON,
     borderRadius: 8,
   },
   retryButtonText: {
@@ -811,182 +1045,312 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   header: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    paddingBottom: 8,
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  titleIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 14,
+    marginTop: 2,
+    opacity: 0.8,
   },
   headerActions: {
     flexDirection: 'row',
     gap: 8,
   },
   headerButton: {
-    padding: 8,
+    padding: 12,
+    borderRadius: 12,
   },
   filtersSection: {
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 16,
   },
-  searchContainer: {
+  searchFilterContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    margin: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  searchContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 8,
     borderWidth: 1,
-    marginBottom: 12,
+  },
+  searchIcon: {
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
     fontSize: 16,
+    fontWeight: '500',
+  },
+  actionIconButton: {
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
   },
   filterRow: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
     borderWidth: 1,
     marginRight: 8,
-    gap: 4,
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   filterChipText: {
     fontSize: 14,
+    fontWeight: '500',
   },
   clearFilterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
     borderWidth: 1,
-    gap: 4,
+    gap: 6,
   },
   clearFilterText: {
-    color: '#ef4444',
     fontSize: 14,
+    fontWeight: '500',
   },
   viewToggle: {
     flexDirection: 'row',
-    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 4,
   },
   viewToggleButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 8,
     gap: 6,
+    flex: 1,
+    justifyContent: 'center',
   },
   viewToggleText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
   },
+  scrollViewContent: {
+    paddingBottom: 100,
+  },
   listContent: {
     padding: 16,
-    paddingBottom: 80,
+    paddingBottom: 100,
   },
   listItem: {
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 12,
-    marginBottom: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  listItemGradient: {
+    padding: 20,
   },
   listItemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 4,
+    marginBottom: 12,
   },
   listItemTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     flex: 1,
-    gap: 8,
+    marginRight: 16,
+  },
+  listItemBadgeActions: {
+    alignItems: 'flex-end',
+    gap: 12,
+    minWidth: 120,
   },
   listItemActions: {
     flexDirection: 'row',
     gap: 8,
+    marginTop: 8,
   },
-  actionButton: {
-    padding: 4,
+  listActionButton: {
+    padding: 10,
+    borderRadius: 8,
+    minWidth: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   itemName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
+    flex: 1,
+    letterSpacing: -0.3,
+  },
+  serviceTypeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
   },
   serviceText: {
     fontSize: 14,
-    marginBottom: 4,
+    fontWeight: '500',
   },
   descriptionText: {
     fontSize: 14,
-    marginBottom: 4,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  priceContainer: {
+    alignItems: 'flex-start',
   },
   priceText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: BRAND_MAROON,
+    fontSize: 20,
+    fontWeight: 'bold',
+    letterSpacing: -0.5,
   },
   packageBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  packageBadgeGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 16,
   },
   packageBadgeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
+    minHeight: 300,
+  },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
   },
   emptyText: {
-    fontSize: 16,
-    marginTop: 12,
-    marginBottom: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 20,
   },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
   },
   addButtonText: {
     color: '#fff',
     fontWeight: '600',
+    fontSize: 16,
   },
   serviceSection: {
     marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 8,
+    marginBottom: 12,
+    borderRadius: 16,
     borderWidth: 1,
     overflow: 'hidden',
   },
   serviceTitleRow: {
-    padding: 10,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  serviceTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  serviceTitleIcon: {
+    marginRight: 12,
   },
   serviceTitle: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
   packageColumns: {
     flexDirection: 'row',
@@ -997,51 +1361,69 @@ const styles = StyleSheet.create({
     borderRightColor: 'rgba(0,0,0,0.1)',
   },
   packageHeader: {
-    padding: 8,
+    padding: 12,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
   },
   packageHeaderText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  packageHeaderIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   packageItems: {
-    padding: 8,
-    minHeight: 60,
+    padding: 12,
+    minHeight: 100,
+    gap: 8,
   },
   packageItem: {
-    padding: 6,
+    padding: 12,
     borderBottomWidth: 1,
-    marginBottom: 4,
+    borderRadius: 8,
   },
   packageItemName: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   packageItemPrice: {
-    fontSize: 11,
-    color: BRAND_MAROON,
-    fontWeight: '600',
-    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  noItemsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
   },
   noItemsText: {
-    fontSize: 11,
+    fontSize: 12,
     fontStyle: 'italic',
     textAlign: 'center',
+    marginTop: 8,
   },
   fab: {
     position: 'absolute',
-    right: 16,
-    bottom: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    right: 20,
+    bottom: 20,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   modalOverlay: {
     flex: 1,
@@ -1050,10 +1432,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dropdownContainer: {
-    width: '80%',
-    maxHeight: '60%',
+    width: '85%',
+    maxWidth: 400,
+    maxHeight: '70%',
     borderRadius: 12,
     padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
   dropdownTitle: {
     fontSize: 18,
@@ -1067,79 +1455,171 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.1)',
+    minHeight: 50,
   },
   dropdownItemText: {
     fontSize: 16,
-  },
-  modalContainer: {
     flex: 1,
+    marginRight: 8,
+    flexWrap: 'wrap',
   },
-  modalHeader: {
+  downloadFilterModal: {
+    marginHorizontal: 16,
+    marginVertical: 40,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    minHeight: 420,
+    maxHeight: '85%',
+    width: '90%',
+    alignSelf: 'center',
+  },
+  downloadFilterHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
     borderBottomWidth: 1,
+  },
+  downloadFilterTitle: {
+    fontSize: 20,
+    fontWeight: '700',
   },
   closeButton: {
     padding: 4,
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  saveButton: {
-    backgroundColor: BRAND_MAROON,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  modalContent: {
+  downloadFilterContent: {
+    padding: 24,
     flex: 1,
   },
-  modalContentContainer: {
-    padding: 16,
-  },
-  formGroup: {
-    marginBottom: 16,
-  },
-  label: {
+  downloadFilterSubtext: {
     fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
+    marginBottom: 20,
+    textAlign: 'center',
   },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
+  filterGroup: {
+    marginBottom: 20,
+  },
+  filterLabel: {
     fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 10,
   },
-  textArea: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    minHeight: 80,
-  },
-  picker: {
+  filterDropdown: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     borderRadius: 8,
-    padding: 12,
+    borderWidth: 1,
+    minHeight: 52,
   },
-  pickerText: {
+  filterDropdownText: {
     fontSize: 16,
+  },
+  downloadFilterFooter: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    gap: 12,
+  },
+  downloadFilterButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    borderWidth: 1,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  validationErrorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 16,
+    gap: 8,
+  },
+  validationErrorText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteConfirmModal: {
+    marginHorizontal: 32,
+    borderRadius: 16,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  deleteConfirmHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  deleteConfirmTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  deleteConfirmMessage: {
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  deleteConfirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelDeleteButton: {
+    borderWidth: 1,
+  },
+  confirmDeleteButton: {
+    // backgroundColor set dynamically
+  },
+  cancelDeleteText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmDeleteText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

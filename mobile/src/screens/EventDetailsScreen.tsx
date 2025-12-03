@@ -52,6 +52,7 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
   const [planModalVisible, setPlanModalVisible] = useState(false);
   const [eventModalVisible, setEventModalVisible] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showBudgetUpdateConfirm, setShowBudgetUpdateConfirm] = useState(false);
   const [showRequirementDeleteConfirm, setShowRequirementDeleteConfirm] = useState(false);
   const [requirementToDelete, setRequirementToDelete] = useState<Requirement | null>(null);
   const [selectedRequirement, setSelectedRequirement] = useState<Requirement | undefined>();
@@ -171,8 +172,12 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
 
   // Update budget mutation
   const updateBudgetMutation = useMutation({
-    mutationFn: async (data: { finalizedQuote?: string; ddcCost?: string }) => {
-      return await api.updateEventBudget(eventId, data);
+    mutationFn: async ({ finalizedQuote, ddcCost }: { finalizedQuote?: number; ddcCost?: number }) => {
+      const payload: any = {};
+      if (finalizedQuote !== undefined) payload.finalizedQuote = finalizedQuote.toString();
+      if (ddcCost !== undefined) payload.ddcCost = ddcCost.toString();
+      
+      return await api.updateEventBudget(eventId, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event', eventId] });
@@ -184,27 +189,20 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
   });
 
   const handleUpdateBudget = () => {
+    setShowBudgetUpdateConfirm(true);
+  };
+
+  const confirmBudgetUpdate = () => {
     const invoiceValue = calculateInvoiceValue();
     const discountAmount = calculateDiscountAmount();
     const finalInvoiceValue = invoiceValue - discountAmount;
     const ddcCost = calculateDDCCost();
 
-    Alert.alert(
-      'Confirm Update',
-      `Update budget with these values?\n\nGross Invoice: ₹${invoiceValue.toLocaleString()}\nDiscount: ₹${discountAmount.toLocaleString()}\nFinal Invoice: ₹${finalInvoiceValue.toLocaleString()}\nDDC Spent: ₹${ddcCost.toLocaleString()}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Update',
-          onPress: () => {
-            updateBudgetMutation.mutate({
-              finalizedQuote: finalInvoiceValue.toString(),
-              ddcCost: ddcCost.toString(),
-            });
-          },
-        },
-      ]
-    );
+    updateBudgetMutation.mutate({
+      finalizedQuote: finalInvoiceValue,
+      ddcCost: ddcCost,
+    });
+    setShowBudgetUpdateConfirm(false);
   };
 
   // Delete event mutation
@@ -587,14 +585,22 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
           </View>
         </View>
         
+        {/* Update Budget Button - Show when there are changes */}
         {hasChanges && (
           <TouchableOpacity
-            style={[styles.updateButton, { backgroundColor: colors.primary }]}
+            style={[
+              styles.updateButton, 
+              { 
+                backgroundColor:  isDark ? '#4B5563' : BRAND_MAROON,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }
+            ]}
             onPress={handleUpdateBudget}
             disabled={updateBudgetMutation.isPending}
           >
-            <Ionicons name="sync" size={20} color="#fff" />
-            <Text style={styles.updateButtonText}>
+            <Ionicons name="sync" size={20} color="#ffffff" />
+            <Text style={[styles.updateButtonText, { color: '#ffffff' }]}>
               {updateBudgetMutation.isPending ? 'Updating...' : 'Update Budget'}
             </Text>
           </TouchableOpacity>
@@ -937,6 +943,61 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
           </View>
         </View>
       </Modal>
+
+      {/* Budget Update Confirmation Modal */}
+      <Modal
+        visible={showBudgetUpdateConfirm}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowBudgetUpdateConfirm(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.confirmationBox, { backgroundColor: colors.card, shadowColor: isDark ? '#000' : '#000' }]}>
+            <Text style={[styles.confirmationTitle, { color: colors.text }]}>Update Budget?</Text>
+            <Text style={[styles.confirmationMessage, { color: colors.text }]}>
+              Are you sure you want to update the budget with these values?
+            </Text>
+            <View style={[styles.budgetConfirmInfo, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.budgetConfirmRow}>
+                <Text style={[styles.budgetConfirmLabel, { color: colors.textSecondary }]}>Gross Invoice:</Text>
+                <Text style={[styles.budgetConfirmValue, { color: colors.text }]}>₹{calculateInvoiceValue().toLocaleString()}</Text>
+              </View>
+              <View style={styles.budgetConfirmRow}>
+                <Text style={[styles.budgetConfirmLabel, { color: colors.textSecondary }]}>Discount:</Text>
+                <Text style={[styles.budgetConfirmValue, { color: colors.text }]}>₹{calculateDiscountAmount().toLocaleString()}</Text>
+              </View>
+              <View style={styles.budgetConfirmRow}>
+                <Text style={[styles.budgetConfirmLabel, { color: colors.textSecondary }]}>Final Invoice:</Text>
+                <Text style={[styles.budgetConfirmValue, { color: colors.text }]}>₹{(calculateInvoiceValue() - calculateDiscountAmount()).toLocaleString()}</Text>
+              </View>
+              <View style={styles.budgetConfirmRow}>
+                <Text style={[styles.budgetConfirmLabel, { color: colors.textSecondary }]}>DDC Spent:</Text>
+                <Text style={[styles.budgetConfirmValue, { color: colors.text }]}>₹{calculateDDCCost().toLocaleString()}</Text>
+              </View>
+            </View>
+            <View style={styles.confirmationButtons}>
+              <TouchableOpacity 
+                style={[styles.confirmButton, styles.cancelButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => setShowBudgetUpdateConfirm(false)}
+                disabled={updateBudgetMutation.isPending}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.confirmButton, { backgroundColor: colors.primary }]}
+                onPress={confirmBudgetUpdate}
+                disabled={updateBudgetMutation.isPending}
+              >
+                {updateBudgetMutation.isPending ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.deleteButtonText}>Update Budget</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -1090,7 +1151,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   updateButtonText: {
-    color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1360,5 +1420,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
+  },
+  budgetConfirmInfo: {
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 24,
+    borderWidth: 1,
+  },
+  budgetConfirmRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  budgetConfirmLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  budgetConfirmValue: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
