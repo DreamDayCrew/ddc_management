@@ -736,6 +736,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Quotation generation endpoint
+  app.get("/api/events/:id/quotation", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { quotation_number } = req.query;
+      
+      // Fetch event data
+      const event = await storage.getEvent(id);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      
+      // Fetch requirements
+      const requirements = await storage.getRequirements(id);
+      if (!requirements || requirements.length === 0) {
+        return res.status(400).json({ error: "No requirements found for this event" });
+      }
+      
+      // Fetch configuration
+      const config = await storage.getConfiguration();
+      if (!config) {
+        return res.status(400).json({ error: "Configuration not found" });
+      }
+      
+      // Calculate quotation value
+      const quotationValue = requirements.reduce((total, req) => {
+        const price = parseFloat(String(req.order ?? '0'));
+        return total + (isNaN(price) ? 0 : price);
+      }, 0);
+      
+      if (quotationValue <= 0) {
+        return res.status(400).json({ error: "Event has no billable requirements" });
+      }
+      
+      // Generate quotation number if not provided
+      const quotationNumber = quotation_number as string || 
+        `QTN${event.id.slice(-5).toUpperCase()}${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      
+      // Generate PDF with documentType = 'Quotation'
+      const quotationElement = ServerInvoiceTemplate({
+        event,
+        requirements,
+        config,
+        invoiceNumber: quotationNumber,
+        documentType: 'Quotation'
+      });
+      
+      if (!quotationElement) {
+        return res.status(500).json({ error: "Failed to generate quotation template" });
+      }
+      
+      const pdfBuffer = await renderToBuffer(quotationElement as React.ReactElement);
+      
+      // Set response headers for PDF download
+      const fileName = `Quotation_${event.eventName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      
+      // Send PDF buffer
+      res.send(pdfBuffer);
+      
+    } catch (error: any) {
+      console.error('Error generating quotation:', error);
+      res.status(500).json({ error: "Failed to generate quotation" });
+    }
+  });
+
   // Requirement routes
   app.get("/api/requirements", async (_req, res) => {
     const requirements = await storage.getAllRequirements();
