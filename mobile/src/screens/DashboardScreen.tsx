@@ -185,6 +185,11 @@ export default function DashboardScreen() {
           onScroll={handleScroll}
           scrollEventThrottle={16}
           decelerationRate="fast"
+          getItemLayout={(_, index) => ({
+            length: CAROUSEL_PAGE_WIDTH,
+            offset: CAROUSEL_PAGE_WIDTH * index,
+            index,
+          })}
           renderItem={({ item }) => {
             if (item.key === 'logo') {
               return (
@@ -263,15 +268,20 @@ export default function DashboardScreen() {
           keyExtractor={(item) => item.key}
         />
         
-        {/* Pagination Dots */}
+        {/* Pagination Dots - Tappable */}
         <View style={styles.paginationContainer}>
           {[0, 1].map((index) => (
-            <View
+            <TouchableOpacity
               key={index}
+              onPress={() => {
+                flatListRef.current?.scrollToIndex({ index, animated: true });
+                setActiveCardIndex(index);
+              }}
               style={[
                 styles.paginationDot,
                 activeCardIndex === index && styles.paginationDotActive,
               ]}
+              activeOpacity={0.7}
             />
           ))}
         </View>
@@ -879,14 +889,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   paginationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: 'rgba(128, 0, 32, 0.3)',
+    padding: 8,
   },
   paginationDotActive: {
     backgroundColor: BRAND_MAROON,
-    width: 24,
+    width: 32,
   },
   
   // Gradient Card Styles
