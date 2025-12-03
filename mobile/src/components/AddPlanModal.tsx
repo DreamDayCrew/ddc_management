@@ -61,6 +61,9 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
     payment: '',
     paymentStatus: 'To Do',
     planStatus: 'To Do',
+    customerRating: null as number | null,
+    teamRating: null as number | null,
+    reviewNotes: '',
   });
 
   const [isInitialLoad, setIsInitialLoad] = useState(false);
@@ -96,6 +99,9 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
         payment: plan.payment ? String(plan.payment) : '',
         paymentStatus: plan.paymentStatus || 'To Do',
         planStatus: plan.planStatus || 'To Do',
+        customerRating: plan.customerRating || null,
+        teamRating: plan.teamRating || null,
+        reviewNotes: plan.reviewNotes || '',
       });
     } else if (!visible) {
       resetForm();
@@ -163,6 +169,9 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
       payment: '',
       paymentStatus: 'To Do',
       planStatus: 'To Do',
+      customerRating: null,
+      teamRating: null,
+      reviewNotes: '',
     });
   };
 
@@ -185,6 +194,13 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
       paymentStatus: formData.paymentStatus,
       planStatus: formData.planStatus,
     };
+
+    // Include review data when editing (plan exists)
+    if (plan) {
+      submitData.customerRating = formData.customerRating;
+      submitData.teamRating = formData.teamRating;
+      submitData.reviewNotes = formData.reviewNotes || null;
+    }
 
     if (planType === 'Vendor') {
       if (!formData.vendorCategory) {
@@ -626,6 +642,90 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
                 </TouchableOpacity>
               </View>
             </View>
+
+            {/* Review Section - Only show when editing */}
+            {plan && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Review</Text>
+                
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: colors.text }]}>Customer Rating</Text>
+                  <View style={styles.starsRow}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <TouchableOpacity
+                        key={star}
+                        onPress={() => setFormData({ ...formData, customerRating: star })}
+                        style={styles.starButton}
+                        testID={`button-customer-star-${star}`}
+                      >
+                        <Ionicons
+                          name={formData.customerRating && star <= formData.customerRating ? 'star' : 'star-outline'}
+                          size={28}
+                          color={formData.customerRating && star <= formData.customerRating ? '#EAB308' : colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    ))}
+                    {formData.customerRating && (
+                      <TouchableOpacity
+                        onPress={() => setFormData({ ...formData, customerRating: null })}
+                        style={styles.clearRating}
+                        testID="button-clear-customer-rating"
+                      >
+                        <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: colors.text }]}>Team Rating</Text>
+                  <View style={styles.starsRow}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <TouchableOpacity
+                        key={star}
+                        onPress={() => setFormData({ ...formData, teamRating: star })}
+                        style={styles.starButton}
+                        testID={`button-team-star-${star}`}
+                      >
+                        <Ionicons
+                          name={formData.teamRating && star <= formData.teamRating ? 'star' : 'star-outline'}
+                          size={28}
+                          color={formData.teamRating && star <= formData.teamRating ? '#EAB308' : colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    ))}
+                    {formData.teamRating && (
+                      <TouchableOpacity
+                        onPress={() => setFormData({ ...formData, teamRating: null })}
+                        style={styles.clearRating}
+                        testID="button-clear-team-rating"
+                      >
+                        <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: colors.text }]}>Review Notes</Text>
+                  <TextInput
+                    style={[styles.textArea, { 
+                      backgroundColor: colors.card, 
+                      borderColor: colors.border,
+                      color: colors.text 
+                    }]}
+                    value={formData.reviewNotes}
+                    onChangeText={(text) => setFormData({ ...formData, reviewNotes: text })}
+                    placeholder="Add feedback or comments..."
+                    placeholderTextColor={colors.textSecondary}
+                    multiline
+                    numberOfLines={3}
+                    textAlignVertical="top"
+                    testID="input-review-notes"
+                  />
+                </View>
+              </View>
+            )}
           </ScrollView>
 
           {/* Vendor Category Dropdown */}
@@ -1020,6 +1120,36 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  section: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(128, 128, 128, 0.2)',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  starButton: {
+    padding: 4,
+  },
+  clearRating: {
+    marginLeft: 8,
+    padding: 4,
+  },
+  textArea: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    minHeight: 80,
   },
   
   // Dropdown styles
