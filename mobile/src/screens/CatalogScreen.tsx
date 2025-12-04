@@ -45,33 +45,11 @@ function getPackageIcon(pkg: string): { name: string; color: string } {
   }
 }
 
-function getServiceIcon(service: string): string {
-  const serviceLower = service.toLowerCase();
-  if (serviceLower.includes('photo')) return 'camera';
-  if (serviceLower.includes('video')) return 'videocam';
-  if (serviceLower.includes('decor')) return 'flower';
-  if (serviceLower.includes('cater') || serviceLower.includes('food')) return 'restaurant';
-  if (serviceLower.includes('music') || serviceLower.includes('dj') || serviceLower.includes('entertain')) return 'musical-notes';
-  if (serviceLower.includes('makeup') || serviceLower.includes('beauty')) return 'brush';
-  if (serviceLower.includes('venue') || serviceLower.includes('hall')) return 'business';
-  if (serviceLower.includes('transport') || serviceLower.includes('car')) return 'car';
-  if (serviceLower.includes('invite') || serviceLower.includes('card')) return 'mail';
-  if (serviceLower.includes('light')) return 'bulb';
-  if (serviceLower.includes('sound') || serviceLower.includes('audio')) return 'volume-high';
-  if (serviceLower.includes('anchor') || serviceLower.includes('host') || serviceLower.includes('emcee')) return 'mic';
-  if (serviceLower.includes('mehendi') || serviceLower.includes('henna')) return 'hand-left';
-  if (serviceLower.includes('jewel')) return 'diamond';
-  if (serviceLower.includes('gift') || serviceLower.includes('favor')) return 'gift';
-  if (serviceLower.includes('cake') || serviceLower.includes('sweet')) return 'ice-cream';
-  if (serviceLower.includes('firework') || serviceLower.includes('pyro')) return 'sparkles';
-  return 'grid';
-}
-
 export default function CatalogScreen() {
   const { colors, isDark } = useTheme();
   
-  // Use maroon in light mode, a teal accent in dark mode
-  const accentColor = isDark ? '#0891b2' : BRAND_MAROON;
+  // Use maroon in light mode, neutral gray in dark mode (matching Expenses screen)
+  const accentColor = isDark ? '#4a5568' : BRAND_MAROON;
   
   const { data: catalogItems = [], isLoading, error, refetch } = useQuery({
     queryKey: ['catalogItems'],
@@ -482,7 +460,6 @@ export default function CatalogScreen() {
         {serviceKeys.map(service => (
           <View key={service} style={[styles.serviceSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.serviceTitleRow, { backgroundColor: accentColor }]}>
-              <Ionicons name={getServiceIcon(service) as any} size={18} color="#fff" style={{ marginRight: 8 }} />
               <Text style={styles.serviceTitle}>{service}</Text>
             </View>
             
