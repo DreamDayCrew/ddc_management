@@ -622,8 +622,18 @@ function AddCatalogItemModal({ visible, onClose, editingItem, services, packages
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
+  const handleBackPress = () => {
+    if (showServicePicker) {
+      setShowServicePicker(false);
+    } else if (showPackagePicker) {
+      setShowPackagePicker(false);
+    } else {
+      onClose();
+    }
+  };
+
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" onRequestClose={handleBackPress}>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
