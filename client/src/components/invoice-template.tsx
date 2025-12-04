@@ -294,7 +294,7 @@ const formatCurrency = (amount: number): string => {
   }
   
   const sign = amount < 0 ? '-' : '';
-  return `${sign}₹${result}.${decimalPart}`;
+  return `${sign}Rs.${result}.${decimalPart}`;
 };
 
 const formatDate = (date: Date | string): string => {
@@ -402,8 +402,8 @@ export const InvoiceTemplate = ({
               <Text style={styles.invoiceValue}>{invoiceNumber}</Text>
             </View>
             <View style={styles.invoiceDetailRow}>
-              <Text style={styles.invoiceLabel}>Date:</Text>
-              <Text style={styles.invoiceValue}>{formatDate(invoiceDate)}</Text>
+              <Text style={styles.invoiceLabel}>Event Date:</Text>
+              <Text style={styles.invoiceValue}>{event.eventDate}</Text>
             </View>
             <View style={styles.invoiceDetailRow}>
               <Text style={styles.invoiceLabel}>Date:</Text>
