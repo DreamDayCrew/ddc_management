@@ -60,6 +60,23 @@ export default function CatalogScreen() {
   const [showDownloadServiceDropdown, setShowDownloadServiceDropdown] = useState(false);
   const [showDownloadPackageDropdown, setShowDownloadPackageDropdown] = useState(false);
   const [downloadMode, setDownloadMode] = useState<'download' | 'share'>('download');
+  
+  // Duplicate modals state
+  const [duplicateItemModalVisible, setDuplicateItemModalVisible] = useState(false);
+  const [duplicatingItem, setDuplicatingItem] = useState<CatalogItem | null>(null);
+  const [duplicateTargetService, setDuplicateTargetService] = useState('');
+  const [duplicateTargetPackage, setDuplicateTargetPackage] = useState('');
+  const [showDuplicateServiceDropdown, setShowDuplicateServiceDropdown] = useState(false);
+  const [showDuplicatePackageDropdown, setShowDuplicatePackageDropdown] = useState(false);
+  
+  // Service-level duplicate modal state
+  const [duplicateServiceModalVisible, setDuplicateServiceModalVisible] = useState(false);
+  const [sourceServiceForDuplicate, setSourceServiceForDuplicate] = useState('');
+  const [targetServiceForDuplicate, setTargetServiceForDuplicate] = useState('');
+  const [packageFilterForDuplicate, setPackageFilterForDuplicate] = useState('');
+  const [showSourceServiceDropdown, setShowSourceServiceDropdown] = useState(false);
+  const [showTargetServiceDropdown, setShowTargetServiceDropdown] = useState(false);
+  const [showPackageFilterDropdown, setShowPackageFilterDropdown] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -122,6 +139,31 @@ export default function CatalogScreen() {
     },
   });
 
+  const duplicateItemMutation = useMutation({
+    mutationFn: (params: { id: string; overrides?: { serviceType?: string; package?: string } }) => 
+      api.duplicateCatalogItem(params.id, params.overrides),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['catalogItems'] });
+      Alert.alert('Success', 'Item duplicated successfully');
+    },
+    onError: (error: Error) => {
+      Alert.alert('Error', `Failed to duplicate item: ${error.message}`);
+    },
+  });
+
+  const duplicateServiceMutation = useMutation({
+    mutationFn: (params: { sourceService: string; targetService: string; packageFilter?: string }) => 
+      api.duplicateCatalogService(params),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['catalogItems'] });
+      Alert.alert('Success', data.message);
+      setDuplicateServiceModalVisible(false);
+    },
+    onError: (error: Error) => {
+      Alert.alert('Error', `Failed to duplicate service: ${error.message}`);
+    },
+  });
+
   const handleEdit = (item: CatalogItem) => {
     setEditingItem(item);
     setModalVisible(true);
@@ -145,6 +187,58 @@ export default function CatalogScreen() {
   const handleAddNew = () => {
     setEditingItem(null);
     setModalVisible(true);
+  };
+
+  // Simple duplicate (same service & package)
+  const handleQuickDuplicate = (item: CatalogItem) => {
+    duplicateItemMutation.mutate({ id: item.id });
+  };
+
+  // Duplicate with options to change service/package
+  const handleDuplicateWithOptions = (item: CatalogItem) => {
+    setDuplicatingItem(item);
+    setDuplicateTargetService(item.serviceType);
+    setDuplicateTargetPackage(item.package);
+    setDuplicateItemModalVisible(true);
+  };
+
+  const handleConfirmDuplicateItem = () => {
+    if (!duplicatingItem) return;
+    
+    duplicateItemMutation.mutate({
+      id: duplicatingItem.id,
+      overrides: {
+        serviceType: duplicateTargetService,
+        package: duplicateTargetPackage,
+      }
+    });
+    setDuplicateItemModalVisible(false);
+    setDuplicatingItem(null);
+  };
+
+  // Open service-level duplicate modal
+  const openDuplicateServiceModal = () => {
+    setSourceServiceForDuplicate('');
+    setTargetServiceForDuplicate('');
+    setPackageFilterForDuplicate('');
+    setDuplicateServiceModalVisible(true);
+  };
+
+  const handleConfirmDuplicateService = () => {
+    if (!sourceServiceForDuplicate || !targetServiceForDuplicate) {
+      Alert.alert('Error', 'Please select both source and target services');
+      return;
+    }
+    if (sourceServiceForDuplicate === targetServiceForDuplicate) {
+      Alert.alert('Error', 'Source and target services must be different');
+      return;
+    }
+    
+    duplicateServiceMutation.mutate({
+      sourceService: sourceServiceForDuplicate,
+      targetService: targetServiceForDuplicate,
+      packageFilter: packageFilterForDuplicate || undefined,
+    });
   };
 
   const openDownloadModal = (mode: 'download' | 'share') => {
@@ -283,6 +377,18 @@ export default function CatalogScreen() {
             </View>
           </View>
           <View style={styles.listItemActions}>
+            <TouchableOpacity 
+              onPress={() => handleQuickDuplicate(item)}
+              style={styles.actionButton}
+            >
+              <Ionicons name="copy-outline" size={18} color={BRAND_MAROON} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => handleDuplicateWithOptions(item)}
+              style={styles.actionButton}
+            >
+              <Ionicons name="git-branch-outline" size={18} color={colors.text} />
+            </TouchableOpacity>
             <TouchableOpacity 
               onPress={() => handleEdit(item)}
               style={styles.actionButton}
@@ -423,6 +529,9 @@ export default function CatalogScreen() {
           </View>
         </View>
         <View style={styles.headerActions}>
+          <TouchableOpacity style={[styles.actionIconButton, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]} onPress={openDuplicateServiceModal}>
+            <Ionicons name="git-branch-outline" size={20} color={BRAND_MAROON} />
+          </TouchableOpacity>
           <TouchableOpacity style={[styles.actionIconButton, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]} onPress={() => openDownloadModal('share')}>
             <Ionicons name="share-outline" size={20} color={colors.text} />
           </TouchableOpacity>
@@ -756,6 +865,335 @@ export default function CatalogScreen() {
               >
                 <Text style={[styles.dropdownItemText, { color: colors.text }]}>{pkg}</Text>
                 {downloadPackageFilter === pkg && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Duplicate Item Modal */}
+      <Modal
+        visible={duplicateItemModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDuplicateItemModalVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setDuplicateItemModalVisible(false)}
+        >
+          <View style={[styles.downloadDialogContainer, { backgroundColor: colors.card }]}>
+            <Text style={[styles.downloadDialogTitle, { color: colors.text }]}>
+              Duplicate Item
+            </Text>
+            <Text style={[styles.downloadDialogSubtitle, { color: colors.textSecondary }]}>
+              {duplicatingItem?.itemName}
+            </Text>
+
+            {/* Target Service */}
+            <View style={styles.downloadFilterGroup}>
+              <Text style={[styles.downloadFilterLabel, { color: colors.text }]}>Target Service</Text>
+              <TouchableOpacity 
+                style={[styles.downloadFilterPicker, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => setShowDuplicateServiceDropdown(true)}
+              >
+                <Text style={[styles.downloadFilterPickerText, { color: duplicateTargetService ? colors.text : colors.textSecondary }]}>
+                  {duplicateTargetService || 'Select Service'}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Target Package */}
+            <View style={styles.downloadFilterGroup}>
+              <Text style={[styles.downloadFilterLabel, { color: colors.text }]}>Target Package</Text>
+              <TouchableOpacity 
+                style={[styles.downloadFilterPicker, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => setShowDuplicatePackageDropdown(true)}
+              >
+                <Text style={[styles.downloadFilterPickerText, { color: duplicateTargetPackage ? colors.text : colors.textSecondary }]}>
+                  {duplicateTargetPackage || 'Select Package'}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.downloadDialogActions}>
+              <TouchableOpacity 
+                style={[styles.downloadDialogCancelButton, { borderColor: colors.border }]}
+                onPress={() => setDuplicateItemModalVisible(false)}
+              >
+                <Text style={[styles.downloadDialogCancelText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.downloadDialogConfirmButton, { backgroundColor: BRAND_MAROON }]}
+                onPress={handleConfirmDuplicateItem}
+                disabled={duplicateItemMutation.isPending}
+              >
+                {duplicateItemMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="copy-outline" size={18} color="#fff" />
+                    <Text style={styles.downloadDialogConfirmText}>Duplicate</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Duplicate Item - Service Dropdown */}
+      <Modal
+        visible={showDuplicateServiceDropdown}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDuplicateServiceDropdown(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowDuplicateServiceDropdown(false)}
+        >
+          <View style={[styles.dropdownContainer, { backgroundColor: colors.card }]}>
+            <Text style={[styles.dropdownTitle, { color: colors.text }]}>Select Target Service</Text>
+            {services.map((service) => (
+              <TouchableOpacity
+                key={service}
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setDuplicateTargetService(service);
+                  setShowDuplicateServiceDropdown(false);
+                }}
+              >
+                <Text style={[styles.dropdownItemText, { color: colors.text }]}>{service}</Text>
+                {duplicateTargetService === service && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Duplicate Item - Package Dropdown */}
+      <Modal
+        visible={showDuplicatePackageDropdown}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDuplicatePackageDropdown(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowDuplicatePackageDropdown(false)}
+        >
+          <View style={[styles.dropdownContainer, { backgroundColor: colors.card }]}>
+            <Text style={[styles.dropdownTitle, { color: colors.text }]}>Select Target Package</Text>
+            {packages.map((pkg) => (
+              <TouchableOpacity
+                key={pkg}
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setDuplicateTargetPackage(pkg);
+                  setShowDuplicatePackageDropdown(false);
+                }}
+              >
+                <Text style={[styles.dropdownItemText, { color: colors.text }]}>{pkg}</Text>
+                {duplicateTargetPackage === pkg && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Duplicate Service Modal */}
+      <Modal
+        visible={duplicateServiceModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDuplicateServiceModalVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setDuplicateServiceModalVisible(false)}
+        >
+          <View style={[styles.downloadDialogContainer, { backgroundColor: colors.card }]}>
+            <Text style={[styles.downloadDialogTitle, { color: colors.text }]}>
+              Duplicate Service Catalog
+            </Text>
+            <Text style={[styles.downloadDialogSubtitle, { color: colors.textSecondary }]}>
+              Copy all items from one service to another
+            </Text>
+
+            {/* Source Service */}
+            <View style={styles.downloadFilterGroup}>
+              <Text style={[styles.downloadFilterLabel, { color: colors.text }]}>From Service</Text>
+              <TouchableOpacity 
+                style={[styles.downloadFilterPicker, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => setShowSourceServiceDropdown(true)}
+              >
+                <Text style={[styles.downloadFilterPickerText, { color: sourceServiceForDuplicate ? colors.text : colors.textSecondary }]}>
+                  {sourceServiceForDuplicate || 'Select Source Service'}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Target Service */}
+            <View style={styles.downloadFilterGroup}>
+              <Text style={[styles.downloadFilterLabel, { color: colors.text }]}>To Service</Text>
+              <TouchableOpacity 
+                style={[styles.downloadFilterPicker, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => setShowTargetServiceDropdown(true)}
+              >
+                <Text style={[styles.downloadFilterPickerText, { color: targetServiceForDuplicate ? colors.text : colors.textSecondary }]}>
+                  {targetServiceForDuplicate || 'Select Target Service'}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Package Filter (Optional) */}
+            <View style={styles.downloadFilterGroup}>
+              <Text style={[styles.downloadFilterLabel, { color: colors.text }]}>Package Filter (Optional)</Text>
+              <TouchableOpacity 
+                style={[styles.downloadFilterPicker, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => setShowPackageFilterDropdown(true)}
+              >
+                <Text style={[styles.downloadFilterPickerText, { color: packageFilterForDuplicate ? colors.text : colors.textSecondary }]}>
+                  {packageFilterForDuplicate || 'All Packages'}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.downloadDialogActions}>
+              <TouchableOpacity 
+                style={[styles.downloadDialogCancelButton, { borderColor: colors.border }]}
+                onPress={() => setDuplicateServiceModalVisible(false)}
+              >
+                <Text style={[styles.downloadDialogCancelText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.downloadDialogConfirmButton, { backgroundColor: BRAND_MAROON }]}
+                onPress={handleConfirmDuplicateService}
+                disabled={duplicateServiceMutation.isPending}
+              >
+                {duplicateServiceMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="git-branch-outline" size={18} color="#fff" />
+                    <Text style={styles.downloadDialogConfirmText}>Duplicate</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Source Service Dropdown */}
+      <Modal
+        visible={showSourceServiceDropdown}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSourceServiceDropdown(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSourceServiceDropdown(false)}
+        >
+          <View style={[styles.dropdownContainer, { backgroundColor: colors.card }]}>
+            <Text style={[styles.dropdownTitle, { color: colors.text }]}>Select Source Service</Text>
+            {services.map((service) => (
+              <TouchableOpacity
+                key={service}
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setSourceServiceForDuplicate(service);
+                  setShowSourceServiceDropdown(false);
+                }}
+              >
+                <Text style={[styles.dropdownItemText, { color: colors.text }]}>{service}</Text>
+                {sourceServiceForDuplicate === service && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Target Service Dropdown */}
+      <Modal
+        visible={showTargetServiceDropdown}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowTargetServiceDropdown(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowTargetServiceDropdown(false)}
+        >
+          <View style={[styles.dropdownContainer, { backgroundColor: colors.card }]}>
+            <Text style={[styles.dropdownTitle, { color: colors.text }]}>Select Target Service</Text>
+            {services.map((service) => (
+              <TouchableOpacity
+                key={service}
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setTargetServiceForDuplicate(service);
+                  setShowTargetServiceDropdown(false);
+                }}
+              >
+                <Text style={[styles.dropdownItemText, { color: colors.text }]}>{service}</Text>
+                {targetServiceForDuplicate === service && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Package Filter Dropdown */}
+      <Modal
+        visible={showPackageFilterDropdown}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPackageFilterDropdown(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowPackageFilterDropdown(false)}
+        >
+          <View style={[styles.dropdownContainer, { backgroundColor: colors.card }]}>
+            <Text style={[styles.dropdownTitle, { color: colors.text }]}>Select Package Filter</Text>
+            <TouchableOpacity
+              style={styles.dropdownItem}
+              onPress={() => {
+                setPackageFilterForDuplicate('');
+                setShowPackageFilterDropdown(false);
+              }}
+            >
+              <Text style={[styles.dropdownItemText, { color: colors.text }]}>All Packages</Text>
+              {!packageFilterForDuplicate && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+            </TouchableOpacity>
+            {packages.map((pkg) => (
+              <TouchableOpacity
+                key={pkg}
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setPackageFilterForDuplicate(pkg);
+                  setShowPackageFilterDropdown(false);
+                }}
+              >
+                <Text style={[styles.dropdownItemText, { color: colors.text }]}>{pkg}</Text>
+                {packageFilterForDuplicate === pkg && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
               </TouchableOpacity>
             ))}
           </View>

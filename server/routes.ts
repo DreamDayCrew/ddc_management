@@ -1506,6 +1506,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Duplicate a single catalog item
+  app.post("/api/catalog/:id/duplicate", async (req, res) => {
+    try {
+      const sourceItem = await storage.getCatalogItem(req.params.id);
+      if (!sourceItem) {
+        return res.status(404).json({ error: "Catalog item not found" });
+      }
+
+      // Get overrides from request body (optional serviceType, package, itemName)
+      const { serviceType, package: pkg, itemName } = req.body;
+      const targetService = serviceType || sourceItem.serviceType;
+      const targetPackage = pkg || sourceItem.package;
+
+      // Get existing items to generate unique name
+      const existingItems = await storage.getCatalogItems();
+      const baseName = itemName || sourceItem.itemName;
+      let newName = `${baseName} (Copy)`;
+      let copyNumber = 1;
+      
+      // Find unique name
+      while (existingItems.some(item => 
+        item.itemName === newName && 
+        item.serviceType === targetService && 
+        item.package === targetPackage
+      )) {
+        copyNumber++;
+        newName = `${baseName} (Copy ${copyNumber})`;
+      }
+
+      // Create the duplicate
+      const newItem = await storage.createCatalogItem({
+        serviceType: targetService,
+        package: targetPackage,
+        itemName: newName,
+        description: sourceItem.description || undefined,
+        price: sourceItem.price,
+      });
+
+      res.status(201).json(newItem);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Duplicate all catalog items from one service to another
+  app.post("/api/catalog/duplicate-service", async (req, res) => {
+    try {
+      const { sourceService, targetService, packageFilter } = req.body;
+
+      if (!sourceService || !targetService) {
+        return res.status(400).json({ error: "sourceService and targetService are required" });
+      }
+
+      // Get all items from source service
+      let sourceItems = await storage.getCatalogItemsByService(sourceService);
+      
+      // Apply package filter if provided
+      if (packageFilter) {
+        sourceItems = sourceItems.filter(item => item.package === packageFilter);
+      }
+
+      if (sourceItems.length === 0) {
+        return res.status(400).json({ error: "No items found in source service" });
+      }
+
+      // Get existing items for naming conflict resolution
+      const existingItems = await storage.getCatalogItems();
+      const createdItems: any[] = [];
+
+      for (const sourceItem of sourceItems) {
+        // Generate unique name for target service
+        let newName = sourceItem.itemName;
+        let copyNumber = 0;
+        
+        while (existingItems.some(item => 
+          item.itemName === newName && 
+          item.serviceType === targetService && 
+          item.package === sourceItem.package
+        ) || createdItems.some(item =>
+          item.itemName === newName &&
+          item.package === sourceItem.package
+        )) {
+          copyNumber++;
+          newName = copyNumber === 1 
+            ? `${sourceItem.itemName} (Copy)` 
+            : `${sourceItem.itemName} (Copy ${copyNumber})`;
+        }
+
+        const newItem = await storage.createCatalogItem({
+          serviceType: targetService,
+          package: sourceItem.package,
+          itemName: newName,
+          description: sourceItem.description || undefined,
+          price: sourceItem.price,
+        });
+        
+        createdItems.push(newItem);
+      }
+
+      res.status(201).json({ 
+        message: `Successfully duplicated ${createdItems.length} items`,
+        items: createdItems 
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

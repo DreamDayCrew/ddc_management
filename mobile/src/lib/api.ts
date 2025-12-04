@@ -221,6 +221,10 @@ export const api = {
     apiClient.patch<CatalogItem>(`/api/catalog/${id}`, data),
   deleteCatalogItem: (id: string) => 
     apiClient.delete<void>(`/api/catalog/${id}`),
+  duplicateCatalogItem: (id: string, overrides?: { serviceType?: string; package?: string; itemName?: string }) => 
+    apiClient.post<CatalogItem>(`/api/catalog/${id}/duplicate`, overrides || {}),
+  duplicateCatalogService: (data: { sourceService: string; targetService: string; packageFilter?: string }) => 
+    apiClient.post<{ message: string; items: CatalogItem[] }>('/api/catalog/duplicate-service', data),
 };
 
 // Log final API client configuration
