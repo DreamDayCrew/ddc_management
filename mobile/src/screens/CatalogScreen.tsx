@@ -53,6 +53,13 @@ export default function CatalogScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
   const [viewMode, setViewMode] = useState<'grouped' | 'list'>('grouped');
+  const [downloadModalVisible, setDownloadModalVisible] = useState(false);
+  const [downloadServiceFilter, setDownloadServiceFilter] = useState<string>('');
+  const [downloadPackageFilter, setDownloadPackageFilter] = useState<string>('');
+  const [downloadAvailabilityError, setDownloadAvailabilityError] = useState<string>('');
+  const [showDownloadServiceDropdown, setShowDownloadServiceDropdown] = useState(false);
+  const [showDownloadPackageDropdown, setShowDownloadPackageDropdown] = useState(false);
+  const [downloadMode, setDownloadMode] = useState<'download' | 'share'>('download');
 
   const queryClient = useQueryClient();
 
@@ -140,9 +147,74 @@ export default function CatalogScreen() {
     setModalVisible(true);
   };
 
+  const openDownloadModal = (mode: 'download' | 'share') => {
+    setDownloadMode(mode);
+    setDownloadServiceFilter('');
+    setDownloadPackageFilter('');
+    setDownloadAvailabilityError('');
+    setDownloadModalVisible(true);
+  };
+
+  const getFilteredDownloadItems = () => {
+    return catalogItems.filter((item) => {
+      const matchesService = !downloadServiceFilter || item.serviceType === downloadServiceFilter;
+      const matchesPackage = !downloadPackageFilter || item.package === downloadPackageFilter;
+      return matchesService && matchesPackage;
+    });
+  };
+
+  const checkAvailabilityForFilters = (serviceFilter: string, packageFilter: string): string => {
+    const filtered = catalogItems.filter((item) => {
+      const matchesService = !serviceFilter || item.serviceType === serviceFilter;
+      const matchesPackage = !packageFilter || item.package === packageFilter;
+      return matchesService && matchesPackage;
+    });
+    
+    if (filtered.length === 0) {
+      const serviceText = serviceFilter ? `"${serviceFilter}"` : "selected";
+      const packageText = packageFilter ? `"${packageFilter}"` : "selected";
+      return `No catalog items found for ${serviceText} service and ${packageText} package. Please select different filters.`;
+    }
+    return '';
+  };
+
+  const checkDownloadAvailability = (): boolean => {
+    const error = checkAvailabilityForFilters(downloadServiceFilter, downloadPackageFilter);
+    setDownloadAvailabilityError(error);
+    return error === '';
+  };
+
+  const handleDownloadServiceChange = (service: string) => {
+    setDownloadServiceFilter(service);
+    const error = checkAvailabilityForFilters(service, downloadPackageFilter);
+    setDownloadAvailabilityError(error);
+    setShowDownloadServiceDropdown(false);
+  };
+
+  const handleDownloadPackageChange = (pkg: string) => {
+    setDownloadPackageFilter(pkg);
+    const error = checkAvailabilityForFilters(downloadServiceFilter, pkg);
+    setDownloadAvailabilityError(error);
+    setShowDownloadPackageDropdown(false);
+  };
+
   const handleDownloadPDF = async () => {
+    if (!checkDownloadAvailability()) {
+      return;
+    }
+
     try {
-      const pdfUrl = `${envConfig.API_URL}/api/catalog/pdf`;
+      const params = new URLSearchParams();
+      if (downloadServiceFilter) {
+        params.append('serviceType', downloadServiceFilter);
+      }
+      if (downloadPackageFilter) {
+        params.append('package', downloadPackageFilter);
+      }
+      
+      const pdfUrl = `${envConfig.API_URL}/api/catalog/pdf${params.toString() ? '?' + params.toString() : ''}`;
+      
+      setDownloadModalVisible(false);
       
       if (Platform.OS === 'web') {
         window.open(pdfUrl, '_blank');
@@ -160,8 +232,23 @@ export default function CatalogScreen() {
   };
 
   const handleShare = async () => {
+    if (!checkDownloadAvailability()) {
+      return;
+    }
+
     try {
-      const pdfUrl = `${envConfig.API_URL}/api/catalog/pdf`;
+      const params = new URLSearchParams();
+      if (downloadServiceFilter) {
+        params.append('serviceType', downloadServiceFilter);
+      }
+      if (downloadPackageFilter) {
+        params.append('package', downloadPackageFilter);
+      }
+      
+      const pdfUrl = `${envConfig.API_URL}/api/catalog/pdf${params.toString() ? '?' + params.toString() : ''}`;
+      
+      setDownloadModalVisible(false);
+      
       await Share.share({
         message: `Check out our service catalog: ${pdfUrl}`,
         title: 'Dream Day Crew Service Catalog',
@@ -319,10 +406,10 @@ export default function CatalogScreen() {
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Service Catalog</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => openDownloadModal('share')}>
             <Ionicons name="share-outline" size={22} color={colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton} onPress={handleDownloadPDF}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => openDownloadModal('download')}>
             <Ionicons name="download-outline" size={22} color={colors.text} />
           </TouchableOpacity>
         </View>
@@ -516,6 +603,157 @@ export default function CatalogScreen() {
               >
                 <Text style={[styles.dropdownItemText, { color: colors.text }]}>{pkg}</Text>
                 {selectedPackage === pkg && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Download/Share Modal */}
+      <Modal
+        visible={downloadModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDownloadModalVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setDownloadModalVisible(false)}
+        >
+          <View style={[styles.downloadDialogContainer, { backgroundColor: colors.card }]}>
+            <Text style={[styles.downloadDialogTitle, { color: colors.text }]}>
+              {downloadMode === 'download' ? 'Download Catalog PDF' : 'Share Catalog'}
+            </Text>
+            <Text style={[styles.downloadDialogSubtitle, { color: colors.textSecondary }]}>
+              Select which services and packages to include
+            </Text>
+
+            {/* Service Filter */}
+            <View style={styles.downloadFilterGroup}>
+              <Text style={[styles.downloadFilterLabel, { color: colors.text }]}>Service Type</Text>
+              <TouchableOpacity 
+                style={[styles.downloadFilterPicker, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => setShowDownloadServiceDropdown(true)}
+              >
+                <Text style={[styles.downloadFilterPickerText, { color: downloadServiceFilter ? colors.text : colors.textSecondary }]}>
+                  {downloadServiceFilter || 'All Services'}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Package Filter */}
+            <View style={styles.downloadFilterGroup}>
+              <Text style={[styles.downloadFilterLabel, { color: colors.text }]}>Package Tier</Text>
+              <TouchableOpacity 
+                style={[styles.downloadFilterPicker, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => setShowDownloadPackageDropdown(true)}
+              >
+                <Text style={[styles.downloadFilterPickerText, { color: downloadPackageFilter ? colors.text : colors.textSecondary }]}>
+                  {downloadPackageFilter || 'All Packages'}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Availability Error */}
+            {downloadAvailabilityError !== '' && (
+              <View style={styles.downloadErrorContainer}>
+                <Text style={styles.downloadErrorText}>{downloadAvailabilityError}</Text>
+              </View>
+            )}
+
+            {/* Action Buttons */}
+            <View style={styles.downloadDialogActions}>
+              <TouchableOpacity 
+                style={[styles.downloadDialogCancelButton, { borderColor: colors.border }]}
+                onPress={() => setDownloadModalVisible(false)}
+              >
+                <Text style={[styles.downloadDialogCancelText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.downloadDialogConfirmButton, { backgroundColor: BRAND_MAROON }]}
+                onPress={downloadMode === 'download' ? handleDownloadPDF : handleShare}
+              >
+                <Ionicons 
+                  name={downloadMode === 'download' ? 'download-outline' : 'share-outline'} 
+                  size={18} 
+                  color="#fff" 
+                />
+                <Text style={styles.downloadDialogConfirmText}>
+                  {downloadMode === 'download' ? 'Download' : 'Share'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Download Service Dropdown Modal */}
+      <Modal
+        visible={showDownloadServiceDropdown}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDownloadServiceDropdown(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowDownloadServiceDropdown(false)}
+        >
+          <View style={[styles.dropdownContainer, { backgroundColor: colors.card }]}>
+            <Text style={[styles.dropdownTitle, { color: colors.text }]}>Select Service</Text>
+            <TouchableOpacity
+              style={styles.dropdownItem}
+              onPress={() => handleDownloadServiceChange('')}
+            >
+              <Text style={[styles.dropdownItemText, { color: colors.text }]}>All Services</Text>
+              {!downloadServiceFilter && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+            </TouchableOpacity>
+            {services.map((service) => (
+              <TouchableOpacity
+                key={service}
+                style={styles.dropdownItem}
+                onPress={() => handleDownloadServiceChange(service)}
+              >
+                <Text style={[styles.dropdownItemText, { color: colors.text }]}>{service}</Text>
+                {downloadServiceFilter === service && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Download Package Dropdown Modal */}
+      <Modal
+        visible={showDownloadPackageDropdown}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDownloadPackageDropdown(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowDownloadPackageDropdown(false)}
+        >
+          <View style={[styles.dropdownContainer, { backgroundColor: colors.card }]}>
+            <Text style={[styles.dropdownTitle, { color: colors.text }]}>Select Package</Text>
+            <TouchableOpacity
+              style={styles.dropdownItem}
+              onPress={() => handleDownloadPackageChange('')}
+            >
+              <Text style={[styles.dropdownItemText, { color: colors.text }]}>All Packages</Text>
+              {!downloadPackageFilter && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+            </TouchableOpacity>
+            {packages.map((pkg) => (
+              <TouchableOpacity
+                key={pkg}
+                style={styles.dropdownItem}
+                onPress={() => handleDownloadPackageChange(pkg)}
+              >
+                <Text style={[styles.dropdownItemText, { color: colors.text }]}>{pkg}</Text>
+                {downloadPackageFilter === pkg && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -1156,5 +1394,78 @@ const styles = StyleSheet.create({
   },
   pickerText: {
     fontSize: 16,
+  },
+  downloadDialogContainer: {
+    width: '85%',
+    borderRadius: 12,
+    padding: 20,
+  },
+  downloadDialogTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  downloadDialogSubtitle: {
+    fontSize: 14,
+    marginBottom: 20,
+  },
+  downloadFilterGroup: {
+    marginBottom: 16,
+  },
+  downloadFilterLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  downloadFilterPicker: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+  },
+  downloadFilterPickerText: {
+    fontSize: 16,
+  },
+  downloadErrorContainer: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  downloadErrorText: {
+    color: '#dc2626',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  downloadDialogActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 8,
+  },
+  downloadDialogCancelButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  downloadDialogCancelText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  downloadDialogConfirmButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  downloadDialogConfirmText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

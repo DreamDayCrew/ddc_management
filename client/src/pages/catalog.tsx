@@ -60,6 +60,7 @@ export default function Catalog() {
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const [downloadServiceFilter, setDownloadServiceFilter] = useState<string>("all");
   const [downloadPackageFilter, setDownloadPackageFilter] = useState<string>("all");
+  const [downloadAvailabilityError, setDownloadAvailabilityError] = useState<string>("");
 
   const { data: catalogItems = [], isLoading } = useQuery<CatalogItem[]>({
     queryKey: ["/api/catalog"],
@@ -210,10 +211,55 @@ export default function Catalog() {
   const handleOpenDownloadDialog = () => {
     setDownloadServiceFilter("all");
     setDownloadPackageFilter("all");
+    setDownloadAvailabilityError("");
     setDownloadDialogOpen(true);
   };
 
+  const getFilteredDownloadItems = () => {
+    return catalogItems.filter((item) => {
+      const matchesService = downloadServiceFilter === "all" || !downloadServiceFilter || item.serviceType === downloadServiceFilter;
+      const matchesPackage = downloadPackageFilter === "all" || !downloadPackageFilter || item.package === downloadPackageFilter;
+      return matchesService && matchesPackage;
+    });
+  };
+
+  const checkAvailabilityForFilters = (serviceFilter: string, packageFilter: string) => {
+    const filtered = catalogItems.filter((item) => {
+      const matchesService = serviceFilter === "all" || !serviceFilter || item.serviceType === serviceFilter;
+      const matchesPackage = packageFilter === "all" || !packageFilter || item.package === packageFilter;
+      return matchesService && matchesPackage;
+    });
+    
+    if (filtered.length === 0) {
+      const serviceText = serviceFilter && serviceFilter !== "all" ? `"${serviceFilter}"` : "selected";
+      const packageText = packageFilter && packageFilter !== "all" ? `"${packageFilter}"` : "selected";
+      return `No catalog items found for ${serviceText} service and ${packageText} package. Please select different filters.`;
+    }
+    return "";
+  };
+
+  const checkDownloadAvailability = () => {
+    const error = checkAvailabilityForFilters(downloadServiceFilter, downloadPackageFilter);
+    setDownloadAvailabilityError(error);
+    return error === "";
+  };
+
+  const handleServiceFilterChange = (value: string) => {
+    setDownloadServiceFilter(value);
+    const error = checkAvailabilityForFilters(value, downloadPackageFilter);
+    setDownloadAvailabilityError(error);
+  };
+
+  const handlePackageFilterChange = (value: string) => {
+    setDownloadPackageFilter(value);
+    const error = checkAvailabilityForFilters(downloadServiceFilter, value);
+    setDownloadAvailabilityError(error);
+  };
+
   const handleDownloadPDF = async () => {
+    if (!checkDownloadAvailability()) {
+      return;
+    }
     try {
       toast({
         title: "Generating PDF",
@@ -622,7 +668,7 @@ export default function Catalog() {
               <Label htmlFor="downloadService">Service Type</Label>
               <Select 
                 value={downloadServiceFilter} 
-                onValueChange={setDownloadServiceFilter}
+                onValueChange={handleServiceFilterChange}
               >
                 <SelectTrigger data-testid="select-download-service">
                   <SelectValue placeholder="All Services" />
@@ -642,7 +688,7 @@ export default function Catalog() {
               <Label htmlFor="downloadPackage">Package Tier</Label>
               <Select 
                 value={downloadPackageFilter} 
-                onValueChange={setDownloadPackageFilter}
+                onValueChange={handlePackageFilterChange}
               >
                 <SelectTrigger data-testid="select-download-package">
                   <SelectValue placeholder="All Packages" />
@@ -657,6 +703,12 @@ export default function Catalog() {
                 </SelectContent>
               </Select>
             </div>
+
+            {downloadAvailabilityError && (
+              <div className="text-sm text-red-600 dark:text-red-400 font-medium p-3 bg-red-50 dark:bg-red-950/30 rounded-md" data-testid="download-availability-error">
+                {downloadAvailabilityError}
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-4">
               <Button
