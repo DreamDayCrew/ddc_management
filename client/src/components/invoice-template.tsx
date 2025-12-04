@@ -403,7 +403,7 @@ export const InvoiceTemplate = ({
             </View>
             <View style={styles.invoiceDetailRow}>
               <Text style={styles.invoiceLabel}>Event Date:</Text>
-              <Text style={styles.invoiceValue}>{event.eventDate}</Text>
+              <Text style={styles.invoiceValue}>{event.eventDate ? formatDate(event.eventDate) : 'TBD'}</Text>
             </View>
             <View style={styles.invoiceDetailRow}>
               <Text style={styles.invoiceLabel}>Date:</Text>
