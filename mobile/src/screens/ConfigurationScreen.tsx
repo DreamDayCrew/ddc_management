@@ -30,12 +30,19 @@ export default function ConfigurationScreen() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [gstNumber, setGstNumber] = useState('');
+  const [panNumber, setPanNumber] = useState('');
   const [includeGst, setIncludeGst] = useState(false);
   const [website, setWebsite] = useState('');
   const [address, setAddress] = useState('');
   const [logo, setLogo] = useState<string | null>(null);
   const [signatureImage, setSignatureImage] = useState<string | null>(null);
   const [termsAndConditions, setTermsAndConditions] = useState('');
+  const [upiId, setUpiId] = useState('');
+  const [upiQrCode, setUpiQrCode] = useState<string | null>(null);
+  const [accountHolderName, setAccountHolderName] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [ifscCode, setIfscCode] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { data: config, isLoading, refetch } = useQuery<Configuration | null>({
@@ -62,7 +69,8 @@ export default function ConfigurationScreen() {
       setEmail(config.email || '');
       setPhone(config.phone || '');
       setGstNumber(config.gstNumber || '');
-      const includeGstValue = config.includeGst === 'true' || config.includeGst === true;
+      setPanNumber(config.panNumber || '');
+      const includeGstValue = config.includeGst === 'true';
       console.log('Setting includeGst:', includeGstValue, 'from:', config.includeGst);
       setIncludeGst(includeGstValue);
       setWebsite(config.website || '');
@@ -70,6 +78,12 @@ export default function ConfigurationScreen() {
       setLogo(config.logo || null);
       setSignatureImage(config.signatureImage || null);
       setTermsAndConditions(config.termsAndConditions || '');
+      setUpiId(config.upiId || '');
+      setUpiQrCode(config.upiQrCode || null);
+      setAccountHolderName(config.accountHolderName || '');
+      setBankName(config.bankName || '');
+      setAccountNumber(config.accountNumber || '');
+      setIfscCode(config.ifscCode || '');
     }
   }, [config]);
 
@@ -104,7 +118,7 @@ export default function ConfigurationScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const pickImage = async (type: 'logo' | 'signature') => {
+  const pickImage = async (type: 'logo' | 'signature' | 'upiQr') => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
@@ -115,7 +129,7 @@ export default function ConfigurationScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: type === 'logo' ? [1, 1] : [4, 1],
+        aspect: type === 'logo' ? [1, 1] : type === 'upiQr' ? [1, 1] : [4, 1],
         quality: 0.8,
         base64: true,
       });
@@ -124,6 +138,8 @@ export default function ConfigurationScreen() {
         const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
         if (type === 'logo') {
           setLogo(base64Image);
+        } else if (type === 'upiQr') {
+          setUpiQrCode(base64Image);
         } else {
           setSignatureImage(base64Image);
         }
@@ -134,10 +150,10 @@ export default function ConfigurationScreen() {
     }
   };
 
-  const removeImage = (type: 'logo' | 'signature') => {
+  const removeImage = (type: 'logo' | 'signature' | 'upiQr') => {
     Alert.alert(
       'Remove Image',
-      `Are you sure you want to remove this ${type}?`,
+      `Are you sure you want to remove this ${type === 'upiQr' ? 'QR code' : type}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -146,6 +162,8 @@ export default function ConfigurationScreen() {
           onPress: () => {
             if (type === 'logo') {
               setLogo(null);
+            } else if (type === 'upiQr') {
+              setUpiQrCode(null);
             } else {
               setSignatureImage(null);
             }
@@ -169,12 +187,19 @@ export default function ConfigurationScreen() {
       email: email.trim() || null,
       phone: phone.trim() || null,
       gstNumber: gstNumber.trim() || null,
+      panNumber: panNumber.trim() || null,
       includeGst: includeGst ? 'true' : 'false',
       website: website.trim() || null,
       address: address.trim() || null,
       logo: logo || null,
       signatureImage: signatureImage || null,
       termsAndConditions: termsAndConditions.trim() || null,
+      upiId: upiId.trim() || null,
+      upiQrCode: upiQrCode || null,
+      accountHolderName: accountHolderName.trim() || null,
+      bankName: bankName.trim() || null,
+      accountNumber: accountNumber.trim() || null,
+      ifscCode: ifscCode.trim() || null,
     };
 
     console.log('Saving configuration:', configData);
@@ -271,6 +296,19 @@ export default function ConfigurationScreen() {
               placeholderTextColor={colors.textSecondary}
               autoCapitalize="characters"
               data-testid="input-gst"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>PAN Number</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+              value={panNumber}
+              onChangeText={setPanNumber}
+              placeholder="Enter PAN number"
+              placeholderTextColor={colors.textSecondary}
+              autoCapitalize="characters"
+              data-testid="input-pan"
             />
           </View>
 
@@ -426,6 +464,120 @@ export default function ConfigurationScreen() {
               numberOfLines={6}
               textAlignVertical="top"
               data-testid="input-terms"
+            />
+          </View>
+        </View>
+
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Payment Information</Text>
+          <Text style={[styles.helperText, { color: colors.textSecondary, marginBottom: 16 }]}>
+            Payment details shown on invoices for customer payments
+          </Text>
+          
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>UPI ID</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+              value={upiId}
+              onChangeText={setUpiId}
+              placeholder="yourname@upi"
+              placeholderTextColor={colors.textSecondary}
+              autoCapitalize="none"
+              data-testid="input-upi-id"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>UPI QR Code</Text>
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+              Square image recommended (1:1 ratio)
+            </Text>
+            {upiQrCode ? (
+              <View style={styles.imagePreviewContainer}>
+                <Image 
+                  source={{ uri: upiQrCode }} 
+                  style={styles.logoPreview}
+                  resizeMode="contain"
+                />
+                <View style={styles.imageActions}>
+                  <TouchableOpacity 
+                    style={[styles.imageActionButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                    onPress={() => pickImage('upiQr')}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="pencil" size={18} color={colors.text} />
+                    <Text style={[styles.imageActionText, { color: colors.text }]}>Change</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.imageActionButton, styles.removeButton]}
+                    onPress={() => removeImage('upiQr')}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={18} color="#dc2626" />
+                    <Text style={[styles.imageActionText, { color: '#dc2626' }]}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity 
+                style={[styles.uploadButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => pickImage('upiQr')}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="qr-code-outline" size={32} color={isDark ? '#60a5fa' : BRAND_MAROON} />
+                <Text style={[styles.uploadText, { color: colors.text }]}>Tap to upload QR code</Text>
+                <Text style={[styles.uploadSubtext, { color: colors.textSecondary }]}>PNG, JPG up to 1MB</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>Account Holder Name</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+              value={accountHolderName}
+              onChangeText={setAccountHolderName}
+              placeholder="Enter account holder name"
+              placeholderTextColor={colors.textSecondary}
+              data-testid="input-account-holder"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>Bank Name</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+              value={bankName}
+              onChangeText={setBankName}
+              placeholder="Enter bank name"
+              placeholderTextColor={colors.textSecondary}
+              data-testid="input-bank-name"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>Account Number</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+              value={accountNumber}
+              onChangeText={setAccountNumber}
+              placeholder="Enter account number"
+              placeholderTextColor={colors.textSecondary}
+              keyboardType="numeric"
+              data-testid="input-account-number"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>IFSC Code</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+              value={ifscCode}
+              onChangeText={setIfscCode}
+              placeholder="Enter IFSC code"
+              placeholderTextColor={colors.textSecondary}
+              autoCapitalize="characters"
+              data-testid="input-ifsc-code"
             />
           </View>
         </View>

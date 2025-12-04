@@ -23,10 +23,17 @@ const businessInfoSchema = z.object({
   email: z.string().email().optional().or(z.literal("")),
   address: z.string().optional(),
   gstNumber: z.string().optional(),
+  panNumber: z.string().optional(),
   includeGst: z.string().optional(),
   website: z.string().optional(),
   termsAndConditions: z.string().optional(),
   signatureImage: z.string().optional(),
+  upiId: z.string().optional(),
+  upiQrCode: z.string().optional(),
+  accountHolderName: z.string().optional(),
+  bankName: z.string().optional(),
+  accountNumber: z.string().optional(),
+  ifscCode: z.string().optional(),
 });
 
 const arrayItemSchema = z.object({
@@ -55,10 +62,17 @@ export default function Configuration() {
       email: config?.email || "",
       address: config?.address || "",
       gstNumber: config?.gstNumber || "",
+      panNumber: config?.panNumber || "",
       includeGst: config?.includeGst || "true",
       website: config?.website || "",
       termsAndConditions: config?.termsAndConditions || "",
       signatureImage: config?.signatureImage || "",
+      upiId: config?.upiId || "",
+      upiQrCode: config?.upiQrCode || "",
+      accountHolderName: config?.accountHolderName || "",
+      bankName: config?.bankName || "",
+      accountNumber: config?.accountNumber || "",
+      ifscCode: config?.ifscCode || "",
     },
   });
 
@@ -416,6 +430,19 @@ export default function Configuration() {
               />
               <FormField
                 control={businessForm.control}
+                name="panNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>PAN Number</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Enter PAN number" data-testid="input-business-pan" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={businessForm.control}
                 name="website"
                 render={({ field }) => (
                   <FormItem>
@@ -493,6 +520,110 @@ export default function Configuration() {
                   </FormItem>
                 )}
               />
+              
+              <div className="pt-4 border-t">
+                <h4 className="font-medium mb-3">Payment Information</h4>
+                <div className="space-y-4">
+                  <FormField
+                    control={businessForm.control}
+                    name="upiId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>UPI ID</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="yourname@upi" data-testid="input-upi-id" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={businessForm.control}
+                    name="upiQrCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>UPI QR Code</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  field.onChange(reader.result as string);
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            data-testid="input-upi-qr-code"
+                          />
+                        </FormControl>
+                        {field.value && (
+                          <div className="mt-2">
+                            <img src={field.value} alt="UPI QR Code preview" className="h-24 w-24 object-contain rounded border" />
+                          </div>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={businessForm.control}
+                    name="accountHolderName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account Holder Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Enter account holder name" data-testid="input-account-holder" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={businessForm.control}
+                    name="bankName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bank Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Enter bank name" data-testid="input-bank-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={businessForm.control}
+                    name="accountNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account Number</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Enter account number" data-testid="input-account-number" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={businessForm.control}
+                    name="ifscCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>IFSC Code</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Enter IFSC code" data-testid="input-ifsc-code" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+              
               <DialogFooter>
                 <Button
                   type="submit"

@@ -535,25 +535,43 @@ export const ServerInvoiceTemplate: React.FC<InvoiceTemplateProps> = ({
             </Text>
           </View>
           
-          {documentType !== 'Quotation' && (
+          {documentType !== 'Quotation' && (config.accountHolderName || config.upiId || config.upiQrCode) && (
             <View style={styles.paymentColumn}>
               <Text style={styles.sectionTitle}>Payment Instructions</Text>
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentValue}>EBENESAR PAUL P</Text>
-              </View>
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentValue}>BANK OF MAHARASTRA</Text>
-              </View>
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentValue}>60223941368</Text>
-              </View>
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentValue}>MAHB0001206</Text>
-              </View>
-              {config.phone && (
+              {config.accountHolderName && (
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Name:</Text>
+                  <Text style={styles.paymentValue}>{config.accountHolderName}</Text>
+                </View>
+              )}
+              {config.bankName && (
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Bank:</Text>
+                  <Text style={styles.paymentValue}>{config.bankName}</Text>
+                </View>
+              )}
+              {config.accountNumber && (
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>A/C No:</Text>
+                  <Text style={styles.paymentValue}>{config.accountNumber}</Text>
+                </View>
+              )}
+              {config.ifscCode && (
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>IFSC:</Text>
+                  <Text style={styles.paymentValue}>{config.ifscCode}</Text>
+                </View>
+              )}
+              {config.upiId && (
                 <View style={[styles.paymentRow, { marginTop: 6 }]}>
                   <Text style={styles.paymentLabel}>UPI ID:</Text>
-                  <Text style={styles.paymentValue}>{config.phone}@okicici</Text>
+                  <Text style={styles.paymentValue}>{config.upiId}</Text>
+                </View>
+              )}
+              {config.upiQrCode && (
+                <View style={{ marginTop: 8, alignItems: 'flex-start' }}>
+                  <Text style={[styles.paymentLabel, { marginBottom: 4 }]}>Scan to Pay:</Text>
+                  <Image style={{ width: 70, height: 70 }} src={config.upiQrCode} />
                 </View>
               )}
             </View>
