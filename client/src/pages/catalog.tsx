@@ -57,6 +57,9 @@ export default function Catalog() {
     description: "",
     price: "",
   });
+  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
+  const [downloadServiceFilter, setDownloadServiceFilter] = useState<string>("all");
+  const [downloadPackageFilter, setDownloadPackageFilter] = useState<string>("all");
 
   const { data: catalogItems = [], isLoading } = useQuery<CatalogItem[]>({
     queryKey: ["/api/catalog"],
@@ -204,6 +207,12 @@ export default function Catalog() {
     setDialogOpen(true);
   };
 
+  const handleOpenDownloadDialog = () => {
+    setDownloadServiceFilter("all");
+    setDownloadPackageFilter("all");
+    setDownloadDialogOpen(true);
+  };
+
   const handleDownloadPDF = async () => {
     try {
       toast({
@@ -211,21 +220,41 @@ export default function Catalog() {
         description: "Please wait while we generate your catalog...",
       });
       
-      const response = await fetch('/api/catalog/pdf');
+      const params = new URLSearchParams();
+      if (downloadServiceFilter && downloadServiceFilter !== "all") {
+        params.append('serviceType', downloadServiceFilter);
+      }
+      if (downloadPackageFilter && downloadPackageFilter !== "all") {
+        params.append('package', downloadPackageFilter);
+      }
+      
+      const url = `/api/catalog/pdf${params.toString() ? '?' + params.toString() : ''}`;
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error('Failed to generate PDF');
       }
       
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = 'Dream_Day_Crew_Service_Catalog.pdf';
+      a.href = blobUrl;
+      
+      let filename = 'Dream_Day_Crew_Service_Catalog';
+      if (downloadServiceFilter && downloadServiceFilter !== "all") {
+        filename += `_${downloadServiceFilter.replace(/\s+/g, '_')}`;
+      }
+      if (downloadPackageFilter && downloadPackageFilter !== "all") {
+        filename += `_${downloadPackageFilter}`;
+      }
+      filename += '.pdf';
+      
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(blobUrl);
       document.body.removeChild(a);
       
+      setDownloadDialogOpen(false);
       toast({
         title: "Success",
         description: "Catalog PDF downloaded successfully",
@@ -251,7 +280,7 @@ export default function Catalog() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleDownloadPDF} data-testid="button-download-catalog">
+          <Button variant="outline" onClick={handleOpenDownloadDialog} data-testid="button-download-catalog">
             <Download className="h-4 w-4 mr-2" />
             Download PDF
           </Button>
@@ -577,6 +606,76 @@ export default function Catalog() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={downloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Download Catalog PDF</DialogTitle>
+            <DialogDescription>
+              Select which services and packages to include in the PDF
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="downloadService">Service Type</Label>
+              <Select 
+                value={downloadServiceFilter} 
+                onValueChange={setDownloadServiceFilter}
+              >
+                <SelectTrigger data-testid="select-download-service">
+                  <SelectValue placeholder="All Services" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Services</SelectItem>
+                  {services.map((service) => (
+                    <SelectItem key={service} value={service}>
+                      {service}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="downloadPackage">Package Tier</Label>
+              <Select 
+                value={downloadPackageFilter} 
+                onValueChange={setDownloadPackageFilter}
+              >
+                <SelectTrigger data-testid="select-download-package">
+                  <SelectValue placeholder="All Packages" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Packages</SelectItem>
+                  {packages.map((pkg) => (
+                    <SelectItem key={pkg} value={pkg}>
+                      {pkg}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDownloadDialogOpen(false)}
+                data-testid="button-cancel-download"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleDownloadPDF}
+                data-testid="button-confirm-download"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

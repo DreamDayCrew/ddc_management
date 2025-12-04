@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, Building2, Package, Briefcase, Users as UsersIcon, DollarSign, CheckCircle, Pencil, X, CreditCard } from "lucide-react";
+import { Plus, Building2, Package, Briefcase, Users as UsersIcon, DollarSign, CheckCircle, Pencil, CreditCard, Tag } from "lucide-react";
 
 const businessInfoSchema = z.object({
   businessName: z.string().min(1, "Business name is required"),
@@ -128,14 +128,6 @@ export default function Configuration() {
     );
   };
 
-  const removeArrayItem = (field: keyof Configuration, item: string) => {
-    if (!config) return;
-    const currentArray = (config[field] as string[]) || [];
-    updateConfigMutation.mutate({
-      [field]: currentArray.filter((i) => i !== item),
-    });
-  };
-
   const openArrayDialog = (title: string, field: keyof Configuration) => {
     setArrayDialogConfig({ title, field });
     setArrayDialogOpen(true);
@@ -175,18 +167,9 @@ export default function Configuration() {
             <Badge
               key={index}
               variant="secondary"
-              className="group cursor-pointer hover-elevate pr-1"
+              className="no-default-hover-elevate no-default-active-elevate"
             >
               {item}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-4 w-4 ml-1 opacity-0 group-hover:opacity-100"
-                onClick={() => removeArrayItem(field, item)}
-                data-testid={`button-remove-${field}-${index}`}
-              >
-                <X className="h-3 w-3" />
-              </Button>
             </Badge>
           ))}
         </div>
@@ -317,6 +300,13 @@ export default function Configuration() {
           items={config?.expenseCategories || []}
           field="expenseCategories"
           addButtonId="button-add-expense-category"
+        />
+        <ConfigSection
+          title="Package Tiers"
+          icon={Tag}
+          items={config?.packages || []}
+          field="packages"
+          addButtonId="button-add-package"
         />
       </div>
 

@@ -295,7 +295,7 @@ const formatCurrency = (amount: number): string => {
   }
   
   const sign = amount < 0 ? '-' : '';
-  return `${sign}₹${result}.${decimalPart}`;
+  return `${sign}Rs.${result}.${decimalPart}`;
 };
 
 const formatDate = (date: Date | string): string => {
