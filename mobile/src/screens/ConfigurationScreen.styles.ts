@@ -47,6 +47,12 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontSize: 16,
   },
+  helperText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 8,
+    marginTop: -2,
+  },
   input: {
     backgroundColor: '#fff',
     borderWidth: 1,
@@ -68,6 +74,10 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: 'top',
   },
+  largeTextArea: {
+    minHeight: 150,
+    textAlignVertical: 'top',
+  },
   switchContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -77,6 +87,68 @@ const styles = StyleSheet.create({
   switchStyle: {
     transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }],
   },
+  // Image upload styles
+  uploadButton: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f9fafb',
+  },
+  uploadText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginTop: 8,
+  },
+  uploadSubtext: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 4,
+  },
+  imagePreviewContainer: {
+    alignItems: 'center',
+  },
+  logoPreview: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+    marginBottom: 12,
+  },
+  signaturePreview: {
+    width: '100%',
+    height: 80,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+    marginBottom: 12,
+  },
+  imageActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  imageActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    gap: 6,
+  },
+  removeButton: {
+    borderColor: '#fecaca',
+    backgroundColor: '#fef2f2',
+  },
+  imageActionText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  // Info card
   infoCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -93,6 +165,7 @@ const styles = StyleSheet.create({
     color: '#1e40af',
     lineHeight: 20,
   },
+  // Save button
   saveButton: {
     backgroundColor: '#800020', // BRAND_MAROON
     padding: 16,
@@ -111,7 +184,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  // Add any additional styles below this line
 });
 
 export default styles;
