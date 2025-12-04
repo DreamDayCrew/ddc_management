@@ -64,11 +64,14 @@ function getServiceIcon(service: string): string {
   if (serviceLower.includes('gift') || serviceLower.includes('favor')) return 'gift';
   if (serviceLower.includes('cake') || serviceLower.includes('sweet')) return 'ice-cream';
   if (serviceLower.includes('firework') || serviceLower.includes('pyro')) return 'sparkles';
-  return 'heart';
+  return 'grid';
 }
 
 export default function CatalogScreen() {
   const { colors, isDark } = useTheme();
+  
+  // Use maroon in light mode, a teal accent in dark mode
+  const accentColor = isDark ? '#0891b2' : BRAND_MAROON;
   
   const { data: catalogItems = [], isLoading, error, refetch } = useQuery({
     queryKey: ['catalogItems'],
@@ -417,7 +420,7 @@ export default function CatalogScreen() {
               onPress={() => handleQuickDuplicate(item)}
               style={styles.actionButton}
             >
-              <Ionicons name="copy-outline" size={18} color={BRAND_MAROON} />
+              <Ionicons name="copy-outline" size={18} color={accentColor} />
             </TouchableOpacity>
             <TouchableOpacity 
               onPress={() => handleDuplicateWithOptions(item)}
@@ -459,7 +462,7 @@ export default function CatalogScreen() {
           <Ionicons name="book-outline" size={48} color={colors.textSecondary} />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No catalog items found</Text>
           <TouchableOpacity 
-            style={[styles.addButton, { backgroundColor: BRAND_MAROON }]}
+            style={[styles.addButton, { backgroundColor: accentColor }]}
             onPress={handleAddNew}
           >
             <Ionicons name="add" size={20} color="#fff" />
@@ -478,7 +481,7 @@ export default function CatalogScreen() {
       >
         {serviceKeys.map(service => (
           <View key={service} style={[styles.serviceSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.serviceTitleRow, { backgroundColor: BRAND_MAROON }]}>
+            <View style={[styles.serviceTitleRow, { backgroundColor: accentColor }]}>
               <Ionicons name={getServiceIcon(service) as any} size={18} color="#fff" style={{ marginRight: 8 }} />
               <Text style={styles.serviceTitle}>{service}</Text>
             </View>
@@ -492,8 +495,8 @@ export default function CatalogScreen() {
                 return (
                   <View key={pkg} style={styles.packageColumn}>
                     <View style={[styles.packageHeader, { backgroundColor: pkgColors.bg }]}>
-                      <Ionicons name={pkgIcon.name as any} size={14} color={pkgColors.text} style={{ marginRight: 4 }} />
                       <Text style={[styles.packageHeaderText, { color: pkgColors.text }]}>{pkg}</Text>
+                      <Ionicons name={pkgIcon.name as any} size={14} color={pkgColors.text} style={{ marginLeft: 4 }} />
                     </View>
                     <View style={[styles.packageItems, { backgroundColor: isDark ? colors.surface : '#fafafa' }]}>
                       {items.length === 0 ? (
@@ -508,7 +511,7 @@ export default function CatalogScreen() {
                             <Text style={[styles.packageItemName, { color: colors.text }]} numberOfLines={1}>
                               {item.itemName}
                             </Text>
-                            <Text style={[styles.packageItemPrice, { color: BRAND_MAROON }]}>
+                            <Text style={[styles.packageItemPrice, { color: accentColor }]}>
                               {formatIndianCurrency(parseFloat(item.price || '0'))}
                             </Text>
                           </TouchableOpacity>
@@ -528,7 +531,7 @@ export default function CatalogScreen() {
   if (isLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={BRAND_MAROON} />
+        <ActivityIndicator size="large" color={accentColor} />
         <Text style={[styles.loadingText, { color: colors.text }]}>Loading catalog...</Text>
       </View>
     );
@@ -539,7 +542,7 @@ export default function CatalogScreen() {
       <View style={[styles.errorContainer, { backgroundColor: colors.background }]}>
         <Ionicons name="alert-circle" size={48} color={isDark ? '#f87171' : '#ef4444'} />
         <Text style={[styles.errorText, { color: colors.text }]}>Failed to load catalog</Text>
-        <TouchableOpacity style={[styles.retryButton, { backgroundColor: BRAND_MAROON }]} onPress={() => refetch()}>
+        <TouchableOpacity style={[styles.retryButton, { backgroundColor: accentColor }]} onPress={() => refetch()}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -569,7 +572,7 @@ export default function CatalogScreen() {
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity style={[styles.actionIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={openDuplicateServiceModal}>
-            <Ionicons name="git-branch-outline" size={20} color={BRAND_MAROON} />
+            <Ionicons name="git-branch-outline" size={20} color={accentColor} />
           </TouchableOpacity>
           <TouchableOpacity style={[styles.actionIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => openDownloadModal('share')}>
             <Ionicons name="share-outline" size={20} color={colors.text} />
@@ -587,7 +590,7 @@ export default function CatalogScreen() {
             style={[
               styles.filterChip, 
               { backgroundColor: colors.card, borderColor: colors.border },
-              selectedService && { backgroundColor: BRAND_MAROON }
+              selectedService && { backgroundColor: accentColor }
             ]}
             onPress={() => setShowServiceDropdown(true)}
           >
@@ -604,7 +607,7 @@ export default function CatalogScreen() {
             style={[
               styles.filterChip, 
               { backgroundColor: colors.card, borderColor: colors.border },
-              selectedPackage && { backgroundColor: BRAND_MAROON }
+              selectedPackage && { backgroundColor: accentColor }
             ]}
             onPress={() => setShowPackageDropdown(true)}
           >
@@ -632,7 +635,7 @@ export default function CatalogScreen() {
           <TouchableOpacity 
             style={[
               styles.viewToggleButton, 
-              { backgroundColor: viewMode === 'grouped' ? BRAND_MAROON : 'transparent' }
+              { backgroundColor: viewMode === 'grouped' ? accentColor : 'transparent' }
             ]}
             onPress={() => setViewMode('grouped')}
           >
@@ -642,7 +645,7 @@ export default function CatalogScreen() {
           <TouchableOpacity 
             style={[
               styles.viewToggleButton, 
-              { backgroundColor: viewMode === 'list' ? BRAND_MAROON : 'transparent' }
+              { backgroundColor: viewMode === 'list' ? accentColor : 'transparent' }
             ]}
             onPress={() => setViewMode('list')}
           >
@@ -673,7 +676,7 @@ export default function CatalogScreen() {
       )}
 
       <TouchableOpacity 
-        style={[styles.fab, { backgroundColor: BRAND_MAROON }]} 
+        style={[styles.fab, { backgroundColor: accentColor }]} 
         onPress={handleAddNew}
       >
         <Ionicons name="add" size={28} color="#fff" />
@@ -700,7 +703,7 @@ export default function CatalogScreen() {
               }}
             >
               <Text style={[styles.dropdownItemText, { color: colors.text }]}>All Services</Text>
-              {!selectedService && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+              {!selectedService && <Ionicons name="checkmark" size={20} color={accentColor} />}
             </TouchableOpacity>
             {services.map((service) => (
               <TouchableOpacity
@@ -712,7 +715,7 @@ export default function CatalogScreen() {
                 }}
               >
                 <Text style={[styles.dropdownItemText, { color: colors.text }]}>{service}</Text>
-                {selectedService === service && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+                {selectedService === service && <Ionicons name="checkmark" size={20} color={accentColor} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -740,7 +743,7 @@ export default function CatalogScreen() {
               }}
             >
               <Text style={[styles.dropdownItemText, { color: colors.text }]}>All Packages</Text>
-              {!selectedPackage && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+              {!selectedPackage && <Ionicons name="checkmark" size={20} color={accentColor} />}
             </TouchableOpacity>
             {packages.map((pkg) => (
               <TouchableOpacity
@@ -752,7 +755,7 @@ export default function CatalogScreen() {
                 }}
               >
                 <Text style={[styles.dropdownItemText, { color: colors.text }]}>{pkg}</Text>
-                {selectedPackage === pkg && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+                {selectedPackage === pkg && <Ionicons name="checkmark" size={20} color={accentColor} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -823,7 +826,7 @@ export default function CatalogScreen() {
                 <Text style={[styles.downloadDialogCancelText, { color: colors.text }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.downloadDialogConfirmButton, { backgroundColor: BRAND_MAROON }]}
+                style={[styles.downloadDialogConfirmButton, { backgroundColor: accentColor }]}
                 onPress={downloadMode === 'download' ? handleDownloadPDF : handleShare}
               >
                 <Ionicons 
@@ -859,7 +862,7 @@ export default function CatalogScreen() {
               onPress={() => handleDownloadServiceChange('')}
             >
               <Text style={[styles.dropdownItemText, { color: colors.text }]}>All Services</Text>
-              {!downloadServiceFilter && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+              {!downloadServiceFilter && <Ionicons name="checkmark" size={20} color={accentColor} />}
             </TouchableOpacity>
             {services.map((service) => (
               <TouchableOpacity
@@ -868,7 +871,7 @@ export default function CatalogScreen() {
                 onPress={() => handleDownloadServiceChange(service)}
               >
                 <Text style={[styles.dropdownItemText, { color: colors.text }]}>{service}</Text>
-                {downloadServiceFilter === service && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+                {downloadServiceFilter === service && <Ionicons name="checkmark" size={20} color={accentColor} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -894,7 +897,7 @@ export default function CatalogScreen() {
               onPress={() => handleDownloadPackageChange('')}
             >
               <Text style={[styles.dropdownItemText, { color: colors.text }]}>All Packages</Text>
-              {!downloadPackageFilter && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+              {!downloadPackageFilter && <Ionicons name="checkmark" size={20} color={accentColor} />}
             </TouchableOpacity>
             {packages.map((pkg) => (
               <TouchableOpacity
@@ -903,7 +906,7 @@ export default function CatalogScreen() {
                 onPress={() => handleDownloadPackageChange(pkg)}
               >
                 <Text style={[styles.dropdownItemText, { color: colors.text }]}>{pkg}</Text>
-                {downloadPackageFilter === pkg && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+                {downloadPackageFilter === pkg && <Ionicons name="checkmark" size={20} color={accentColor} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -967,7 +970,7 @@ export default function CatalogScreen() {
                 <Text style={[styles.downloadDialogCancelText, { color: colors.text }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.downloadDialogConfirmButton, { backgroundColor: BRAND_MAROON }]}
+                style={[styles.downloadDialogConfirmButton, { backgroundColor: accentColor }]}
                 onPress={handleConfirmDuplicateItem}
                 disabled={duplicateItemMutation.isPending}
               >
@@ -1009,7 +1012,7 @@ export default function CatalogScreen() {
                 }}
               >
                 <Text style={[styles.dropdownItemText, { color: colors.text }]}>{service}</Text>
-                {duplicateTargetService === service && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+                {duplicateTargetService === service && <Ionicons name="checkmark" size={20} color={accentColor} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -1040,7 +1043,7 @@ export default function CatalogScreen() {
                 }}
               >
                 <Text style={[styles.dropdownItemText, { color: colors.text }]}>{pkg}</Text>
-                {duplicateTargetPackage === pkg && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+                {duplicateTargetPackage === pkg && <Ionicons name="checkmark" size={20} color={accentColor} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -1118,7 +1121,7 @@ export default function CatalogScreen() {
                 <Text style={[styles.downloadDialogCancelText, { color: colors.text }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.downloadDialogConfirmButton, { backgroundColor: BRAND_MAROON }]}
+                style={[styles.downloadDialogConfirmButton, { backgroundColor: accentColor }]}
                 onPress={handleConfirmDuplicateService}
                 disabled={duplicateServiceMutation.isPending}
               >
@@ -1160,7 +1163,7 @@ export default function CatalogScreen() {
                 }}
               >
                 <Text style={[styles.dropdownItemText, { color: colors.text }]}>{service}</Text>
-                {sourceServiceForDuplicate === service && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+                {sourceServiceForDuplicate === service && <Ionicons name="checkmark" size={20} color={accentColor} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -1191,7 +1194,7 @@ export default function CatalogScreen() {
                 }}
               >
                 <Text style={[styles.dropdownItemText, { color: colors.text }]}>{service}</Text>
-                {targetServiceForDuplicate === service && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+                {targetServiceForDuplicate === service && <Ionicons name="checkmark" size={20} color={accentColor} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -1220,7 +1223,7 @@ export default function CatalogScreen() {
               }}
             >
               <Text style={[styles.dropdownItemText, { color: colors.text }]}>All Packages</Text>
-              {!packageFilterForDuplicate && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+              {!packageFilterForDuplicate && <Ionicons name="checkmark" size={20} color={accentColor} />}
             </TouchableOpacity>
             {packages.map((pkg) => (
               <TouchableOpacity
@@ -1232,7 +1235,7 @@ export default function CatalogScreen() {
                 }}
               >
                 <Text style={[styles.dropdownItemText, { color: colors.text }]}>{pkg}</Text>
-                {packageFilterForDuplicate === pkg && <Ionicons name="checkmark" size={20} color={BRAND_MAROON} />}
+                {packageFilterForDuplicate === pkg && <Ionicons name="checkmark" size={20} color={accentColor} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -1278,7 +1281,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 10,
-    backgroundColor: BRAND_MAROON,
     borderRadius: 8,
   },
   retryButtonText: {
@@ -1429,7 +1431,6 @@ const styles = StyleSheet.create({
   priceText: {
     fontSize: 16,
     fontWeight: '600',
-    color: BRAND_MAROON,
   },
   packageBadge: {
     paddingHorizontal: 8,
@@ -1509,7 +1510,6 @@ const styles = StyleSheet.create({
   },
   packageItemPrice: {
     fontSize: 11,
-    color: BRAND_MAROON,
     fontWeight: '600',
     marginTop: 2,
   },
@@ -1582,7 +1582,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   saveButton: {
-    backgroundColor: BRAND_MAROON,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
