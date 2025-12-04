@@ -32,6 +32,41 @@ function getPackageColor(pkg: string, isDark: boolean) {
   }
 }
 
+function getPackageIcon(pkg: string): { name: string; color: string } {
+  switch (pkg.toLowerCase()) {
+    case 'ultra':
+      return { name: 'diamond', color: '#9333ea' };
+    case 'premium':
+      return { name: 'star', color: '#d97706' };
+    case 'budget':
+      return { name: 'leaf', color: '#16a34a' };
+    default:
+      return { name: 'pricetag', color: '#6b7280' };
+  }
+}
+
+function getServiceIcon(service: string): string {
+  const serviceLower = service.toLowerCase();
+  if (serviceLower.includes('photo')) return 'camera';
+  if (serviceLower.includes('video')) return 'videocam';
+  if (serviceLower.includes('decor')) return 'flower';
+  if (serviceLower.includes('cater') || serviceLower.includes('food')) return 'restaurant';
+  if (serviceLower.includes('music') || serviceLower.includes('dj') || serviceLower.includes('entertain')) return 'musical-notes';
+  if (serviceLower.includes('makeup') || serviceLower.includes('beauty')) return 'brush';
+  if (serviceLower.includes('venue') || serviceLower.includes('hall')) return 'business';
+  if (serviceLower.includes('transport') || serviceLower.includes('car')) return 'car';
+  if (serviceLower.includes('invite') || serviceLower.includes('card')) return 'mail';
+  if (serviceLower.includes('light')) return 'bulb';
+  if (serviceLower.includes('sound') || serviceLower.includes('audio')) return 'volume-high';
+  if (serviceLower.includes('anchor') || serviceLower.includes('host') || serviceLower.includes('emcee')) return 'mic';
+  if (serviceLower.includes('mehendi') || serviceLower.includes('henna')) return 'hand-left';
+  if (serviceLower.includes('jewel')) return 'diamond';
+  if (serviceLower.includes('gift') || serviceLower.includes('favor')) return 'gift';
+  if (serviceLower.includes('cake') || serviceLower.includes('sweet')) return 'ice-cream';
+  if (serviceLower.includes('firework') || serviceLower.includes('pyro')) return 'sparkles';
+  return 'heart';
+}
+
 export default function CatalogScreen() {
   const { colors, isDark } = useTheme();
   
@@ -400,7 +435,7 @@ export default function CatalogScreen() {
               onPress={() => handleDelete(item)}
               style={styles.actionButton}
             >
-              <Ionicons name="trash-outline" size={18} color="#ef4444" />
+              <Ionicons name="trash-outline" size={18} color={isDark ? '#f87171' : '#ef4444'} />
             </TouchableOpacity>
           </View>
         </View>
@@ -444,6 +479,7 @@ export default function CatalogScreen() {
         {serviceKeys.map(service => (
           <View key={service} style={[styles.serviceSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.serviceTitleRow, { backgroundColor: BRAND_MAROON }]}>
+              <Ionicons name={getServiceIcon(service) as any} size={18} color="#fff" style={{ marginRight: 8 }} />
               <Text style={styles.serviceTitle}>{service}</Text>
             </View>
             
@@ -451,26 +487,28 @@ export default function CatalogScreen() {
               {packages.map((pkg) => {
                 const items = groupedByService[service]?.[pkg] || [];
                 const pkgColors = getPackageColor(pkg, isDark);
+                const pkgIcon = getPackageIcon(pkg);
                 
                 return (
                   <View key={pkg} style={styles.packageColumn}>
                     <View style={[styles.packageHeader, { backgroundColor: pkgColors.bg }]}>
+                      <Ionicons name={pkgIcon.name as any} size={14} color={pkgColors.text} style={{ marginRight: 4 }} />
                       <Text style={[styles.packageHeaderText, { color: pkgColors.text }]}>{pkg}</Text>
                     </View>
-                    <View style={styles.packageItems}>
+                    <View style={[styles.packageItems, { backgroundColor: isDark ? colors.surface : '#fafafa' }]}>
                       {items.length === 0 ? (
                         <Text style={[styles.noItemsText, { color: colors.textSecondary }]}>No items</Text>
                       ) : (
                         items.map(item => (
                           <TouchableOpacity 
                             key={item.id} 
-                            style={[styles.packageItem, { borderColor: colors.border }]}
+                            style={[styles.packageItem, { borderColor: colors.border, backgroundColor: colors.card }]}
                             onPress={() => handleEdit(item)}
                           >
                             <Text style={[styles.packageItemName, { color: colors.text }]} numberOfLines={1}>
                               {item.itemName}
                             </Text>
-                            <Text style={styles.packageItemPrice}>
+                            <Text style={[styles.packageItemPrice, { color: BRAND_MAROON }]}>
                               {formatIndianCurrency(parseFloat(item.price || '0'))}
                             </Text>
                           </TouchableOpacity>
@@ -499,9 +537,9 @@ export default function CatalogScreen() {
   if (error) {
     return (
       <View style={[styles.errorContainer, { backgroundColor: colors.background }]}>
-        <Ionicons name="alert-circle" size={48} color="#ef4444" />
+        <Ionicons name="alert-circle" size={48} color={isDark ? '#f87171' : '#ef4444'} />
         <Text style={[styles.errorText, { color: colors.text }]}>Failed to load catalog</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
+        <TouchableOpacity style={[styles.retryButton, { backgroundColor: BRAND_MAROON }]} onPress={() => refetch()}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -513,7 +551,7 @@ export default function CatalogScreen() {
       {/* Search and Filter Section - matches Events and Expenses screens */}
       <View style={[styles.searchFilterContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.searchContainer}>
-          <View style={[styles.searchInputContainer, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
+          <View style={[styles.searchInputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
@@ -530,13 +568,13 @@ export default function CatalogScreen() {
           </View>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={[styles.actionIconButton, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]} onPress={openDuplicateServiceModal}>
+          <TouchableOpacity style={[styles.actionIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={openDuplicateServiceModal}>
             <Ionicons name="git-branch-outline" size={20} color={BRAND_MAROON} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionIconButton, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]} onPress={() => openDownloadModal('share')}>
+          <TouchableOpacity style={[styles.actionIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => openDownloadModal('share')}>
             <Ionicons name="share-outline" size={20} color={colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionIconButton, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]} onPress={() => openDownloadModal('download')}>
+          <TouchableOpacity style={[styles.actionIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => openDownloadModal('download')}>
             <Ionicons name="download-outline" size={20} color={colors.text} />
           </TouchableOpacity>
         </View>
@@ -581,20 +619,20 @@ export default function CatalogScreen() {
 
           {(selectedService || selectedPackage || searchQuery) && (
             <TouchableOpacity 
-              style={[styles.clearFilterChip, { borderColor: '#ef4444' }]}
+              style={[styles.clearFilterChip, { borderColor: isDark ? '#f87171' : '#ef4444' }]}
               onPress={clearFilters}
             >
-              <Ionicons name="close" size={16} color="#ef4444" />
-              <Text style={styles.clearFilterText}>Clear</Text>
+              <Ionicons name="close" size={16} color={isDark ? '#f87171' : '#ef4444'} />
+              <Text style={[styles.clearFilterText, { color: isDark ? '#f87171' : '#ef4444' }]}>Clear</Text>
             </TouchableOpacity>
           )}
         </ScrollView>
 
-        <View style={styles.viewToggle}>
+        <View style={[styles.viewToggle, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <TouchableOpacity 
             style={[
               styles.viewToggleButton, 
-              viewMode === 'grouped' && { backgroundColor: BRAND_MAROON }
+              { backgroundColor: viewMode === 'grouped' ? BRAND_MAROON : 'transparent' }
             ]}
             onPress={() => setViewMode('grouped')}
           >
@@ -604,7 +642,7 @@ export default function CatalogScreen() {
           <TouchableOpacity 
             style={[
               styles.viewToggleButton, 
-              viewMode === 'list' && { backgroundColor: BRAND_MAROON }
+              { backgroundColor: viewMode === 'list' ? BRAND_MAROON : 'transparent' }
             ]}
             onPress={() => setViewMode('list')}
           >
@@ -1272,6 +1310,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    borderWidth: 1,
   },
   searchIcon: {
     marginRight: 8,
@@ -1288,6 +1327,7 @@ const styles = StyleSheet.create({
   actionIconButton: {
     padding: 10,
     borderRadius: 10,
+    borderWidth: 1,
   },
   filtersSection: {
     paddingHorizontal: 16,
@@ -1321,12 +1361,14 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   clearFilterText: {
-    color: '#ef4444',
     fontSize: 14,
   },
   viewToggle: {
     flexDirection: 'row',
     gap: 8,
+    borderRadius: 8,
+    padding: 4,
+    borderWidth: 1,
   },
   viewToggleButton: {
     flexDirection: 'row',
@@ -1517,7 +1559,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
+    borderBottomColor: 'rgba(128,128,128,0.2)',
   },
   dropdownItemText: {
     fontSize: 16,
