@@ -10,6 +10,7 @@ export const configurations = pgTable("configurations", {
   businessName: text("business_name").notNull(),
   logo: text("logo"),
   gstNumber: text("gst_number"),
+  panNumber: text("pan_number"),
   includeGst: text("include_gst").default("true"),
   address: text("address"),
   phone: text("phone"),
@@ -18,6 +19,14 @@ export const configurations = pgTable("configurations", {
   socialLinks: text("social_links").array(),
   termsAndConditions: text("terms_and_conditions"),
   signatureImage: text("signature_image"),
+  // Payment Information
+  upiId: text("upi_id"),
+  upiQrCode: text("upi_qr_code"),
+  accountHolderName: text("account_holder_name"),
+  bankName: text("bank_name"),
+  accountNumber: text("account_number"),
+  ifscCode: text("ifsc_code"),
+  // Dropdown Options
   assetCategories: text("asset_categories").array().notNull().default(sql`ARRAY['Audio System','Decoration','Furniture','Photography','Lighting','Stage Equipment','Electrical / Wires','Office use / Safety']::text[]`),
   assetPurchaseStatus: text("asset_purchase_status").array().notNull().default(sql`ARRAY['Existing', 'New']::text[]`),
   servicesProvided: text("services_provided").array().notNull().default(sql`ARRAY['Wedding Planning & Décor','Engagements & Receptions','Birthday & Anniversary Celebrations','Corporate Events & Launchs','Cultural & Theme Events','Marathons, carnivals, stage plays, and non-profit initiatives','Service & Installation','Devotional events']::text[]`),
