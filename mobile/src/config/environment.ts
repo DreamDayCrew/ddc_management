@@ -18,7 +18,7 @@ const getApiUrl = (): string => {
   // since localhost/LAN IPs don't work properly in browser context
   if (Platform.OS === "web") {
     // Use production API for Expo web testing
-    return LOCAL_DEV_URL;
+    return PRODUCTION_API_URL;
   }
 
   // For native development (Android/iOS emulator or physical device)

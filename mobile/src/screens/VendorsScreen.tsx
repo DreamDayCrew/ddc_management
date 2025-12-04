@@ -462,13 +462,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 10,
     zIndex: 9999,
-    maxHeight: 250,
+    maxHeight: 350,
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    overflow: 'hidden',
   },
   dropdownScroll: {
-    maxHeight: 250,
+    maxHeight: 350,
   },
   dropdownItem: {
     flexDirection: 'row',

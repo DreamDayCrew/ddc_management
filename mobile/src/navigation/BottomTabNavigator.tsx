@@ -27,7 +27,7 @@ export default function BottomTabNavigator() {
             iconName = focused ? "calendar" : "calendar-outline";
           } else if (route.name === "Expenses") {
             iconName = focused ? "wallet" : "wallet-outline";
-          } else if (route.name === "Services") {
+          } else if (route.name === "Catalog") {
             iconName = focused ? "book" : "book-outline";
           } else if (route.name === "More") {
             iconName = focused ? "menu" : "menu-outline";
@@ -80,7 +80,7 @@ export default function BottomTabNavigator() {
         options={{ headerTitle: "Expenses" }}
       />
       <Tab.Screen
-        name="Services"
+        name="Catalog"
         component={CatalogScreen}
         options={{ headerTitle: "Service Catalog" }}
       />

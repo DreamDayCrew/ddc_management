@@ -403,34 +403,36 @@ export default function CatalogScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Service Catalog</Text>
+      {/* Search and Filter Section - matches Events and Expenses screens */}
+      <View style={[styles.searchFilterContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchInputContainer, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
+            <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              placeholder="Search catalog..."
+              placeholderTextColor={colors.textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery !== '' && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerButton} onPress={() => openDownloadModal('share')}>
-            <Ionicons name="share-outline" size={22} color={colors.text} />
+          <TouchableOpacity style={[styles.actionIconButton, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]} onPress={() => openDownloadModal('share')}>
+            <Ionicons name="share-outline" size={20} color={colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton} onPress={() => openDownloadModal('download')}>
-            <Ionicons name="download-outline" size={22} color={colors.text} />
+          <TouchableOpacity style={[styles.actionIconButton, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]} onPress={() => openDownloadModal('download')}>
+            <Ionicons name="download-outline" size={20} color={colors.text} />
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.filtersSection}>
-        <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Ionicons name="search" size={20} color={colors.textSecondary} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Search catalog..."
-            placeholderTextColor={colors.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery !== '' && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
           <TouchableOpacity 
@@ -1063,41 +1065,52 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
-  header: {
+  searchFilterContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    paddingBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  searchContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
   },
   headerActions: {
     flexDirection: 'row',
     gap: 8,
   },
-  headerButton: {
-    padding: 8,
+  actionIconButton: {
+    padding: 10,
+    borderRadius: 10,
   },
   filtersSection: {
     paddingHorizontal: 16,
+    paddingTop: 8,
     paddingBottom: 12,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 12,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
   },
   filterRow: {
     flexDirection: 'row',

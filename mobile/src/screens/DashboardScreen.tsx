@@ -22,7 +22,7 @@ type RootTabParamList = {
         }; 
       };
   Expenses: undefined;
-  Services: undefined;
+  Catalog: undefined;
   More: {
     screen: string;
   } | undefined;
