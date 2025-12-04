@@ -9,6 +9,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -151,7 +153,10 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalOverlay}
+      >
         <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>{event ? 'Edit Event' : 'Add New Event'}</Text>
@@ -582,7 +587,7 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
             />
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

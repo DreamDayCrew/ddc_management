@@ -9,6 +9,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
@@ -344,9 +346,13 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
       transparent={true}
       onRequestClose={onClose}
     >
-      <TouchableOpacity
-        style={styles.modalOverlay}
-        activeOpacity={1}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
         onPress={() => {
           closeDropdowns();
         }}
@@ -1015,6 +1021,7 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
           </View>
         </TouchableOpacity>
       </TouchableOpacity>
+      </KeyboardAvoidingView>
       
       <ConfirmDialog
         visible={showDeleteConfirm}

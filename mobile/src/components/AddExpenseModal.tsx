@@ -9,6 +9,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts';
@@ -153,7 +155,10 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalOverlay}
+      >
         <View style={[styles.modalContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>{expense ? 'Edit Expense' : 'Add New Expense'}</Text>
@@ -476,7 +481,7 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
             />
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
 
       {/* Custom Account Name Modal */}
       <Modal
@@ -485,7 +490,10 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
         animationType="fade"
         onRequestClose={() => setCustomAccountModalVisible(false)}
       >
-        <View style={styles.customModalOverlay}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.customModalOverlay}
+        >
           <View style={[styles.customModalContent, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.customModalHeader, { borderBottomColor: colors.border }]}>
               <Text style={[styles.customModalTitle, { color: colors.text }]}>Add Custom Account Name</Text>
@@ -522,7 +530,7 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </Modal>
   );

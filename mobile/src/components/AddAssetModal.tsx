@@ -9,6 +9,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts';
@@ -113,7 +115,10 @@ export default function AddAssetModal({ visible, onClose, asset }: AddAssetModal
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalOverlay}
+      >
         <View style={[styles.modalContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>{asset ? 'Edit Asset' : 'Add New Asset'}</Text>
@@ -324,7 +329,7 @@ export default function AddAssetModal({ visible, onClose, asset }: AddAssetModal
             />
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
