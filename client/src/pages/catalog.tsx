@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type CatalogItem, type Configuration } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -196,6 +196,39 @@ export default function Catalog() {
 
   const services = config?.servicesProvided || [];
   const packages = config?.packages || ['Ultra', 'Premium', 'Budget'];
+
+  // Compute catalog metadata per service for validation
+  const serviceCatalogIndex = useMemo(() => {
+    const index: Record<string, { count: number; packages: Set<string> }> = {};
+    catalogItems.forEach((item) => {
+      if (!index[item.serviceType]) {
+        index[item.serviceType] = { count: 0, packages: new Set() };
+      }
+      index[item.serviceType].count++;
+      index[item.serviceType].packages.add(item.package);
+    });
+    return index;
+  }, [catalogItems]);
+
+  // Check if source service has catalogs
+  const sourceServiceHasCatalogs = sourceService && serviceCatalogIndex[sourceService]?.count > 0;
+  
+  // Get available packages for the selected source service
+  const sourceServicePackages = sourceService && serviceCatalogIndex[sourceService] 
+    ? Array.from(serviceCatalogIndex[sourceService].packages) 
+    : [];
+
+  // Check if selected package filter is valid for source service
+  const isPackageFilterValid = duplicatePackageFilter === "all" || 
+    (sourceService && serviceCatalogIndex[sourceService]?.packages.has(duplicatePackageFilter));
+
+  // Compute if duplicate service button should be enabled
+  const isDuplicateServiceEnabled = sourceService && 
+    targetService && 
+    sourceService !== targetService && 
+    sourceServiceHasCatalogs && 
+    isPackageFilterValid &&
+    !duplicateServiceMutation.isPending;
 
   const filteredItems = catalogItems.filter((item) => {
     const matchesSearch = 
@@ -947,7 +980,14 @@ export default function Catalog() {
       </Dialog>
 
       {/* Duplicate Service Dialog */}
-      <Dialog open={duplicateServiceDialogOpen} onOpenChange={setDuplicateServiceDialogOpen}>
+      <Dialog open={duplicateServiceDialogOpen} onOpenChange={(open) => {
+        setDuplicateServiceDialogOpen(open);
+        if (!open) {
+          setSourceService("");
+          setTargetService("");
+          setDuplicatePackageFilter("all");
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Duplicate Service Items</DialogTitle>
@@ -960,7 +1000,10 @@ export default function Catalog() {
               <Label htmlFor="sourceService">Source Service</Label>
               <Select 
                 value={sourceService} 
-                onValueChange={setSourceService}
+                onValueChange={(value) => {
+                  setSourceService(value);
+                  setDuplicatePackageFilter("all");
+                }}
               >
                 <SelectTrigger data-testid="select-source-service">
                   <SelectValue placeholder="Select source service" />
@@ -968,11 +1011,16 @@ export default function Catalog() {
                 <SelectContent>
                   {services.map((service) => (
                     <SelectItem key={service} value={service}>
-                      {service}
+                      {service} {serviceCatalogIndex[service]?.count > 0 ? `(${serviceCatalogIndex[service].count} items)` : "(no items)"}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {sourceService && !sourceServiceHasCatalogs && (
+                <p className="text-xs text-red-600 dark:text-red-400">
+                  Selected service has no catalog items to duplicate
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -992,6 +1040,11 @@ export default function Catalog() {
                   ))}
                 </SelectContent>
               </Select>
+              {sourceService && targetService && sourceService === targetService && (
+                <p className="text-xs text-red-600 dark:text-red-400">
+                  Source and target services cannot be the same
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -999,13 +1052,14 @@ export default function Catalog() {
               <Select 
                 value={duplicatePackageFilter} 
                 onValueChange={setDuplicatePackageFilter}
+                disabled={!sourceService || !sourceServiceHasCatalogs}
               >
                 <SelectTrigger data-testid="select-duplicate-package-filter">
                   <SelectValue placeholder="All Packages" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Packages</SelectItem>
-                  {packages.map((pkg) => (
+                  <SelectItem value="all">All Packages ({sourceServicePackages.length} available)</SelectItem>
+                  {sourceServicePackages.map((pkg) => (
                     <SelectItem key={pkg} value={pkg}>
                       {pkg}
                     </SelectItem>
@@ -1013,7 +1067,9 @@ export default function Catalog() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Optionally filter to only duplicate items from a specific package
+                {sourceService && sourceServiceHasCatalogs 
+                  ? `Available packages: ${sourceServicePackages.join(", ") || "None"}`
+                  : "Select a source service first"}
               </p>
             </div>
 
@@ -1033,7 +1089,7 @@ export default function Catalog() {
               </Button>
               <Button 
                 onClick={handleDuplicateServiceSubmit}
-                disabled={duplicateServiceMutation.isPending || !sourceService || !targetService}
+                disabled={!isDuplicateServiceEnabled}
                 data-testid="button-confirm-duplicate-service"
               >
                 <CopyPlus className="h-4 w-4 mr-2" />

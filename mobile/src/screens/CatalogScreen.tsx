@@ -139,6 +139,31 @@ export default function CatalogScreen() {
     }, {} as Record<string, Record<string, CatalogItem[]>>);
   }, [filteredItems]);
 
+  // Compute catalog metadata per service for validation
+  const serviceCatalogIndex = useMemo(() => {
+    const index: Record<string, { count: number; packages: Set<string> }> = {};
+    catalogItems.forEach((item) => {
+      if (!index[item.serviceType]) {
+        index[item.serviceType] = { count: 0, packages: new Set() };
+      }
+      index[item.serviceType].count++;
+      index[item.serviceType].packages.add(item.package);
+    });
+    return index;
+  }, [catalogItems]);
+
+  // Check if source service has catalogs
+  const sourceServiceHasCatalogs = sourceServiceForDuplicate && serviceCatalogIndex[sourceServiceForDuplicate]?.count > 0;
+  
+  // Get available packages for the selected source service
+  const sourceServicePackages = sourceServiceForDuplicate && serviceCatalogIndex[sourceServiceForDuplicate] 
+    ? Array.from(serviceCatalogIndex[sourceServiceForDuplicate].packages) 
+    : [];
+
+  // Check if selected package filter is valid for source service
+  const isPackageFilterValid = !packageFilterForDuplicate || 
+    (sourceServiceForDuplicate && serviceCatalogIndex[sourceServiceForDuplicate]?.packages.has(packageFilterForDuplicate));
+
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedService('');
@@ -180,6 +205,14 @@ export default function CatalogScreen() {
       Alert.alert('Error', `Failed to duplicate service: ${error.message}`);
     },
   });
+
+  // Compute if duplicate service button should be enabled
+  const isDuplicateServiceEnabled = sourceServiceForDuplicate && 
+    targetServiceForDuplicate && 
+    sourceServiceForDuplicate !== targetServiceForDuplicate && 
+    sourceServiceHasCatalogs && 
+    isPackageFilterValid &&
+    !duplicateServiceMutation.isPending;
 
   const handleEdit = (item: CatalogItem) => {
     setEditingItem(item);
@@ -1059,6 +1092,11 @@ export default function CatalogScreen() {
                 </Text>
                 <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
+              {sourceServiceForDuplicate && !sourceServiceHasCatalogs && (
+                <Text style={[styles.validationError, { color: '#dc2626' }]}>
+                  Selected service has no catalog items
+                </Text>
+              )}
             </View>
 
             {/* Target Service */}
@@ -1073,20 +1111,35 @@ export default function CatalogScreen() {
                 </Text>
                 <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
+              {sourceServiceForDuplicate && targetServiceForDuplicate && sourceServiceForDuplicate === targetServiceForDuplicate && (
+                <Text style={[styles.validationError, { color: '#dc2626' }]}>
+                  Source and target must be different
+                </Text>
+              )}
             </View>
 
             {/* Package Filter (Optional) */}
             <View style={styles.downloadFilterGroup}>
               <Text style={[styles.downloadFilterLabel, { color: colors.text }]}>Package Filter (Optional)</Text>
               <TouchableOpacity 
-                style={[styles.downloadFilterPicker, { backgroundColor: colors.background, borderColor: colors.border }]}
-                onPress={() => setShowPackageFilterDropdown(true)}
+                style={[styles.downloadFilterPicker, { 
+                  backgroundColor: colors.background, 
+                  borderColor: colors.border,
+                  opacity: !sourceServiceHasCatalogs ? 0.5 : 1
+                }]}
+                onPress={() => sourceServiceHasCatalogs && setShowPackageFilterDropdown(true)}
+                disabled={!sourceServiceHasCatalogs}
               >
                 <Text style={[styles.downloadFilterPickerText, { color: packageFilterForDuplicate ? colors.text : colors.textSecondary }]}>
                   {packageFilterForDuplicate || 'All Packages'}
                 </Text>
                 <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
+              {sourceServiceHasCatalogs && (
+                <Text style={[styles.downloadFilterHint, { color: colors.textSecondary }]}>
+                  Available: {sourceServicePackages.join(', ') || 'None'}
+                </Text>
+              )}
             </View>
 
             {/* Action Buttons */}
@@ -1098,9 +1151,12 @@ export default function CatalogScreen() {
                 <Text style={[styles.downloadDialogCancelText, { color: colors.text }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.downloadDialogConfirmButton, { backgroundColor: accentColor }]}
+                style={[
+                  styles.downloadDialogConfirmButton, 
+                  { backgroundColor: accentColor, opacity: isDuplicateServiceEnabled ? 1 : 0.5 }
+                ]}
                 onPress={handleConfirmDuplicateService}
-                disabled={duplicateServiceMutation.isPending}
+                disabled={!isDuplicateServiceEnabled}
               >
                 {duplicateServiceMutation.isPending ? (
                   <ActivityIndicator size="small" color="#fff" />
@@ -1130,19 +1186,28 @@ export default function CatalogScreen() {
         >
           <View style={[styles.dropdownContainer, { backgroundColor: colors.card }]}>
             <Text style={[styles.dropdownTitle, { color: colors.text }]}>Select Source Service</Text>
-            {services.map((service) => (
-              <TouchableOpacity
-                key={service}
-                style={styles.dropdownItem}
-                onPress={() => {
-                  setSourceServiceForDuplicate(service);
-                  setShowSourceServiceDropdown(false);
-                }}
-              >
-                <Text style={[styles.dropdownItemText, { color: colors.text }]}>{service}</Text>
-                {sourceServiceForDuplicate === service && <Ionicons name="checkmark" size={20} color={accentColor} />}
-              </TouchableOpacity>
-            ))}
+            {services.map((service) => {
+              const itemCount = serviceCatalogIndex[service]?.count || 0;
+              return (
+                <TouchableOpacity
+                  key={service}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    setSourceServiceForDuplicate(service);
+                    setPackageFilterForDuplicate('');
+                    setShowSourceServiceDropdown(false);
+                  }}
+                >
+                  <View style={styles.dropdownItemContent}>
+                    <Text style={[styles.dropdownItemText, { color: colors.text }]}>{service}</Text>
+                    <Text style={[styles.dropdownItemCount, { color: itemCount > 0 ? colors.textSecondary : '#dc2626' }]}>
+                      {itemCount > 0 ? `(${itemCount} items)` : '(no items)'}
+                    </Text>
+                  </View>
+                  {sourceServiceForDuplicate === service && <Ionicons name="checkmark" size={20} color={accentColor} />}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -1199,10 +1264,10 @@ export default function CatalogScreen() {
                 setShowPackageFilterDropdown(false);
               }}
             >
-              <Text style={[styles.dropdownItemText, { color: colors.text }]}>All Packages</Text>
+              <Text style={[styles.dropdownItemText, { color: colors.text }]}>All Packages ({sourceServicePackages.length} available)</Text>
               {!packageFilterForDuplicate && <Ionicons name="checkmark" size={20} color={accentColor} />}
             </TouchableOpacity>
-            {packages.map((pkg) => (
+            {sourceServicePackages.map((pkg) => (
               <TouchableOpacity
                 key={pkg}
                 style={styles.dropdownItem}
@@ -1540,6 +1605,22 @@ const styles = StyleSheet.create({
   },
   dropdownItemText: {
     fontSize: 16,
+  },
+  dropdownItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dropdownItemCount: {
+    fontSize: 12,
+  },
+  validationError: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  downloadFilterHint: {
+    fontSize: 12,
+    marginTop: 4,
   },
   modalContainer: {
     flex: 1,
