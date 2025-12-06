@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Trash2, Download, Filter } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Download, Filter, Copy, CopyPlus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
@@ -61,6 +61,20 @@ export default function Catalog() {
   const [downloadServiceFilter, setDownloadServiceFilter] = useState<string>("all");
   const [downloadPackageFilter, setDownloadPackageFilter] = useState<string>("all");
   const [downloadAvailabilityError, setDownloadAvailabilityError] = useState<string>("");
+
+  // Duplicate item state
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [duplicatingItem, setDuplicatingItem] = useState<CatalogItem | null>(null);
+  const [duplicateFormData, setDuplicateFormData] = useState({
+    serviceType: "",
+    package: "",
+  });
+
+  // Duplicate service state
+  const [duplicateServiceDialogOpen, setDuplicateServiceDialogOpen] = useState(false);
+  const [sourceService, setSourceService] = useState<string>("");
+  const [targetService, setTargetService] = useState<string>("");
+  const [duplicatePackageFilter, setDuplicatePackageFilter] = useState<string>("all");
 
   const { data: catalogItems = [], isLoading } = useQuery<CatalogItem[]>({
     queryKey: ["/api/catalog"],
@@ -122,6 +136,54 @@ export default function Catalog() {
         title: "Success",
         description: "Catalog item deleted successfully",
       });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Duplicate single item mutation
+  const duplicateMutation = useMutation({
+    mutationFn: async ({ id, overrides }: { id: string; overrides?: { serviceType?: string; package?: string } }) => {
+      await apiRequest("POST", `/api/catalog/${id}/duplicate`, overrides || {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/catalog"] });
+      toast({
+        title: "Success",
+        description: "Catalog item duplicated successfully",
+      });
+      setDuplicateDialogOpen(false);
+      setDuplicatingItem(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Duplicate service mutation (copy all items from one service to another)
+  const duplicateServiceMutation = useMutation({
+    mutationFn: async (data: { sourceService: string; targetService: string; packageFilter?: string }) => {
+      return await apiRequest("POST", "/api/catalog/duplicate-service", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/catalog"] });
+      toast({
+        title: "Success",
+        description: "Service items duplicated successfully",
+      });
+      setDuplicateServiceDialogOpen(false);
+      setSourceService("");
+      setTargetService("");
+      setDuplicatePackageFilter("all");
     },
     onError: (error: Error) => {
       toast({
@@ -206,6 +268,61 @@ export default function Catalog() {
       price: "",
     });
     setDialogOpen(true);
+  };
+
+  // Quick duplicate (same service/package)
+  const handleQuickDuplicate = (item: CatalogItem) => {
+    duplicateMutation.mutate({ id: item.id });
+  };
+
+  // Duplicate with options dialog
+  const handleDuplicateWithOptions = (item: CatalogItem) => {
+    setDuplicatingItem(item);
+    setDuplicateFormData({
+      serviceType: item.serviceType,
+      package: item.package,
+    });
+    setDuplicateDialogOpen(true);
+  };
+
+  const handleDuplicateSubmit = () => {
+    if (!duplicatingItem) return;
+    
+    const overrides: { serviceType?: string; package?: string } = {};
+    if (duplicateFormData.serviceType !== duplicatingItem.serviceType) {
+      overrides.serviceType = duplicateFormData.serviceType;
+    }
+    if (duplicateFormData.package !== duplicatingItem.package) {
+      overrides.package = duplicateFormData.package;
+    }
+    
+    duplicateMutation.mutate({ id: duplicatingItem.id, overrides });
+  };
+
+  const handleDuplicateServiceSubmit = () => {
+    if (!sourceService || !targetService) {
+      toast({
+        title: "Error",
+        description: "Please select both source and target services",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (sourceService === targetService) {
+      toast({
+        title: "Error", 
+        description: "Source and target services cannot be the same",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    duplicateServiceMutation.mutate({
+      sourceService,
+      targetService,
+      packageFilter: duplicatePackageFilter === "all" ? undefined : duplicatePackageFilter,
+    });
   };
 
   const handleOpenDownloadDialog = () => {
@@ -325,7 +442,11 @@ export default function Catalog() {
             Manage your service packages and offerings
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={() => setDuplicateServiceDialogOpen(true)} data-testid="button-duplicate-service">
+            <CopyPlus className="h-4 w-4 mr-2" />
+            Duplicate Service
+          </Button>
           <Button variant="outline" onClick={handleOpenDownloadDialog} data-testid="button-download-catalog">
             <Download className="h-4 w-4 mr-2" />
             Download PDF
@@ -463,6 +584,15 @@ export default function Catalog() {
                                       <Button
                                         size="icon"
                                         variant="ghost"
+                                        onClick={() => handleQuickDuplicate(item)}
+                                        title="Quick duplicate"
+                                        data-testid={`button-duplicate-${item.id}`}
+                                      >
+                                        <Copy className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
                                         onClick={() => handleEdit(item)}
                                         data-testid={`button-edit-${item.id}`}
                                       >
@@ -516,6 +646,15 @@ export default function Catalog() {
                         {formatIndianCurrency(parseFloat(item.price || '0'))}
                       </p>
                       <div className="flex gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleDuplicateWithOptions(item)}
+                          title="Duplicate with options"
+                          data-testid={`button-duplicate-options-${item.id}`}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"
@@ -725,6 +864,180 @@ export default function Catalog() {
               >
                 <Download className="h-4 w-4 mr-2" />
                 Download
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Duplicate Item Dialog */}
+      <Dialog open={duplicateDialogOpen} onOpenChange={(open) => {
+        setDuplicateDialogOpen(open);
+        if (!open) setDuplicatingItem(null);
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Duplicate Catalog Item</DialogTitle>
+            <DialogDescription>
+              Duplicate "{duplicatingItem?.itemName}" to a different service or package
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="duplicateService">Target Service</Label>
+              <Select 
+                value={duplicateFormData.serviceType} 
+                onValueChange={(value) => setDuplicateFormData({ ...duplicateFormData, serviceType: value })}
+              >
+                <SelectTrigger data-testid="select-duplicate-service">
+                  <SelectValue placeholder="Select service" />
+                </SelectTrigger>
+                <SelectContent>
+                  {services.map((service) => (
+                    <SelectItem key={service} value={service}>
+                      {service}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="duplicatePackage">Target Package</Label>
+              <Select 
+                value={duplicateFormData.package} 
+                onValueChange={(value) => setDuplicateFormData({ ...duplicateFormData, package: value })}
+              >
+                <SelectTrigger data-testid="select-duplicate-package">
+                  <SelectValue placeholder="Select package" />
+                </SelectTrigger>
+                <SelectContent>
+                  {packages.map((pkg) => (
+                    <SelectItem key={pkg} value={pkg}>
+                      {pkg}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDuplicateDialogOpen(false);
+                  setDuplicatingItem(null);
+                }}
+                data-testid="button-cancel-duplicate"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleDuplicateSubmit}
+                disabled={duplicateMutation.isPending}
+                data-testid="button-confirm-duplicate"
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                {duplicateMutation.isPending ? "Duplicating..." : "Duplicate"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Duplicate Service Dialog */}
+      <Dialog open={duplicateServiceDialogOpen} onOpenChange={setDuplicateServiceDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Duplicate Service Items</DialogTitle>
+            <DialogDescription>
+              Copy all catalog items from one service to another
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="sourceService">Source Service</Label>
+              <Select 
+                value={sourceService} 
+                onValueChange={setSourceService}
+              >
+                <SelectTrigger data-testid="select-source-service">
+                  <SelectValue placeholder="Select source service" />
+                </SelectTrigger>
+                <SelectContent>
+                  {services.map((service) => (
+                    <SelectItem key={service} value={service}>
+                      {service}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="targetService">Target Service</Label>
+              <Select 
+                value={targetService} 
+                onValueChange={setTargetService}
+              >
+                <SelectTrigger data-testid="select-target-service">
+                  <SelectValue placeholder="Select target service" />
+                </SelectTrigger>
+                <SelectContent>
+                  {services.map((service) => (
+                    <SelectItem key={service} value={service}>
+                      {service}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="packageFilter">Package Filter (Optional)</Label>
+              <Select 
+                value={duplicatePackageFilter} 
+                onValueChange={setDuplicatePackageFilter}
+              >
+                <SelectTrigger data-testid="select-duplicate-package-filter">
+                  <SelectValue placeholder="All Packages" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Packages</SelectItem>
+                  {packages.map((pkg) => (
+                    <SelectItem key={pkg} value={pkg}>
+                      {pkg}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Optionally filter to only duplicate items from a specific package
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDuplicateServiceDialogOpen(false);
+                  setSourceService("");
+                  setTargetService("");
+                  setDuplicatePackageFilter("all");
+                }}
+                data-testid="button-cancel-duplicate-service"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleDuplicateServiceSubmit}
+                disabled={duplicateServiceMutation.isPending || !sourceService || !targetService}
+                data-testid="button-confirm-duplicate-service"
+              >
+                <CopyPlus className="h-4 w-4 mr-2" />
+                {duplicateServiceMutation.isPending ? "Duplicating..." : "Duplicate Service"}
               </Button>
             </div>
           </div>
