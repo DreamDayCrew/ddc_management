@@ -51,6 +51,7 @@ import { RequirementForm } from "@/components/forms/requirement-form";
 import { FulfillmentForm } from "@/components/forms/fulfillment-form";
 import { RequirementItem } from "@/components/requirement-item";
 import { InvoiceTemplate } from "@/components/invoice-template";
+import { EventGallery } from "@/components/event-gallery";
 import { RefreshCcwDot, ArrowLeft, FileDown, FileText, Upload, Calendar, MapPin, Link, User, Plus, Edit, Trash2, SquareUserRound, Mail, MapPinHouse, BadgeIndianRupee, ChartColumn, HeartHandshake, HeartCrack, Meh, Smile, SmilePlus } from "lucide-react";
 import { format } from "date-fns";
 
@@ -693,6 +694,9 @@ export default function EventDetails() {
               )}
             </PDFDownloadLink>
           )}
+          
+          {/* Event Gallery - Shows all images from requirements */}
+          <EventGallery requirements={requirements} eventName={event.eventName} />
           
           <Dialog open={editEventOpen} onOpenChange={setEditEventOpen}>
             <DialogTrigger asChild>

@@ -24,6 +24,7 @@ import AddRequirementModal from '../components/AddRequirementModal';
 import AddPlanModal from '../components/AddPlanModal';
 import AddEventModal from '../components/AddEventModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import EventGalleryModal from '../components/EventGalleryModal';
 
 type Props = NativeStackScreenProps<EventsStackParamList, 'EventDetails'>;
 
@@ -59,6 +60,7 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
   const [selectedPlan, setSelectedPlan] = useState<FulfillmentPlan | undefined>();
   const [selectedRequirementId, setSelectedRequirementId] = useState<string | null>(null);
   const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set());
+  const [galleryModalVisible, setGalleryModalVisible] = useState(false);
 
   // Fetch event data
   const { data: event, isLoading: eventLoading, refetch: refetchEvent } = useQuery({
@@ -538,6 +540,13 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.iconButton, { backgroundColor: colors.surface }]}
+              onPress={() => setGalleryModalVisible(true)}
+              data-testid="button-event-gallery"
+            >
+              <Ionicons name="images-outline" size={22} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.iconButton, { backgroundColor: colors.surface }]}
               onPress={handleDeleteEvent}
               data-testid="button-delete-event"
             >
@@ -1000,6 +1009,14 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
           </View>
         </View>
       </Modal>
+
+      {/* Event Gallery Modal */}
+      <EventGalleryModal
+        visible={galleryModalVisible}
+        onClose={() => setGalleryModalVisible(false)}
+        requirements={requirements}
+        eventName={event?.eventName}
+      />
     </ScrollView>
   );
 }
