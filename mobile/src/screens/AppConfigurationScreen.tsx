@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
   ActivityIndicator,
   TextInput,
   Modal,
@@ -15,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useSecurity } from '../contexts';
 import { useTheme } from '../contexts';
+import InfoDialog from '../components/InfoDialog';
 
 const BRAND_MAROON = '#800020';
 
@@ -33,6 +33,20 @@ export default function AppConfigurationScreen({ navigation }: any) {
   const [confirmPinCode, setConfirmPinCode] = useState('');
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [showEmergencyResetConfirm, setShowEmergencyResetConfirm] = useState(false);
+  const [infoDialog, setInfoDialog] = useState<{ visible: boolean; title: string; message: string; type: 'error' | 'warning' | 'info' }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'error'
+  });
+
+  const showInfoDialog = (title: string, message: string, type: 'error' | 'warning' | 'info' = 'error') => {
+    setInfoDialog({ visible: true, title, message, type });
+  };
+
+  const hideInfoDialog = () => {
+    setInfoDialog({ ...infoDialog, visible: false });
+  };
 
   useEffect(() => {
     checkBiometricAvailability();
@@ -53,52 +67,40 @@ export default function AppConfigurationScreen({ navigation }: any) {
 
   const handleDarkModeToggle = (value: boolean) => {
     setTheme(value ? 'dark' : 'light');
-    Alert.alert('Success', `Dark mode ${value ? 'enabled' : 'disabled'}`);
   };
 
   const handleBiometricToggle = async (value: boolean) => {
     if (value) {
-      // Check if PIN is enabled - only one security method allowed
       if (securitySettings.pinEnabled) {
-        Alert.alert(
+        showInfoDialog(
           'PIN Authentication Active',
           'Please disable PIN authentication first. Only one security method can be enabled at a time.',
-          [{ text: 'OK', style: 'default' }]
+          'warning'
         );
         return;
       }
 
       try {
-        // Check if device supports biometric authentication
         const hasHardware = await LocalAuthentication.hasHardwareAsync();
         if (!hasHardware) {
-          Alert.alert(
+          showInfoDialog(
             'Not Supported',
-            'Your device does not support biometric authentication.'
+            'Your device does not support biometric authentication.',
+            'error'
           );
           return;
         }
 
-        // Check if biometric records are enrolled
         const isEnrolled = await LocalAuthentication.isEnrolledAsync();
         if (!isEnrolled) {
-          Alert.alert(
+          showInfoDialog(
             'No Biometrics Enrolled',
             'Please set up fingerprint or face recognition in your device settings first.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { 
-                text: 'Settings', 
-                onPress: () => {
-                  Alert.alert('Setup Required', 'Please go to your device Settings to set up biometric authentication.');
-                }
-              }
-            ]
+            'warning'
           );
           return;
         }
 
-        // Get supported authentication types
         const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
         let authTypeText = 'biometric';
         if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
@@ -107,7 +109,6 @@ export default function AppConfigurationScreen({ navigation }: any) {
           authTypeText = 'fingerprint';
         }
 
-        // Test biometric authentication
         const result = await LocalAuthentication.authenticateAsync({
           promptMessage: `Use your ${authTypeText} to enable biometric security`,
           cancelLabel: 'Cancel',
@@ -118,49 +119,45 @@ export default function AppConfigurationScreen({ navigation }: any) {
           await updateSecuritySettings({ 
             ...securitySettings, 
             biometricEnabled: true,
-            pinEnabled: false, // Disable PIN
+            pinEnabled: false,
             pinCode: undefined
           });
-          Alert.alert('Success', `${authTypeText} authentication enabled successfully!`);
         } else {
-          Alert.alert('Authentication Failed', 'Biometric authentication was not successful.');
+          showInfoDialog('Authentication Failed', 'Biometric authentication was not successful.', 'error');
         }
       } catch (error) {
         console.error('Biometric authentication error:', error);
-        Alert.alert('Error', 'Failed to setup biometric authentication. Please try again.');
+        showInfoDialog('Error', 'Failed to setup biometric authentication. Please try again.', 'error');
       }
     } else {
       await updateSecuritySettings({ ...securitySettings, biometricEnabled: false });
-      Alert.alert('Success', 'Biometric authentication disabled');
     }
   };
 
   const handlePinToggle = (value: boolean) => {
     if (value) {
-      // Check if biometric is enabled - only one security method allowed
       if (securitySettings.biometricEnabled) {
-        Alert.alert(
+        showInfoDialog(
           'Biometric Authentication Active',
           'Please disable biometric authentication first. Only one security method can be enabled at a time.',
-          [{ text: 'OK', style: 'default' }]
+          'warning'
         );
         return;
       }
       setShowPinSetup(true);
     } else {
       updateSecuritySettings({ ...securitySettings, pinEnabled: false, pinCode: undefined });
-      Alert.alert('Success', 'PIN authentication disabled');
     }
   };
 
   const handlePinSetup = async () => {
     if (pinCode.length !== 4) {
-      Alert.alert('Error', 'PIN must be 4 digits');
+      showInfoDialog('Error', 'PIN must be 4 digits', 'error');
       return;
     }
 
     if (pinCode !== confirmPinCode) {
-      Alert.alert('Error', 'PIN codes do not match');
+      showInfoDialog('Error', 'PIN codes do not match', 'error');
       return;
     }
 
@@ -169,14 +166,13 @@ export default function AppConfigurationScreen({ navigation }: any) {
         ...securitySettings, 
         pinEnabled: true, 
         pinCode,
-        biometricEnabled: false // Disable biometric
+        biometricEnabled: false
       });
       setShowPinSetup(false);
       setPinCode('');
       setConfirmPinCode('');
-      Alert.alert('Success', 'PIN authentication enabled successfully!');
     } catch (error) {
-      Alert.alert('Error', 'Failed to enable PIN authentication. Please try again.');
+      showInfoDialog('Error', 'Failed to enable PIN authentication. Please try again.', 'error');
     }
   };
 
@@ -194,13 +190,9 @@ export default function AppConfigurationScreen({ navigation }: any) {
         pinCode: undefined
       });
       setShowEmergencyResetConfirm(false);
-      Alert.alert(
-        'Security Reset Complete',
-        'All security features have been disabled. You can set up new security in App Configuration.'
-      );
     } catch (error) {
       console.error('Error resetting security:', error);
-      Alert.alert('Error', 'Failed to reset security. Please try again.');
+      showInfoDialog('Error', 'Failed to reset security. Please try again.', 'error');
     }
   };
 
@@ -416,6 +408,14 @@ export default function AppConfigurationScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
+
+      <InfoDialog
+        visible={infoDialog.visible}
+        title={infoDialog.title}
+        message={infoDialog.message}
+        type={infoDialog.type}
+        onClose={hideInfoDialog}
+      />
 
         {/*<View style={styles.section}>
         <Text style={styles.sectionTitle}>Settings Status</Text>
