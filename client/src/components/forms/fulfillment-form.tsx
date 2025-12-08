@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -30,6 +30,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface FulfillmentFormProps {
   plan?: FulfillmentPlan;
@@ -41,6 +56,7 @@ interface FulfillmentFormProps {
 export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: FulfillmentFormProps) {
   const { toast } = useToast();
   const isEditing = !!plan;
+  const [assetOpen, setAssetOpen] = useState(false);
 
   const { data: config } = useQuery<Configuration>({
     queryKey: ["/api/configuration"],
@@ -531,38 +547,73 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
             <FormField
               control={form.control}
               name="assetId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Asset</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    value={field.value || ""}
-                    disabled={!selectedAssetCategory || planType !== "Asset"}
-                  >
-                    <FormControl>
-                      <SelectTrigger data-testid="select-asset">
-                        <SelectValue 
-                          placeholder={
-                            !selectedAssetCategory 
+              render={({ field }) => {
+                const selectedAsset = filteredAssets.find(a => a.id === field.value);
+                return (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Asset</FormLabel>
+                    <Popover open={assetOpen} onOpenChange={setAssetOpen}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={assetOpen}
+                            disabled={!selectedAssetCategory || planType !== "Asset"}
+                            className={cn(
+                              "w-full justify-between font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            data-testid="select-asset"
+                          >
+                            {!selectedAssetCategory 
                               ? "Select an asset category first" 
                               : filteredAssets.length === 0 
-                                ? "No assets available for this category"
-                                : "Select asset"
-                          } 
-                        />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {filteredAssets.map((asset) => (
-                        <SelectItem key={asset.id} value={asset.id}>
-                          {asset.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+                                ? "No assets available"
+                                : selectedAsset 
+                                  ? selectedAsset.name 
+                                  : "Search and select asset..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command>
+                          <CommandInput 
+                            placeholder="Search assets..." 
+                            data-testid="input-asset-search"
+                          />
+                          <CommandList>
+                            <CommandEmpty>No asset found.</CommandEmpty>
+                            <CommandGroup>
+                              {filteredAssets.map((asset) => (
+                                <CommandItem
+                                  key={asset.id}
+                                  value={asset.name}
+                                  onSelect={() => {
+                                    field.onChange(asset.id);
+                                    setAssetOpen(false);
+                                  }}
+                                  data-testid={`asset-option-${asset.id}`}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      field.value === asset.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {asset.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
 
             <FormField
