@@ -440,16 +440,10 @@ export default function CatalogScreen() {
               <Ionicons name="git-branch-outline" size={18} color={colors.text} />
             </TouchableOpacity>
             <TouchableOpacity 
-              onPress={() => handleEdit(item)}
-              style={styles.actionButton}
-            >
-              <Ionicons name="pencil" size={18} color={colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity 
               onPress={() => handleDelete(item)}
-              style={styles.actionButton}
+              style={[styles.deleteButton, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : 'rgba(220, 38, 38, 0.1)' }]}
             >
-              <Ionicons name="trash-outline" size={18} color={isDark ? '#f87171' : '#ef4444'} />
+              <Ionicons name="trash-outline" size={18} color={isDark ? '#ef4444' : '#dc2626'} />
             </TouchableOpacity>
           </View>
         </View>
@@ -459,7 +453,7 @@ export default function CatalogScreen() {
             {item.description}
           </Text>
         )}
-        <Text style={styles.priceText}>{formatIndianCurrency(parseFloat(item.price || '0'))}</Text>
+        <Text style={[styles.priceText, { color: colors.text }]}>{formatIndianCurrency(parseFloat(item.price || '0'))}</Text>
       </TouchableOpacity>
     );
   };
@@ -1453,7 +1447,15 @@ const styles = StyleSheet.create({
   },
   listItemActions: {
     flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
     gap: 8,
+  },
+  deleteButton: {
+    padding: 8,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   actionButton: {
     padding: 4,

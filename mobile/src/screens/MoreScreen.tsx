@@ -60,18 +60,9 @@ export default function MoreScreen({ navigation }: any) {
   const { colors, isDark } = useTheme();
 
   const handleLogout = () => {
-    console.log('Lock App button pressed'); // Debug log
-    console.log('Security settings:', securitySettings); // Debug log
     
     if (securitySettings.pinEnabled || securitySettings.biometricEnabled) {
-      // Direct logout for testing - remove alert temporarily
-      console.log('Calling logout directly'); // Debug log
       logout();
-      
-      // Show alert after logout to confirm it worked
-      setTimeout(() => {
-        Alert.alert('Debug', 'Logout function was called. Check if authentication screen appeared.');
-      }, 500);
     } else {
       Alert.alert(
         'No Security Enabled', 
@@ -146,7 +137,7 @@ export default function MoreScreen({ navigation }: any) {
 
       <View style={styles.footer}>
         <Text style={[styles.footerText, { color: colors.text }]}>Dream Day Crew</Text>
-        <Text style={[styles.footerSubtext, { color: colors.textSecondary }]}>Event Management System v1.0.13</Text>
+        <Text style={[styles.footerSubtext, { color: colors.textSecondary }]}>Event Management System v1.0.14</Text>
       </View>
     </ScrollView>
   );
