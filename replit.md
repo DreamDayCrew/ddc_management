@@ -30,11 +30,21 @@ The mobile application is built with React Native and Expo, sharing TypeScript t
 
 Both web and mobile applications adopt a consistent maroon color scheme. The web app supports dark mode and features responsive sidebar navigation. The mobile app uses bottom tab navigation, professional Ionicons, and floating action buttons (FABs). Specific UI elements like StarRating components for reviews and dynamic column rendering in invoices based on data presence (e.g., DISCOUNT column) enhance user experience. Configuration screens allow for branding customization including logo, signature, and terms & conditions.
 
+### Image Management
+
+Requirement images are available only for completed events. Key features:
+- **Upload**: Maximum 5 images per requirement, supports JPEG/PNG/GIF/WebP (max 5MB each)
+- **Storage**: Images uploaded to Cloudinary cloud storage, URLs stored in database
+- **Web Viewer**: Click to enlarge with lightbox dialog, delete confirmation dialog
+- **Mobile Viewer**: Full-screen viewing with pinch-to-zoom (ImageViewer component), swipe navigation for multiple images
+- **Delete**: Available from both thumbnail grid and full-screen viewer, with confirmation dialog
+
 ## External Dependencies
 
 ### Third-Party Services
 
 -   **Neon Database**: Serverless PostgreSQL hosting for all persistent data storage, accessed via `@neondatabase/serverless`.
+-   **Cloudinary**: Cloud-based image storage for requirement images. Images are uploaded via the backend API using multer memory storage, then sent to Cloudinary. Full URLs are stored in the database. Credentials stored as secrets: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
 
 ### Key NPM Packages
 

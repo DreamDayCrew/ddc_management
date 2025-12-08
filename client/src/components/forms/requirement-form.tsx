@@ -22,6 +22,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Trash2 } from "lucide-react";
+import {
   Form,
   FormControl,
   FormField,
@@ -52,6 +60,10 @@ export function RequirementForm({ requirement, eventId, onSuccess, isEventComple
   const [images, setImages] = useState<string[]>(requirement?.images || []);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [imageToDelete, setImageToDelete] = useState<string | null>(null);
 
   const { data: config } = useQuery<Configuration>({
     queryKey: ["/api/configuration"],
@@ -525,14 +537,27 @@ export function RequirementForm({ requirement, eventId, onSuccess, isEventComple
               <div className="grid grid-cols-5 gap-2">
                 {images.map((imageUrl, index) => (
                   <div key={index} className="relative group aspect-square">
-                    <img
-                      src={imageUrl}
-                      alt={`Requirement image ${index + 1}`}
-                      className="w-full h-full object-cover rounded-md border"
-                    />
                     <button
                       type="button"
-                      onClick={() => handleDeleteImage(imageUrl)}
+                      onClick={() => {
+                        setSelectedImage(imageUrl);
+                        setShowImageViewer(true);
+                      }}
+                      className="w-full h-full cursor-pointer"
+                      data-testid={`button-view-image-${index}`}
+                    >
+                      <img
+                        src={imageUrl}
+                        alt={`Requirement image ${index + 1}`}
+                        className="w-full h-full object-cover rounded-md border hover:opacity-90 transition-opacity"
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageToDelete(imageUrl);
+                        setShowDeleteConfirm(true);
+                      }}
                       className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                       data-testid={`button-delete-image-${index}`}
                     >
@@ -599,6 +624,82 @@ export function RequirementForm({ requirement, eventId, onSuccess, isEventComple
         <AlertDialogFooter>
           <AlertDialogCancel onClick={handleDiscountAlertCancel}>Cancel</AlertDialogCancel>
           <AlertDialogAction onClick={handleDiscountAlertConfirm}>Continue</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* Image Viewer Dialog */}
+    <Dialog open={showImageViewer} onOpenChange={setShowImageViewer}>
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+        <DialogHeader className="p-4 pb-0">
+          <DialogTitle>View Image</DialogTitle>
+        </DialogHeader>
+        <div className="flex items-center justify-center p-4 bg-muted/50">
+          {selectedImage && (
+            <img
+              src={selectedImage}
+              alt="Full size view"
+              className="max-w-full max-h-[70vh] object-contain rounded-md"
+              data-testid="img-viewer-full"
+            />
+          )}
+        </div>
+        <DialogFooter className="p-4 pt-0">
+          <Button
+            variant="destructive"
+            onClick={() => {
+              if (selectedImage) {
+                setImageToDelete(selectedImage);
+                setShowImageViewer(false);
+                setShowDeleteConfirm(true);
+              }
+            }}
+            data-testid="button-delete-from-viewer"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete Image
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowImageViewer(false);
+              setSelectedImage(null);
+            }}
+            data-testid="button-close-viewer"
+          >
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Delete Image Confirmation Dialog */}
+    <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Image</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to delete this image? This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => {
+            setShowDeleteConfirm(false);
+            setImageToDelete(null);
+          }}>Cancel</AlertDialogCancel>
+          <AlertDialogAction 
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => {
+              if (imageToDelete) {
+                handleDeleteImage(imageToDelete);
+                setShowDeleteConfirm(false);
+                setImageToDelete(null);
+              }
+            }}
+            data-testid="button-confirm-delete-image"
+          >
+            Delete
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

@@ -8,7 +8,6 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Image,
@@ -19,6 +18,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { api } from '../lib/api';
 import { Switch } from './Switch';
 import { useTheme } from '../contexts';
+import ImageViewer from './ImageViewer';
+import InfoDialog from './InfoDialog';
+import ConfirmDialog from './ConfirmDialog';
 
 interface AddRequirementModalProps {
   visible: boolean;
@@ -59,6 +61,18 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
   const [images, setImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const isEditing = !!requirement;
+
+  // Image viewer states
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  const [imageToDelete, setImageToDelete] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [infoDialog, setInfoDialog] = useState<{ visible: boolean; title: string; message: string; type: 'error' | 'warning' | 'info' }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'error'
+  });
 
   // Dropdown states
   const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
@@ -120,10 +134,14 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
     setImages([]);
   };
 
+  const showInfoDialogMessage = (title: string, message: string, type: 'error' | 'warning' | 'info' = 'error') => {
+    setInfoDialog({ visible: true, title, message, type });
+  };
+
   // Image picker handler
   const handlePickImage = async () => {
     if (images.length >= 5) {
-      Alert.alert('Limit Reached', 'Maximum 5 images allowed per requirement');
+      showInfoDialogMessage('Limit Reached', 'Maximum 5 images allowed per requirement', 'warning');
       return;
     }
 
@@ -139,7 +157,7 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
     }
   };
 
-  // Upload images to server
+  // Upload images to server (Cloudinary)
   const uploadImages = async (assets: ImagePicker.ImagePickerAsset[]) => {
     if (!requirement?.id) return;
 
@@ -162,38 +180,50 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
       const response = await api.uploadRequirementImages(requirement.id, formData);
       setImages(response.images || []);
       queryClient.invalidateQueries({ queryKey: ['requirements', eventId] });
-      Alert.alert('Success', `${assets.length} image(s) uploaded successfully`);
     } catch (error: any) {
-      Alert.alert('Upload Failed', error.message || 'Failed to upload images');
+      showInfoDialogMessage('Upload Failed', error.message || 'Failed to upload images', 'error');
     } finally {
       setIsUploading(false);
     }
   };
 
-  // Delete image handler
-  const handleDeleteImage = async (imageUrl: string) => {
-    if (!requirement?.id) return;
+  // View image in full screen
+  const handleViewImage = (imageUrl: string) => {
+    setSelectedImage(api.getImageUrl(imageUrl));
+    setShowImageViewer(true);
+  };
 
-    Alert.alert(
-      'Delete Image',
-      'Are you sure you want to delete this image?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await api.deleteRequirementImage(requirement.id, imageUrl);
-              setImages(response.images || []);
-              queryClient.invalidateQueries({ queryKey: ['requirements', eventId] });
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to delete image');
-            }
-          },
-        },
-      ]
-    );
+  // Delete image handler - show confirmation
+  const handleDeleteImage = (imageUrl: string) => {
+    if (!requirement?.id) return;
+    setImageToDelete(imageUrl);
+    setShowDeleteConfirm(true);
+  };
+
+  // Confirm delete image
+  const confirmDeleteImage = async () => {
+    if (!requirement?.id || !imageToDelete) return;
+    
+    setShowDeleteConfirm(false);
+    try {
+      const response = await api.deleteRequirementImage(requirement.id, imageToDelete);
+      setImages(response.images || []);
+      queryClient.invalidateQueries({ queryKey: ['requirements', eventId] });
+      setImageToDelete(null);
+      setShowImageViewer(false);
+    } catch (error: any) {
+      showInfoDialogMessage('Error', error.message || 'Failed to delete image', 'error');
+    }
+  };
+
+  // Delete from image viewer
+  const handleDeleteFromViewer = () => {
+    if (selectedImage) {
+      const originalUrl = images.find(img => api.getImageUrl(img) === selectedImage);
+      if (originalUrl) {
+        handleDeleteImage(originalUrl);
+      }
+    }
   };
 
   const closeDropdowns = () => {
@@ -203,7 +233,7 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
 
   const handleSubmit = () => {
     if (!formData.requirement.trim()) {
-      Alert.alert('Error', 'Please enter requirement name');
+      showInfoDialogMessage('Error', 'Please enter requirement name', 'error');
       return;
     }
 
@@ -415,13 +445,19 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
                   <View style={styles.imageGrid}>
                     {images.map((imageUrl, index) => (
                       <View key={index} style={styles.imageContainer}>
-                        <Image
-                          source={{ uri: api.getImageUrl(imageUrl) }}
-                          style={styles.imagePreview}
-                        />
+                        <TouchableOpacity
+                          onPress={() => handleViewImage(imageUrl)}
+                          data-testid={`button-view-image-${index}`}
+                        >
+                          <Image
+                            source={{ uri: api.getImageUrl(imageUrl) }}
+                            style={styles.imagePreview}
+                          />
+                        </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.deleteImageButton}
                           onPress={() => handleDeleteImage(imageUrl)}
+                          data-testid={`button-delete-image-${index}`}
                         >
                           <Ionicons name="close-circle" size={24} color="#ef4444" />
                         </TouchableOpacity>
@@ -541,6 +577,42 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
         </TouchableOpacity>
       </TouchableOpacity>
       </KeyboardAvoidingView>
+
+      {/* Image Viewer Modal */}
+      <ImageViewer
+        visible={showImageViewer}
+        imageUrl={selectedImage || ''}
+        onClose={() => {
+          setShowImageViewer(false);
+          setSelectedImage(null);
+        }}
+        onDelete={handleDeleteFromViewer}
+        showDeleteButton={true}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        visible={showDeleteConfirm}
+        title="Delete Image"
+        message="Are you sure you want to delete this image? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDeleteImage}
+        onCancel={() => {
+          setShowDeleteConfirm(false);
+          setImageToDelete(null);
+        }}
+        confirmStyle="destructive"
+      />
+
+      {/* Info Dialog for errors/warnings */}
+      <InfoDialog
+        visible={infoDialog.visible}
+        title={infoDialog.title}
+        message={infoDialog.message}
+        type={infoDialog.type}
+        onClose={() => setInfoDialog({ ...infoDialog, visible: false })}
+      />
     </Modal>
   );
 }

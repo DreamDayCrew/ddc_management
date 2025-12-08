@@ -10,26 +10,19 @@ import React from 'react';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { v2 as cloudinary } from 'cloudinary';
 
-// Configure multer for file uploads
-const uploadsDir = path.join(process.cwd(), 'uploads', 'requirements');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-const requirementStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, `req-${req.params.id}-${uniqueSuffix}${path.extname(file.originalname)}`);
-  }
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Configure multer for memory storage (for Cloudinary upload)
 const uploadRequirementImages = multer({
-  storage: requirementStorage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 3 * 1024 * 1024 }, // 3MB limit per image
   fileFilter: (_req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -40,6 +33,40 @@ const uploadRequirementImages = multer({
     cb(new Error('Only image files are allowed!'));
   }
 }).array('images', 5); // Max 5 images
+
+// Helper function to upload buffer to Cloudinary
+const uploadToCloudinary = (buffer: Buffer, folder: string): Promise<{ secure_url: string; public_id: string }> => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: folder,
+        resource_type: 'image',
+        transformation: [
+          { width: 1200, height: 1200, crop: 'limit' }, // Resize large images
+          { quality: 'auto:good' }, // Auto quality optimization
+          { fetch_format: 'auto' } // Auto format (webp for modern browsers)
+        ]
+      },
+      (error, result) => {
+        if (error) reject(error);
+        else if (result) resolve({ secure_url: result.secure_url, public_id: result.public_id });
+        else reject(new Error('Upload failed'));
+      }
+    );
+    uploadStream.end(buffer);
+  });
+};
+
+// Helper function to extract public_id from Cloudinary URL
+const getPublicIdFromUrl = (url: string): string | null => {
+  try {
+    // URL format: https://res.cloudinary.com/{cloud_name}/image/upload/v{version}/{folder}/{public_id}.{ext}
+    const match = url.match(/\/v\d+\/(.+)\.[^.]+$/);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+};
 import {
   insertConfigurationSchema,
   insertAssetSchema,
@@ -1117,17 +1144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Serve uploaded files statically
-  app.use('/uploads', (req, res, next) => {
-    const filePath = path.join(process.cwd(), 'uploads', req.path);
-    if (fs.existsSync(filePath)) {
-      res.sendFile(filePath);
-    } else {
-      res.status(404).json({ error: 'File not found' });
-    }
-  });
-
-  // Upload images for a requirement (max 5 images)
+  // Upload images for a requirement (max 5 images) - Using Cloudinary
   app.post("/api/requirements/:id/images", (req, res) => {
     uploadRequirementImages(req, res, async (err) => {
       if (err) {
@@ -1146,25 +1163,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Get existing requirement
         const existingRequirement = await storage.getRequirement(requirementId);
         if (!existingRequirement) {
-          // Delete uploaded files if requirement not found
-          files.forEach(file => fs.unlinkSync(file.path));
           return res.status(404).json({ error: "Requirement not found" });
         }
 
-        // Build image URLs
-        const newImageUrls = files.map(file => `/uploads/requirements/${file.filename}`);
         const existingImages = existingRequirement.images || [];
         
         // Check max 5 images limit
-        if (existingImages.length + newImageUrls.length > 5) {
-          // Delete uploaded files if limit exceeded
-          files.forEach(file => fs.unlinkSync(file.path));
+        if (existingImages.length + files.length > 5) {
           return res.status(400).json({ 
             error: `Cannot upload. Max 5 images allowed. Currently have ${existingImages.length}.`
           });
         }
 
-        // Update requirement with new images
+        // Upload files to Cloudinary
+        const uploadPromises = files.map(file => 
+          uploadToCloudinary(file.buffer, `dream-day-crew/requirements/${requirementId}`)
+        );
+        
+        const uploadResults = await Promise.all(uploadPromises);
+        const newImageUrls = uploadResults.map(result => result.secure_url);
+
+        // Update requirement with new Cloudinary URLs
         const updatedImages = [...existingImages, ...newImageUrls];
         const updated = await storage.updateRequirement(requirementId, { images: updatedImages });
         
@@ -1174,13 +1193,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: `${files.length} image(s) uploaded successfully`
         });
       } catch (error: any) {
-        console.error("Error saving image URLs:", error);
+        console.error("Error uploading to Cloudinary:", error);
         res.status(500).json({ error: error.message });
       }
     });
   });
 
-  // Delete an image from a requirement
+  // Delete an image from a requirement - Using Cloudinary
   app.delete("/api/requirements/:id/images", async (req, res) => {
     try {
       const requirementId = req.params.id;
@@ -1202,11 +1221,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Image not found in requirement" });
       }
 
-      // Delete the file from disk
-      const filename = imageUrl.replace('/uploads/requirements/', '');
-      const filePath = path.join(uploadsDir, filename);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+      // Delete from Cloudinary
+      const publicId = getPublicIdFromUrl(imageUrl);
+      if (publicId) {
+        try {
+          await cloudinary.uploader.destroy(publicId);
+        } catch (cloudinaryError) {
+          console.warn("Failed to delete from Cloudinary:", cloudinaryError);
+          // Continue even if Cloudinary delete fails - still update DB
+        }
       }
 
       // Update requirement
