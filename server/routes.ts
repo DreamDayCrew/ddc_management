@@ -7,6 +7,39 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import { ServerInvoiceTemplate } from './invoice-template';
 import { ServerCatalogTemplate } from './catalog-template';
 import React from 'react';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+
+// Configure multer for file uploads
+const uploadsDir = path.join(process.cwd(), 'uploads', 'requirements');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const requirementStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `req-${req.params.id}-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
+
+const uploadRequirementImages = multer({
+  storage: requirementStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (_req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error('Only image files are allowed!'));
+  }
+}).array('images', 5); // Max 5 images
 import {
   insertConfigurationSchema,
   insertAssetSchema,
@@ -1081,6 +1114,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Failed to delete requirement",
         details: error instanceof Error ? error.message : String(error)
       });
+    }
+  });
+
+  // Serve uploaded files statically
+  app.use('/uploads', (req, res, next) => {
+    const filePath = path.join(process.cwd(), 'uploads', req.path);
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath);
+    } else {
+      res.status(404).json({ error: 'File not found' });
+    }
+  });
+
+  // Upload images for a requirement (max 5 images)
+  app.post("/api/requirements/:id/images", (req, res) => {
+    uploadRequirementImages(req, res, async (err) => {
+      if (err) {
+        console.error("Image upload error:", err);
+        return res.status(400).json({ error: err.message });
+      }
+
+      try {
+        const requirementId = req.params.id;
+        const files = req.files as Express.Multer.File[];
+        
+        if (!files || files.length === 0) {
+          return res.status(400).json({ error: "No files uploaded" });
+        }
+
+        // Get existing requirement
+        const existingRequirement = await storage.getRequirement(requirementId);
+        if (!existingRequirement) {
+          // Delete uploaded files if requirement not found
+          files.forEach(file => fs.unlinkSync(file.path));
+          return res.status(404).json({ error: "Requirement not found" });
+        }
+
+        // Build image URLs
+        const newImageUrls = files.map(file => `/uploads/requirements/${file.filename}`);
+        const existingImages = existingRequirement.images || [];
+        
+        // Check max 5 images limit
+        if (existingImages.length + newImageUrls.length > 5) {
+          // Delete uploaded files if limit exceeded
+          files.forEach(file => fs.unlinkSync(file.path));
+          return res.status(400).json({ 
+            error: `Cannot upload. Max 5 images allowed. Currently have ${existingImages.length}.`
+          });
+        }
+
+        // Update requirement with new images
+        const updatedImages = [...existingImages, ...newImageUrls];
+        const updated = await storage.updateRequirement(requirementId, { images: updatedImages });
+        
+        res.json({ 
+          success: true, 
+          images: updated?.images || updatedImages,
+          message: `${files.length} image(s) uploaded successfully`
+        });
+      } catch (error: any) {
+        console.error("Error saving image URLs:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+  });
+
+  // Delete an image from a requirement
+  app.delete("/api/requirements/:id/images", async (req, res) => {
+    try {
+      const requirementId = req.params.id;
+      const { imageUrl } = req.body;
+
+      if (!imageUrl) {
+        return res.status(400).json({ error: "Image URL is required" });
+      }
+
+      const requirement = await storage.getRequirement(requirementId);
+      if (!requirement) {
+        return res.status(404).json({ error: "Requirement not found" });
+      }
+
+      const existingImages = requirement.images || [];
+      const updatedImages = existingImages.filter(img => img !== imageUrl);
+
+      if (existingImages.length === updatedImages.length) {
+        return res.status(404).json({ error: "Image not found in requirement" });
+      }
+
+      // Delete the file from disk
+      const filename = imageUrl.replace('/uploads/requirements/', '');
+      const filePath = path.join(uploadsDir, filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+
+      // Update requirement
+      await storage.updateRequirement(requirementId, { images: updatedImages });
+
+      res.json({ success: true, images: updatedImages });
+    } catch (error: any) {
+      console.error("Error deleting image:", error);
+      res.status(500).json({ error: error.message });
     }
   });
 

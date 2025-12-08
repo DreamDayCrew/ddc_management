@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Upload, X, Image as ImageIcon } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,13 +41,17 @@ interface RequirementFormProps {
   requirement?: Requirement;
   eventId: string;
   onSuccess?: () => void;
+  isEventCompleted?: boolean;
 }
 
-export function RequirementForm({ requirement, eventId, onSuccess }: RequirementFormProps) {
+export function RequirementForm({ requirement, eventId, onSuccess, isEventCompleted = false }: RequirementFormProps) {
   const { toast } = useToast();
   const isEditing = !!requirement;
   const [showDiscountAlert, setShowDiscountAlert] = useState(false);
   const [pendingDiscountChange, setPendingDiscountChange] = useState<boolean | null>(null);
+  const [images, setImages] = useState<string[]>(requirement?.images || []);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: config } = useQuery<Configuration>({
     queryKey: ["/api/configuration"],
@@ -194,6 +199,85 @@ export function RequirementForm({ requirement, eventId, onSuccess }: Requirement
       });
     },
   });
+
+  // Image upload handler
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0 || !requirement?.id) return;
+
+    const remainingSlots = 5 - images.length;
+    if (files.length > remainingSlots) {
+      toast({
+        title: "Too many images",
+        description: `You can only upload ${remainingSlots} more image(s). Max 5 images allowed.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    const formData = new FormData();
+    Array.from(files).forEach(file => {
+      formData.append('images', file);
+    });
+
+    try {
+      const response = await fetch(`/api/requirements/${requirement.id}/images`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to upload images');
+      }
+
+      setImages(result.images);
+      queryClient.invalidateQueries({ queryKey: ["/api/events", eventId, "requirements"] });
+      toast({
+        title: "Success",
+        description: result.message,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Upload Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Image delete handler
+  const handleDeleteImage = async (imageUrl: string) => {
+    if (!requirement?.id) return;
+
+    try {
+      const response = await apiRequest("DELETE", `/api/requirements/${requirement.id}/images`, { imageUrl });
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to delete image');
+      }
+
+      setImages(result.images);
+      queryClient.invalidateQueries({ queryKey: ["/api/events", eventId, "requirements"] });
+      toast({
+        title: "Success",
+        description: "Image deleted successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Delete Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
 
   const onSubmit = (data: Omit<InsertRequirement, 'order'>) => {
     // Calculate the order with discount applied before submission
@@ -420,6 +504,80 @@ export function RequirementForm({ requirement, eventId, onSuccess }: Requirement
             />
           </FormControl>
         </FormItem>
+
+        {/* Image Upload Section - Only show when editing and event is completed */}
+        {isEditing && isEventCompleted && (
+          <div className="space-y-4 pt-4 border-t">
+            <div className="flex items-center justify-between">
+              <div>
+                <FormLabel className="text-base">Event Images</FormLabel>
+                <p className="text-sm text-muted-foreground">
+                  Upload images for this requirement (max 5 images)
+                </p>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {images.length}/5 images
+              </div>
+            </div>
+
+            {/* Image Grid */}
+            {images.length > 0 && (
+              <div className="grid grid-cols-5 gap-2">
+                {images.map((imageUrl, index) => (
+                  <div key={index} className="relative group aspect-square">
+                    <img
+                      src={imageUrl}
+                      alt={`Requirement image ${index + 1}`}
+                      className="w-full h-full object-cover rounded-md border"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteImage(imageUrl)}
+                      className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      data-testid={`button-delete-image-${index}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Upload Button */}
+            {images.length < 5 && (
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                  multiple
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  data-testid="input-upload-images"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  data-testid="button-upload-images"
+                >
+                  {isUploading ? (
+                    <>Uploading...</>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Images
+                    </>
+                  )}
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  JPEG, PNG, GIF, WebP (max 5MB each)
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex justify-end gap-3 pt-4">
           <Button type="submit" disabled={isPending} data-testid="button-submit-requirement">

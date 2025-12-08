@@ -338,6 +338,7 @@ export function RequirementItem({
                 requirement={requirement}
                 eventId={eventId}
                 onSuccess={() => setEditRequirement(false)}
+                isEventCompleted={isEventCompleted}
               />
             </DialogContent>
           </Dialog>

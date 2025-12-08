@@ -129,6 +129,31 @@ export const api = {
     apiClient.patch<Requirement>(`/api/events/${eventId}/requirements/${id}`, data),
   deleteRequirement: (eventId: string, id: string) => 
     apiClient.delete<void>(`/api/events/${eventId}/requirements/${id}`),
+
+  // Requirement Image Upload
+  uploadRequirementImages: async (requirementId: string, formData: FormData) => {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/requirements/${requirementId}/images`,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000, // 30 seconds for image upload
+      }
+    );
+    return response.data;
+  },
+  deleteRequirementImage: async (requirementId: string, imageUrl: string) => {
+    const response = await axios.delete(
+      `${API_BASE_URL}/api/requirements/${requirementId}/images`,
+      { data: { imageUrl } }
+    );
+    return response.data;
+  },
+  getImageUrl: (relativePath: string) => {
+    if (!relativePath) return '';
+    if (relativePath.startsWith('http')) return relativePath;
+    return `${API_BASE_URL}${relativePath}`;
+  },
   
   // Expenses
   getExpenses: (params?: { startDate?: string; endDate?: string }) => {

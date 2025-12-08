@@ -11,9 +11,11 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import * as ImagePicker from 'expo-image-picker';
 import { api } from '../lib/api';
 import { Switch } from './Switch';
 import { useTheme } from '../contexts';
@@ -23,11 +25,12 @@ interface AddRequirementModalProps {
   onClose: () => void;
   eventId: string;
   requirement?: any;
+  isEventCompleted?: boolean;
 }
 
 const BRAND_MAROON = '#800020';
 
-export default function AddRequirementModal({ visible, onClose, eventId, requirement }: AddRequirementModalProps) {
+export default function AddRequirementModal({ visible, onClose, eventId, requirement, isEventCompleted = false }: AddRequirementModalProps) {
   const { colors, isDark } = useTheme();
   const queryClient = useQueryClient();
   const { data: config } = useQuery({
@@ -52,6 +55,11 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
     req_discount_amount: '',
   });
 
+  // Image upload states
+  const [images, setImages] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const isEditing = !!requirement;
+
   // Dropdown states
   const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
@@ -68,6 +76,7 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
         req_discount: requirement.req_discount === 'true' || requirement.req_discount === true,
         req_discount_amount: String(requirement.req_discount_amount || 0),
       });
+      setImages(requirement.images || []);
     } else if (!visible) {
       resetForm();
     }
@@ -108,6 +117,83 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
       req_discount: false,
       req_discount_amount: '',
     });
+    setImages([]);
+  };
+
+  // Image picker handler
+  const handlePickImage = async () => {
+    if (images.length >= 5) {
+      Alert.alert('Limit Reached', 'Maximum 5 images allowed per requirement');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      selectionLimit: 5 - images.length,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets.length > 0) {
+      uploadImages(result.assets);
+    }
+  };
+
+  // Upload images to server
+  const uploadImages = async (assets: ImagePicker.ImagePickerAsset[]) => {
+    if (!requirement?.id) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      assets.forEach((asset, index) => {
+        const uri = asset.uri;
+        const filename = uri.split('/').pop() || `image${index}.jpg`;
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        
+        formData.append('images', {
+          uri,
+          name: filename,
+          type,
+        } as any);
+      });
+
+      const response = await api.uploadRequirementImages(requirement.id, formData);
+      setImages(response.images || []);
+      queryClient.invalidateQueries({ queryKey: ['requirements', eventId] });
+      Alert.alert('Success', `${assets.length} image(s) uploaded successfully`);
+    } catch (error: any) {
+      Alert.alert('Upload Failed', error.message || 'Failed to upload images');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Delete image handler
+  const handleDeleteImage = async (imageUrl: string) => {
+    if (!requirement?.id) return;
+
+    Alert.alert(
+      'Delete Image',
+      'Are you sure you want to delete this image?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await api.deleteRequirementImage(requirement.id, imageUrl);
+              setImages(response.images || []);
+              queryClient.invalidateQueries({ queryKey: ['requirements', eventId] });
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to delete image');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const closeDropdowns = () => {
@@ -311,6 +397,61 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
                   keyboardType="numeric"
                   data-testid="input-discount-amount"
                 />
+              </View>
+            )}
+
+            {/* Image Upload Section - Only show when editing and event is completed */}
+            {isEditing && isEventCompleted && (
+              <View style={[styles.inputGroup, styles.imageSection]}>
+                <View style={styles.imageSectionHeader}>
+                  <Text style={[styles.label, { color: colors.text }]}>Event Images</Text>
+                  <Text style={[styles.imageCount, { color: colors.textSecondary }]}>
+                    {images.length}/5
+                  </Text>
+                </View>
+
+                {/* Image Grid */}
+                {images.length > 0 && (
+                  <View style={styles.imageGrid}>
+                    {images.map((imageUrl, index) => (
+                      <View key={index} style={styles.imageContainer}>
+                        <Image
+                          source={{ uri: api.getImageUrl(imageUrl) }}
+                          style={styles.imagePreview}
+                        />
+                        <TouchableOpacity
+                          style={styles.deleteImageButton}
+                          onPress={() => handleDeleteImage(imageUrl)}
+                        >
+                          <Ionicons name="close-circle" size={24} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Upload Button */}
+                {images.length < 5 && (
+                  <TouchableOpacity
+                    style={[styles.uploadButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                    onPress={handlePickImage}
+                    disabled={isUploading}
+                  >
+                    {isUploading ? (
+                      <ActivityIndicator size="small" color={BRAND_MAROON} />
+                    ) : (
+                      <>
+                        <Ionicons name="camera-outline" size={24} color={colors.textSecondary} />
+                        <Text style={[styles.uploadButtonText, { color: colors.textSecondary }]}>
+                          Upload Images
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
+                <Text style={[styles.uploadHint, { color: colors.textSecondary }]}>
+                  Max 5 images, JPEG/PNG/GIF/WebP
+                </Text>
               </View>
             )}
           </ScrollView>
@@ -539,6 +680,63 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 0.5,
+  },
+  imageSection: {
+    marginTop: 8,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  imageSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  imageCount: {
+    fontSize: 14,
+  },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  imageContainer: {
+    position: 'relative',
+    width: 80,
+    height: 80,
+  },
+  imagePreview: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+  },
+  deleteImageButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: 'white',
+    borderRadius: 12,
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderRadius: 8,
+    borderStyle: 'dashed',
+  },
+  uploadButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  uploadHint: {
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: 'center',
   },
   selectedDropdownItem: {
     borderRadius: 4,

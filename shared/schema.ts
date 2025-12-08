@@ -178,6 +178,7 @@ export const requirements = pgTable("requirements", {
   quantity: integer("quantity").notNull().default(1),
   req_discount: text("req_discount").default("false"),
   req_discount_amount: decimal("req_discount_amount", { precision: 10, scale: 2 }).default("0"),
+  images: text("images").array().default(sql`ARRAY[]::text[]`),
 });
 
 // Fulfillment Plans Schema (nested under Requirements)

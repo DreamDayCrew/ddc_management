@@ -23,11 +23,12 @@ interface AddPlanModalProps {
   onClose: () => void;
   requirementId: string;
   plan?: any;
+  isEventCompleted?: boolean;
 }
 
 const BRAND_MAROON = '#800020';
 
-export default function AddPlanModal({ visible, onClose, requirementId, plan }: AddPlanModalProps) {
+export default function AddPlanModal({ visible, onClose, requirementId, plan, isEventCompleted = false }: AddPlanModalProps) {
   const { colors, isDark } = useTheme();
   const queryClient = useQueryClient();
   
@@ -649,8 +650,8 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan }: 
               </View>
             </View>
 
-            {/* Review Section - Only show when editing */}
-            {plan && (
+            {/* Review Section - Only show when editing and event is completed */}
+            {plan && isEventCompleted && (
               <View style={styles.section}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Review</Text>
                 

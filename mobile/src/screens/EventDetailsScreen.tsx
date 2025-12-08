@@ -868,6 +868,7 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
         }}
         eventId={eventId}
         requirement={selectedRequirement}
+        isEventCompleted={event?.eventStatus === 'Completed'}
       />
 
       <AddPlanModal
@@ -879,6 +880,7 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
         }}
         requirementId={selectedRequirementId || ''}
         plan={selectedPlan}
+        isEventCompleted={event?.eventStatus === 'Completed'}
       />
 
       <AddEventModal
