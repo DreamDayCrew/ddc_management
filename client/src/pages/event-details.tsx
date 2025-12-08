@@ -696,7 +696,7 @@ export default function EventDetails() {
           )}
           
           {/* Event Gallery - Shows all images from requirements */}
-          <EventGallery requirements={requirements} eventName={event.eventName} />
+          <EventGallery requirements={requirements} eventName={event.eventName} eventId={id || ""} />
           
           <Dialog open={editEventOpen} onOpenChange={setEditEventOpen}>
             <DialogTrigger asChild>
