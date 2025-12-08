@@ -30,11 +30,12 @@
     },
     "extra": {
       "eas": {
-        "projectId": "792f1b57-bfde-4ceb-a773-2444067a1952"
+        "projectId": "551d8fc9-0a2e-4842-9ac1-84cfe48e46ea"
       }
     },
     "plugins": [
       "expo-font"
-    ]
+    ],
+    "owner": "kumudhaglory94"
   }
 }
