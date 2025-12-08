@@ -957,19 +957,19 @@ export class DatabaseStorage implements IStorage {
   async updateRequirement(id: string, requirement: Partial<InsertRequirement>): Promise<Requirement | undefined> {
     console.log('Updating requirement with data:', { id, requirement });
     try {
-      // Explicitly include all possible fields to ensure nothing is missed
-      const updateData = {
-        requirement: requirement.requirement,
-        description: requirement.description ?? '', // Ensure empty string if undefined
-        requirementOwner: requirement.requirementOwner,
-        requirementStatus: requirement.requirementStatus,
-        price: requirement.price,
-        quantity: requirement.quantity,
-        order: requirement.order,
-        req_discount: requirement.req_discount,
-        req_discount_amount: requirement.req_discount_amount,
-        // Don't update the eventId as it shouldn't change
-      };
+      // Build update data dynamically, only including fields that are provided
+      const updateData: Record<string, any> = {};
+      
+      if (requirement.requirement !== undefined) updateData.requirement = requirement.requirement;
+      if (requirement.description !== undefined) updateData.description = requirement.description;
+      if (requirement.requirementOwner !== undefined) updateData.requirementOwner = requirement.requirementOwner;
+      if (requirement.requirementStatus !== undefined) updateData.requirementStatus = requirement.requirementStatus;
+      if (requirement.price !== undefined) updateData.price = requirement.price;
+      if (requirement.quantity !== undefined) updateData.quantity = requirement.quantity;
+      if (requirement.order !== undefined) updateData.order = requirement.order;
+      if (requirement.req_discount !== undefined) updateData.req_discount = requirement.req_discount;
+      if (requirement.req_discount_amount !== undefined) updateData.req_discount_amount = requirement.req_discount_amount;
+      if (requirement.images !== undefined) updateData.images = requirement.images;
       
       const result = await db.update(requirements)
         .set(updateData)
