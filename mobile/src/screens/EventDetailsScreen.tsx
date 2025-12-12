@@ -752,9 +752,14 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                         const vendor = vendors.find(v => v.id === plan.vendorId);
                         planDetails = vendor ? vendor.name : 'Vendor';
                         iconName = 'business';
-                      } else if (plan.planType === 'Asset' && plan.assetId) {
+                      }
+                      else if (plan.planType === 'Asset' && plan.assetType === 'Inventory') {
                         const asset = assets.find(a => a.id === plan.assetId);
                         planDetails = asset ? asset.name : 'Asset';
+                        iconName = 'cube';
+                      }
+                      else if (plan.planType === 'Asset' && plan.assetType === 'Temporary') {
+                        planDetails = plan.assetName || 'Temporary Asset';
                         iconName = 'cube';
                       }
 

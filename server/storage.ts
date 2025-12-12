@@ -142,6 +142,13 @@ export class MemStorage implements IStorage {
       socialLinks: config.socialLinks || null,
       termsAndConditions: config.termsAndConditions || null,
       signatureImage: config.signatureImage || null,
+      panNumber: config.panNumber || null,
+      bankName: config.bankName || null,
+      accountHolderName: config.accountHolderName || null,
+      ifscCode: config.ifscCode || null,
+      accountNumber: config.accountNumber || null,
+      upiId: config.upiId || null,
+      upiQrCode: config.upiQrCode || null,
       assetCategories: config.assetCategories || ['Audio System','Decoration','Furniture','Photography','Lighting','Stage Equipment','Electrical / Wires','Office use / Safety'],
       assetPurchaseStatus: config.assetPurchaseStatus || ['Existing', 'New'],
       servicesProvided: config.servicesProvided || ['Wedding Planning & Décor','Engagements & Receptions','Birthday & Anniversary Celebrations','Corporate Events & Launchs','Cultural & Theme Events','Marathons, carnivals, stage plays, and non-profit initiatives','Service & Installation','Devotional events'],
@@ -351,8 +358,6 @@ export class MemStorage implements IStorage {
       split_type: expense.split_type || null,
       created_at: new Date(), 
       updated_at: new Date(),
-      // closing_balance will be set after updating the account balance
-      closing_balance: null,
     };
     
     // Update account balance based on transaction type
@@ -382,7 +387,6 @@ export class MemStorage implements IStorage {
     // After updating account balance(s), capture the current closing balance
     const balances = Array.from(this.accountBalance.values());
     const currentBalance = balances.length > 0 ? balances[0].balance : null;
-    newExpense.closing_balance = currentBalance as any;
 
     this.expenses.set(newExpense.id, newExpense);
     return newExpense;
@@ -778,6 +782,8 @@ export class MemStorage implements IStorage {
       initialQuote: this.formatNumber(event.initialQuote),
       ddcCost: this.formatNumber(event.ddcCost),
       profitLoss: this.formatNumber(event.profitLoss),
+      discount: event.discount ?? "false",
+      discount_amount: this.formatNumber(event.discount_amount),
     };
     
     this.events.set(newEvent.id, newEvent);
@@ -851,6 +857,9 @@ export class MemStorage implements IStorage {
       order: requirement.order ?? 0,
       price: requirement.price ?? 0,
       quantity: requirement.quantity ?? 1,
+      images: requirement.images || [],
+      req_discount: requirement.req_discount || "false",
+      req_discount_amount: requirement.req_discount_amount || "0",
     };
     this.requirements.set(newRequirement.id, newRequirement);
     return newRequirement;
@@ -895,6 +904,8 @@ export class MemStorage implements IStorage {
       assetPurchaseStatus: plan.assetPurchaseStatus || null,
       createdAt: now,
       updatedAt: now,
+      assetType: plan.assetType || null,
+      assetName: plan.assetName || null,
       assetCategory: plan.assetCategory || null,
       payment: plan.payment !== undefined ? String(plan.payment) : null,
       paymentStatus: plan.paymentStatus || null,

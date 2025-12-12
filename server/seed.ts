@@ -151,7 +151,7 @@ export async function seedDatabase() {
       description: "Payment received from Sharma Wedding",
       amount: "150000",
       mode: "Cash",
-      date: "2025-10-05",
+      date: new Date(),
       status: "Completed",
     });
 
@@ -160,7 +160,7 @@ export async function seedDatabase() {
       description: "Payment to Royal Decorators for venue decoration",
       amount: "35000",
       mode: "Gray",
-      date: "2025-10-03",
+      date: new Date(),
       status: "Completed",
     });
 
@@ -169,7 +169,7 @@ export async function seedDatabase() {
       description: "Advance payment - Corporate Event",
       amount: "80000",
       mode: "Cash",
-      date: "2025-09-28",
+      date: new Date(),
       status: "Completed",
     });
 
@@ -178,7 +178,7 @@ export async function seedDatabase() {
       description: "Venue booking payment",
       amount: "45000",
       mode: "Cash",
-      date: "2025-09-25",
+      date: new Date(),
       status: "Completed",
     });
 
@@ -187,7 +187,7 @@ export async function seedDatabase() {
       description: "Internal fund transfer to operations account",
       amount: "50000",
       mode: "Bank Transfer",
-      date: "2025-10-01",
+      date: new Date(),
       status: "Pending",
     });
   }
@@ -273,6 +273,7 @@ export async function seedDatabase() {
     await storage.createFulfillmentPlan({
       requirementId: req1.id,
       planType: "Asset",
+      assetType: "Inventory",
       assetId: assets[2]?.id || null,
       assetPurchaseStatus: "Existing",
       planStatus: "Completed",
@@ -290,6 +291,7 @@ export async function seedDatabase() {
     await storage.createFulfillmentPlan({
       requirementId: req2.id,
       planType: "Asset",
+      assetType: "Inventory",
       assetId: assets[1]?.id || null,
       assetPurchaseStatus: "Existing",
       planStatus: "Completed",

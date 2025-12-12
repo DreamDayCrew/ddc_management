@@ -93,10 +93,13 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
       assetCategory: plan?.assetCategory || "",
       assetPurchaseStatus: plan?.assetPurchaseStatus || "",
       planStatus: plan?.planStatus || "To Do",
+      assetType: plan?.assetType || "",
+      assetName: plan?.assetName || "",
     },
   });
 
   const planType = form.watch("planType");
+  const assetType = form.watch("assetType");
   const assetPurchaseStatus = form.watch("assetPurchaseStatus");
   const selectedVendorCategory = form.watch("vendorCategory");
   const selectedAssetCategory = form.watch("assetCategory");
@@ -226,8 +229,9 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
       ...(data.planType !== 'Team' && { teamMemberId: null }),
       // Ensure vendorId is null when not a Vendor plan
       ...(data.planType !== 'Vendor' && { vendorId: null }),
-      // Ensure assetId is null when not an Asset plan
-      ...(data.planType !== 'Asset' && { assetId: null }),
+      // Ensure assetId is null when not an Asset plan or for Temporary asset type
+      ...((data.planType !== 'Asset' && data.assetType !== 'Inventory') && { assetId: null }),
+      ...(data.planType === 'Asset' && data.assetType === 'Temporary' && { assetId: null }),
     };
 
     console.log('Transformed data before mutation:', transformedData);
@@ -274,7 +278,7 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
           render={({ field }) => (
             <FormItem>
               <FormLabel>Plan Type</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} defaultValue={field.value ?? undefined}>
                 <FormControl>
                   <SelectTrigger data-testid="select-plan-type">
                     <SelectValue placeholder="Select plan type" />
@@ -518,130 +522,177 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
           <>
             <FormField
               control={form.control}
-              name="assetCategory"
+              name="assetType"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Asset Category</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    value={field.value || ""}
-                    disabled={planType !== "Asset"}
-                  >
+                  <FormLabel>Asset Type</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value ?? undefined}>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an asset category" />
+                      <SelectTrigger data-testid="select-asset-type">
+                        <SelectValue placeholder="Select asset type" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {assetCategories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="Inventory">Inventory</SelectItem>
+                      <SelectItem value="Temporary">Temporary</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="assetId"
-              render={({ field }) => {
-                const selectedAsset = filteredAssets.find(a => a.id === field.value);
-                return (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Asset</FormLabel>
-                    <Popover open={assetOpen} onOpenChange={setAssetOpen}>
-                      <PopoverTrigger asChild>
+            {assetType === "Inventory" && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="assetCategory"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Asset Category</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value || ""}
+                        disabled={planType !== "Asset"}
+                      >
                         <FormControl>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={assetOpen}
-                            disabled={!selectedAssetCategory || planType !== "Asset"}
-                            className={cn(
-                              "w-full justify-between font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                            data-testid="select-asset"
-                          >
-                            {!selectedAssetCategory 
-                              ? "Select an asset category first" 
-                              : filteredAssets.length === 0 
-                                ? "No assets available"
-                                : selectedAsset 
-                                  ? selectedAsset.name 
-                                  : "Search and select asset..."}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an asset category" />
+                          </SelectTrigger>
                         </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                        <Command>
-                          <CommandInput 
-                            placeholder="Search assets..." 
-                            data-testid="input-asset-search"
-                          />
-                          <CommandList>
-                            <CommandEmpty>No asset found.</CommandEmpty>
-                            <CommandGroup>
-                              {filteredAssets.map((asset) => (
-                                <CommandItem
-                                  key={asset.id}
-                                  value={asset.name}
-                                  onSelect={() => {
-                                    field.onChange(asset.id);
-                                    setAssetOpen(false);
-                                  }}
-                                  data-testid={`asset-option-${asset.id}`}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      field.value === asset.id ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  {asset.name}
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                );
-              }}
-            />
+                        <SelectContent>
+                          {assetCategories.map((category) => (
+                            <SelectItem key={category} value={category}>
+                              {category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="assetId"
+                  render={({ field }) => {
+                    const selectedAsset = filteredAssets.find(a => a.id === field.value);
+                    return (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Asset</FormLabel>
+                        <Popover open={assetOpen} onOpenChange={setAssetOpen}>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={assetOpen}
+                                disabled={!selectedAssetCategory || planType !== "Asset"}
+                                className={cn(
+                                  "w-full justify-between font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                                data-testid="select-asset"
+                              >
+                                {!selectedAssetCategory 
+                                  ? "Select an asset category first" 
+                                  : filteredAssets.length === 0 
+                                    ? "No assets available"
+                                    : selectedAsset 
+                                      ? selectedAsset.name 
+                                      : "Search and select asset..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                            <Command>
+                              <CommandInput 
+                                placeholder="Search assets..." 
+                                data-testid="input-asset-search"
+                              />
+                              <CommandList>
+                                <CommandEmpty>No asset found.</CommandEmpty>
+                                <CommandGroup>
+                                  {filteredAssets.map((asset) => (
+                                    <CommandItem
+                                      key={asset.id}
+                                      value={asset.name}
+                                      onSelect={() => {
+                                        field.onChange(asset.id);
+                                        setAssetOpen(false);
+                                      }}
+                                      data-testid={`asset-option-${asset.id}`}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          field.value === asset.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {asset.name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
+                />
+                <FormField
+                  control={form.control}
+                  name="assetPurchaseStatus"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Asset Purchase Status</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-asset-purchase-status">
+                            <SelectValue placeholder="Select purchase status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {config?.assetPurchaseStatus?.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
+            {assetType === "Temporary" && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="assetName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Asset Name</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          value={field.value || ""} 
+                          type="text" 
+                          placeholder="Enter asset name" 
+                          data-testid="input-asset-name" 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
 
-            <FormField
-              control={form.control}
-              name="assetPurchaseStatus"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Asset Purchase Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-asset-purchase-status">
-                        <SelectValue placeholder="Select purchase status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {config?.assetPurchaseStatus?.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {assetPurchaseStatus === "New" && (
+            {((assetType === "Inventory" && assetPurchaseStatus === "New") || assetType === "Temporary") && (
               <FormField
                 control={form.control}
                 name="payment"

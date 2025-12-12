@@ -458,9 +458,16 @@ export function RequirementItem({
                         <div className="text-sm space-y-1">
                           <div>
                             <span className="text-muted-foreground">Asset: </span>
-                            <span data-testid={`plan-asset-${plan.id}`}>
-                              {getAssetName(plan.assetId)} ({plan.assetPurchaseStatus})
-                            </span>
+                            {plan.assetType === "Inventory" && (                              
+                                <span data-testid={`plan-asset-${plan.id}`}>
+                                  {getAssetName(plan.assetId)} ({plan.assetPurchaseStatus})
+                                </span>
+                              )}
+                              {plan.assetType === "Temporary" && (                              
+                                <span data-testid={`plan-asset-${plan.id}`}>
+                                  {plan.assetName || "Unknown"} (Temporary)
+                                </span>
+                              )}
                           </div>
                           {plan.assetPurchaseStatus === "New" && plan.payment && (
                             <div>

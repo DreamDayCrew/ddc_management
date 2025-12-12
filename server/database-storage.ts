@@ -1025,12 +1025,14 @@ export class DatabaseStorage implements IStorage {
         teamMemberId: null,
         teamRole: null,
         assetId: null,
-        assetPurchaseStatus: null
+        assetPurchaseStatus: null,
+        assetType: null
       }),
       ...(plan.planType === 'Team' && {
         vendorId: null,
         assetId: null,
-        assetPurchaseStatus: null
+        assetPurchaseStatus: null,
+        assetType: null
       }),
       ...(plan.planType === 'Asset' && {
         vendorId: null,

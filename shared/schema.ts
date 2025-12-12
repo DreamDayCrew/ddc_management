@@ -206,6 +206,8 @@ export const fulfillmentPlans = pgTable('fulfillment_plans', {
   assetId: text('asset_id').references(() => assets.id, { onDelete: 'set null' }),
   assetPurchaseStatus: text('asset_purchase_status'),
   assetCategory: text('asset_category'),
+  assetType: text('asset_type'),
+  assetName: text('asset_name'),
 
   // Payment field (common for all plan types)
   payment: decimal('payment', { precision: 10, scale: 2 }),

@@ -17,6 +17,7 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import ConfirmDialog from './ConfirmDialog';
 import { api } from '../lib/api';
 import { useTheme } from '../contexts';
+import { set } from 'zod';
 
 interface AddPlanModalProps {
   visible: boolean;
@@ -53,6 +54,7 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
   });
 
   const [planType, setPlanType] = useState<'Vendor' | 'Team' | 'Asset'>('Vendor');
+  const [assetType, setAssetType] = useState<'Inventory' | 'Temporary'>('Inventory');
   const [formData, setFormData] = useState({
     vendorId: '',
     vendorCategory: '',
@@ -61,6 +63,8 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
     assetId: '',
     assetPurchaseStatus: '',
     assetCategory: '',
+    assetName: '',
+    assetSearch: '',
     payment: '',
     paymentStatus: 'To Do',
     planStatus: 'To Do',
@@ -86,6 +90,7 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
   useEffect(() => {
     if (plan && visible) {
       setPlanType(plan.planType);
+      set
       
       // Set vendor category first to ensure filtering works
       const vendorCategory = plan.vendorCategory || '';
@@ -98,7 +103,9 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
         teamRole: plan.teamRole || '',
         assetId: plan.assetId || '',
         assetPurchaseStatus: plan.assetPurchaseStatus || '',
+        assetName: plan.assetName || '',
         assetCategory: plan.assetCategory || '',
+        assetSearch: plan.assetName || '',
         payment: plan.payment ? String(plan.payment) : '',
         paymentStatus: plan.paymentStatus || 'To Do',
         planStatus: plan.planStatus || 'To Do',
@@ -161,6 +168,7 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
 
   const resetForm = () => {
     setPlanType('Vendor');
+    setAssetType('Inventory');
     setFormData({
       vendorId: '',
       vendorCategory: '',
@@ -169,6 +177,8 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
       assetId: '',
       assetPurchaseStatus: '',
       assetCategory: '',
+      assetName: '',
+      assetSearch: '',
       payment: '',
       paymentStatus: 'To Do',
       planStatus: 'To Do',
@@ -224,23 +234,27 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
       submitData.teamMemberId = formData.teamMemberId;
       submitData.teamRole = formData.teamRole;
     } else if (planType === 'Asset') {
-      if (!formData.assetCategory) {
-        Alert.alert('Error', 'Please select an asset category');
-        return;
+      if(assetType === 'Inventory') {
+        if (!formData.assetCategory) {
+          Alert.alert('Error', 'Please select an asset category');
+          return;
+        }
+        if (!formData.assetId) {
+          Alert.alert('Error', 'Please select an asset');
+          return;
+        }
       }
-      if (!formData.assetId) {
-        Alert.alert('Error', 'Please select an asset');
-        return;
-      }
+      submitData.assetType = assetType;
+      submitData.assetName = formData.assetName;
       submitData.assetId = formData.assetId;
       submitData.assetPurchaseStatus = formData.assetPurchaseStatus;
       submitData.assetCategory = formData.assetCategory;
+
     }
 
     if (createMutation.isPending) {
       return;
     }
-
     createMutation.mutate(submitData);
   };
 
@@ -382,7 +396,7 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
                     style={[
                       styles.typeButton,
                       { backgroundColor: colors.surface, borderColor: colors.border },
-                      planType === type && { backgroundColor: colors.primary, borderColor: colors.primary },
+                      planType === type && { backgroundColor: isDark ? '#4B5563' : BRAND_MAROON, borderColor: colors.border },
                       plan && { opacity: 0.6 },
                     ]}
                     onPress={() => !plan && setPlanType(type as any)}
@@ -510,82 +524,165 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
             {planType === 'Asset' && (
               <>
                 <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.text }]}>Category *</Text>
-                  <View style={styles.dropdownContainer}>
-                    <TouchableOpacity
-                      style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
-                      onPress={() => {
-                        closeDropdowns();
-                        setShowAssetCategoryDropdown(!showAssetCategoryDropdown);
-                      }}
-                      testID="dropdown-asset-category"
-                    >
-                      <MaterialIcons name="category" size={20} color={colors.text} style={styles.dropdownIcon} />
-                      <Text style={[styles.dropdownText, { color: formData.assetCategory ? colors.text : colors.textSecondary }]}>
-                        {formData.assetCategory || 'Select category'}
-                      </Text>
-                      <MaterialIcons 
-                        name={showAssetCategoryDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
-                        size={24} 
-                        color={colors.text} 
-                      />
-                    </TouchableOpacity>
+                  <Text style={[styles.label, { color: colors.text }]}>Asset Type</Text>
+                  <View style={styles.typeButtons}>
+                    {['Inventory', 'Temporary'].map((type) => (
+                      <TouchableOpacity
+                        key={type}
+                        style={[
+                          styles.typeButton,
+                          { backgroundColor: colors.surface, borderColor: colors.border },
+                          assetType === type && { backgroundColor: isDark ? '#4B5563' : BRAND_MAROON, borderColor: colors.border },
+                          plan && { opacity: 0.6 },
+                        ]}
+                        onPress={() => !plan && setAssetType(type as any)}
+                        disabled={!!plan}
+                        data-testid={`button-type-${type.toLowerCase()}`}
+                      >
+                        <Text
+                          style={[
+                            styles.typeButtonText,
+                            { color: planType === type ? '#ffffff' : colors.text }
+                          ]}
+                        >
+                          {type}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
                 </View>
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.text }]}>Asset *</Text>
-                  <View style={styles.dropdownContainer}>
-                    <TouchableOpacity
-                      style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border, opacity: !formData.assetCategory ? 0.6 : 1 }]}
-                      onPress={() => {
-                        if (formData.assetCategory) {
-                          closeDropdowns();
-                          setShowAssetDropdown(!showAssetDropdown);
-                        }
-                      }}
-                      disabled={!formData.assetCategory}
-                      testID="dropdown-asset"
-                    >
-                      <MaterialIcons name="inventory" size={20} color={colors.text} style={styles.dropdownIcon} />
-                      <Text style={[styles.dropdownText, { color: formData.assetId ? colors.text : colors.textSecondary }]}>
-                        {filteredAssets.find(a => a.id === formData.assetId)?.name || 'Select asset'}
-                      </Text>
-                      <MaterialIcons 
-                        name={showAssetDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
-                        size={24} 
-                        color={colors.text} 
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.text }]}>Purchase Status</Text>
-                  <View style={styles.dropdownContainer}>
-                    <TouchableOpacity
-                      style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
-                      onPress={() => {
-                        closeDropdowns();
-                        setShowPurchaseStatusDropdown(!showPurchaseStatusDropdown);
-                      }}
-                      testID="dropdown-purchase-status"
-                    >
-                      <MaterialIcons name="shopping-cart" size={20} color={colors.text} style={styles.dropdownIcon} />
-                      <Text style={[styles.dropdownText, { color: formData.assetPurchaseStatus ? colors.text : colors.textSecondary }]}>
-                        {formData.assetPurchaseStatus || 'Select status'}
-                      </Text>
-                      <MaterialIcons 
-                        name={showPurchaseStatusDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
-                        size={24} 
-                        color={colors.text} 
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                {assetType === 'Inventory' && (
+                  <>
+                    <View style={styles.inputGroup}>
+                      <Text style={[styles.label, { color: colors.text }]}>Category *</Text>
+                      <View style={styles.dropdownContainer}>
+                        <TouchableOpacity
+                          style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
+                          onPress={() => {
+                            closeDropdowns();
+                            setShowAssetCategoryDropdown(!showAssetCategoryDropdown);
+                          }}
+                          testID="dropdown-asset-category"
+                        >
+                          <MaterialIcons name="category" size={20} color={colors.text} style={styles.dropdownIcon} />
+                          <Text style={[styles.dropdownText, { color: formData.assetCategory ? colors.text : colors.textSecondary }]}>
+                            {formData.assetCategory || 'Select category'}
+                          </Text>
+                          <MaterialIcons 
+                            name={showAssetCategoryDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
+                            size={24} 
+                            color={colors.text} 
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    <View style={styles.inputGroup}>
+                      <Text style={[styles.label, { color: colors.text }]}>Asset *</Text>
+                      <View style={styles.dropdownContainer}>
+                        <TouchableOpacity
+                          activeOpacity={1}
+                          onPress={() => formData.assetCategory && setShowAssetDropdown(true)}
+                          disabled={!formData.assetCategory}
+                        >
+                          <TextInput
+                            style={[
+                              styles.input,
+                              { backgroundColor: !formData.assetCategory ? colors.card : colors.surface, borderColor: colors.border, color: !formData.assetCategory ? colors.textSecondary : colors.text, opacity: !formData.assetCategory ? 0.6 : 1 }
+                            ]}
+                            value={formData.assetSearch || (filteredAssets.find(a => a.id === formData.assetId)?.name || '')}
+                            onFocus={() => formData.assetCategory && setShowAssetDropdown(true)}
+                            editable={false}
+                            placeholder={!formData.assetCategory ? "Select category first" : "Select or search asset..."}
+                            placeholderTextColor={colors.textSecondary}
+                            data-testid="input-asset-search"
+                          />
+                        </TouchableOpacity>
+                        {showAssetDropdown && formData.assetCategory && (
+                          <View style={{ position: 'absolute', top: 48, left: 0, right: 0, zIndex: 9999, elevation: 20, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, maxHeight: 300, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16 }}>
+                            <TextInput
+                              style={{ padding: 12, borderBottomWidth: 1, borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }}
+                              value={formData.assetSearch}
+                              onChangeText={(text) => setFormData({ ...formData, assetSearch: text, assetId: '' })}
+                              placeholder="Search asset by name..."
+                              placeholderTextColor={colors.textSecondary}
+                              autoFocus
+                            />
+                            <ScrollView style={{ maxHeight: 250 }} keyboardShouldPersistTaps="handled">
+                              {(formData.assetSearch ? filteredAssets.filter(asset => asset.name.toLowerCase().includes(formData.assetSearch.toLowerCase())) : filteredAssets)
+                                .map(asset => (
+                                  <TouchableOpacity
+                                    key={asset.id}
+                                    style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+                                    onPress={() => {
+                                      setFormData({ ...formData, assetId: asset.id, assetSearch: asset.name });
+                                      setShowAssetDropdown(false);
+                                    }}
+                                  >
+                                    <MaterialIcons name="inventory" size={20} color={colors.text} />
+                                    <Text style={[styles.dropdownItemText, { color: colors.text }]}>{asset.name}</Text>
+                                    {formData.assetId === asset.id && (
+                                      <MaterialIcons name="check" size={20} color={colors.primary} />
+                                    )}
+                                  </TouchableOpacity>
+                                ))}
+                              {(formData.assetSearch ? filteredAssets.filter(asset => asset.name.toLowerCase().includes(formData.assetSearch.toLowerCase())) : filteredAssets).length === 0 && (
+                                <Text style={{ padding: 12, color: colors.textSecondary }}>No asset found.</Text>
+                              )}
+                            </ScrollView>
+                            <TouchableOpacity
+                              style={{ padding: 12, alignItems: 'center', borderTopWidth: 1, borderColor: colors.border }}
+                              onPress={() => setShowAssetDropdown(false)}
+                            >
+                              <Text style={{ color: colors.textSecondary }}>Close</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                    <View style={styles.inputGroup}>
+                      <Text style={[styles.label, { color: colors.text }]}>Purchase Status</Text>
+                      <View style={styles.dropdownContainer}>
+                        <TouchableOpacity
+                          style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
+                          onPress={() => {
+                            closeDropdowns();
+                            setShowPurchaseStatusDropdown(!showPurchaseStatusDropdown);
+                          }}
+                          testID="dropdown-purchase-status"
+                        >
+                          <MaterialIcons name="shopping-cart" size={20} color={colors.text} style={styles.dropdownIcon} />
+                          <Text style={[styles.dropdownText, { color: formData.assetPurchaseStatus ? colors.text : colors.textSecondary }]}>
+                            {formData.assetPurchaseStatus || 'Select status'}
+                          </Text>
+                          <MaterialIcons 
+                            name={showPurchaseStatusDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
+                            size={24} 
+                            color={colors.text} 
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </>
+                )}
+                {assetType === 'Temporary' && (
+                  <>
+                    <View style={styles.inputGroup}>
+                      <Text style={[styles.label, { color: colors.textSecondary }]}>Asset *</Text>
+                        <TextInput
+                          style={[styles.input, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
+                          value={formData.assetName}
+                          onChangeText={(text) => setFormData({ ...formData, assetName: text })}
+                          placeholder="Example Glue, Stapler, etc."
+                          placeholderTextColor={colors.textSecondary}
+                        />
+                    </View>
+                  </>
+                )}
               </>
             )}
 
             {/* Payment fields - only show for Asset plans with 'New' purchase status or other plan types */}
-            {((planType === 'Asset' && formData.assetPurchaseStatus === 'New') || planType !== 'Asset') && (
+            {((planType === 'Asset' && formData.assetPurchaseStatus === 'New') || planType !== 'Asset' || (planType === 'Asset' && assetType === 'Temporary')) && (
               <>
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: colors.text }]}>Payment Amount (₹)</Text>
@@ -1002,7 +1099,7 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
             <TouchableOpacity
               style={[
                 styles.submitButton, 
-                { backgroundColor: colors.primary },
+                { backgroundColor: isDark ? '#4B5563' : BRAND_MAROON },
                 isPending && styles.buttonDisabled,
                 !plan && styles.submitButtonFull
               ]}

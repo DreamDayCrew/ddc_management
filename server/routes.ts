@@ -724,7 +724,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/events/:id", async (req, res) => {
-    const deleted = await storage.deleteEvent(req.params.id);
+    const eventId = req.params.id;
+    // 1. Delete all plans linked to each requirement of the event
+    const requirements = await storage.getRequirements(eventId);
+    for (const req of requirements) {
+      const plans = await storage.getFulfillmentPlans(req.id);
+      for (const plan of plans) {
+        await storage.deleteFulfillmentPlan(plan.id);
+      }
+      await storage.deleteRequirement(req.id);
+    }
+    // 2. Delete the main event
+    const deleted = await storage.deleteEvent(eventId);
     if (!deleted) {
       return res.status(404).json({ error: "Event not found" });
     }
@@ -1324,12 +1335,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (planData.planType === 'Vendor' && planData.vendorId) {
         // For vendor plans, ensure teamMemberId is null
         planData.teamMemberId = null;
+        planData.assetId = null;
       } else if (planData.planType === 'Team' && planData.teamMemberId) {
         // For team plans, ensure vendorId is null
         planData.vendorId = null;
+        planData.assetId = null;
+      } else if (planData.planType === 'Asset' && planData.assetType === 'Inventory') {
+        // For team plans, ensure vendorId is null
+        planData.teamMemberId = null;
+        planData.vendorId = null;
+      }else if (planData.planType === 'Asset' && planData.assetType === 'Temporary') {
+        // For team plans, ensure vendorId is null
+        planData.teamMemberId = null;
+        planData.vendorId = null;
+        planData.assetId = null;
       }
       
       const validatedData = insertFulfillmentPlanSchema.parse(planData);
+      console.log('Creating plan for requirement with data:', JSON.stringify(validatedData, null, 2));
       const plan = await storage.createFulfillmentPlan(validatedData);
       res.status(201).json(plan);
     } catch (error: any) {
@@ -1573,8 +1596,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate dynamic filename based on filters
       let filename = 'Dream_Day_Crew_Service_Catalog';
       if (service || packageType) {
-        const servicePart = service ? `_${service.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
-        const packagePart = packageType ? `_${packageType.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+        const servicePart = (typeof service === 'string' && service.trim() !== '') ? `_${service.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+        const packagePart = (typeof packageType === 'string' && packageType.trim() !== '') ? `_${packageType.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
         filename = `Dream_Day_Crew${servicePart}${packagePart}_Catalog`;
       }
 
@@ -1588,7 +1611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             package: packageType as string || null,
             totalItems: filteredCatalogItems.length
           }
-        })
+        }) as React.ReactElement
       );
 
       res.setHeader('Content-Type', 'application/pdf');
