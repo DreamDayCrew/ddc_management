@@ -102,6 +102,7 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
   const assetType = form.watch("assetType");
   const assetPurchaseStatus = form.watch("assetPurchaseStatus");
   const selectedVendorCategory = form.watch("vendorCategory");
+  const selectedVendorId = form.watch("vendorId");
   const selectedAssetCategory = form.watch("assetCategory");
   const paymentAmount = form.watch("payment") as string;
   const showPaymentStatus = paymentAmount ? parseFloat(paymentAmount) > 0 : false;
@@ -110,6 +111,22 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
   const filteredVendors = selectedVendorCategory 
     ? vendors?.filter(vendor => vendor.category === selectedVendorCategory) || []
     : [];
+
+  const selectedVendor = vendors?.find((vendor) => vendor.id === selectedVendorId);
+
+  const vendorRatingInfo = (() => {
+    if (!selectedVendor || selectedVendor.rating == null || selectedVendor.rating <= 0) return null;
+    if (selectedVendor.rating >= 4) {
+      return { text: selectedVendor.rating +" / 5 • Strong choice", colorClass: "text-green-700", bgClass: "bg-green-50", borderClass: "border-green-200" };
+    }
+    if (selectedVendor.rating >= 2) {
+      return { text: selectedVendor.rating + " / 5 • Risky choice", colorClass: "text-amber-700", bgClass: "bg-amber-50", borderClass: "border-amber-200" };
+    }
+    if (selectedVendor.rating === 1) {
+      return { text: "1 / 5 • Avoid this vendor", colorClass: "text-red-700", bgClass: "bg-red-50", borderClass: "border-red-200" };
+    }
+    return null;
+  })();
 
   // Filter assets based on selected category
   const filteredAssets = selectedAssetCategory 
@@ -464,7 +481,11 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
                 </FormItem>
               )}
             />
-
+            {vendorRatingInfo && (
+              <div className={`mt-2 rounded-md border px-3 py-2 text-sm ${vendorRatingInfo.bgClass} ${vendorRatingInfo.borderClass} ${vendorRatingInfo.colorClass}`}>
+                {vendorRatingInfo.text}
+              </div>
+            )}
             <FormField
               control={form.control}
               name="payment"

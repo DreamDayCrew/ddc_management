@@ -325,6 +325,25 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
     return filtered;
   }, [formData.assetCategory, formData.assetId, assets, plan]);
 
+  const selectedVendor = useMemo(
+    () => vendors.find((vendor) => vendor.id === formData.vendorId),
+    [vendors, formData.vendorId]
+  );
+
+  const vendorRatingInfo = useMemo(() => {
+    if (!selectedVendor || selectedVendor.rating == null || selectedVendor.rating <= 0) return null;
+    if (selectedVendor.rating >= 4) {
+      return { text: selectedVendor.rating + ' / 5 • Strong choice', color: '#166534', background: '#ecfdf3', border: '#bbf7d0' };
+    }
+    if (selectedVendor.rating >= 2) {
+      return { text: selectedVendor.rating + ' / 5 • Risky choice', color: '#854d0e', background: '#fef3c7', border: '#fef08a' };
+    }
+    if (selectedVendor.rating === 1) {
+      return { text: '1 / 5 • Avoid this vendor', color: '#b91c1c', background: '#fee2e2', border: '#fecaca' };
+    }
+    return null;
+  }, [selectedVendor]);
+
   // Reset vendorId when vendorCategory changes
   useEffect(() => {
     if (formData.vendorCategory && planType === 'Vendor' && !isInitialLoad && !plan) {
@@ -467,6 +486,11 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
                     </TouchableOpacity>
                   </View>
                 </View>
+                {vendorRatingInfo && (
+                  <Text style={[styles.ratingText, { color: vendorRatingInfo.color }]}>
+                    {vendorRatingInfo.text}
+                  </Text>
+                )}
               </>
             )}
 
@@ -581,23 +605,19 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
                       <View style={styles.dropdownContainer}>
                         <TouchableOpacity
                           activeOpacity={1}
-                          onPress={() => formData.assetCategory && setShowAssetDropdown(true)}
-                          disabled={!formData.assetCategory}
+                          onPress={() => setShowAssetDropdown(true)}
                         >
                           <TextInput
-                            style={[
-                              styles.input,
-                              { backgroundColor: !formData.assetCategory ? colors.card : colors.surface, borderColor: colors.border, color: !formData.assetCategory ? colors.textSecondary : colors.text, opacity: !formData.assetCategory ? 0.6 : 1 }
-                            ]}
+                            style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                             value={formData.assetSearch || (filteredAssets.find(a => a.id === formData.assetId)?.name || '')}
-                            onFocus={() => formData.assetCategory && setShowAssetDropdown(true)}
+                            onFocus={() => setShowAssetDropdown(true)}
                             editable={false}
-                            placeholder={!formData.assetCategory ? "Select category first" : "Select or search asset..."}
+                            placeholder="Select or search asset..."
                             placeholderTextColor={colors.textSecondary}
                             data-testid="input-asset-search"
                           />
                         </TouchableOpacity>
-                        {showAssetDropdown && formData.assetCategory && (
+                        {showAssetDropdown && (
                           <View style={{ position: 'absolute', top: 48, left: 0, right: 0, zIndex: 9999, elevation: 20, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, maxHeight: 300, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16 }}>
                             <TextInput
                               style={{ padding: 12, borderBottomWidth: 1, borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }}
@@ -1309,5 +1329,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     flex: 1,
     marginLeft: 12,
+  },
+  ratingBanner: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 4,
+  },
+  ratingText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
