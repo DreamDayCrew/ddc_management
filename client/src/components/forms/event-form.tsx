@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/accordion";
 import { format } from "date-fns";
 import { z } from "zod";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card } from "@/components/ui/card";
 
 interface EventFormProps {
@@ -89,8 +89,31 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
   const [pendingDiscountChange, setPendingDiscountChange] = useState<boolean | null>(null);
   const [showPartialExpenseDialog, setShowPartialExpenseDialog] = useState(false);
   const [partialExpenseAmount, setPartialExpenseAmount] = useState("");
-  const [pendingPaymentStatus, setPendingPaymentStatus] = useState<string | null>(null);
   const [isCreatingExpense, setIsCreatingExpense] = useState(false);
+  // Track linked expense ID locally (updated after create, synced from event prop)
+  // We use a ref to track the previous event ID so we can detect navigation
+  const prevEventIdRef = useRef<string | null>(null);
+  const [linkedExpenseId, setLinkedExpenseId] = useState<string | null>(event?.expenseId || null);
+  // Track if form is in a valid state for expense operations
+  const isEventLoaded = event !== undefined && event?.id !== undefined;
+  
+  // Sync linkedExpenseId when the event prop changes
+  useEffect(() => {
+    // If event is undefined (loading/refetch), clear to prevent stale state
+    if (!event?.id) {
+      setLinkedExpenseId(null);
+      return;
+    }
+    
+    if (event.id !== prevEventIdRef.current) {
+      // Navigation to a different record - update ref and sync expense ID
+      prevEventIdRef.current = event.id;
+      setLinkedExpenseId(event?.expenseId ?? null);
+    } else if (event?.expenseId) {
+      // Same record - only update if expenseId became truthy (after create and refetch)
+      setLinkedExpenseId(event.expenseId);
+    }
+  }, [event?.id, event?.expenseId]);
 
   const { data: config } = useQuery<Configuration>({
     queryKey: ["/api/configuration"],
@@ -168,98 +191,140 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
     // Keep the current discount state
   };
 
-  // Handle payment status change for expense linking
-  const handlePaymentStatusChange = (newStatus: string, onValueChange: (value: string) => void) => {
-    if (newStatus === "Paid") {
-      // For "Paid" status, auto-create an expense (Credit: Client Payment → DDC Fund)
-      const amount = form.getValues("finalizedQuote") || invoiceAmount?.toString() || "0";
-      if (parseFloat(amount) > 0 && isEditing && event?.id) {
-        createExpenseForEvent(amount, newStatus, onValueChange);
-      } else {
-        onValueChange(newStatus);
-      }
-    } else if (newStatus === "Partial") {
-      // For "Partial" status, show dialog to enter partial amount
-      setPendingPaymentStatus(newStatus);
-      setPartialExpenseAmount(form.getValues("finalizedQuote") || "");
+  // Handle Link Expense button click
+  const handleLinkExpense = () => {
+    const currentStatus = form.getValues("paymentStatus");
+    if (currentStatus === "Partial") {
+      // For Partial, show dialog to enter amount (pre-fill with 0 or existing amount)
+      setPartialExpenseAmount(form.getValues("finalizedQuote") || invoiceAmount?.toString() || "0");
       setShowPartialExpenseDialog(true);
-    } else {
-      // For "Pending" or other statuses, just update the field
-      onValueChange(newStatus);
+    } else if (currentStatus === "Paid") {
+      // For Paid, directly create/update expense with full amount
+      const amount = form.getValues("finalizedQuote") || invoiceAmount?.toString() || "0";
+      if (parseFloat(amount) > 0) {
+        createOrUpdateExpense(amount);
+      } else {
+        toast({
+          title: "Error",
+          description: "Please set a finalized quote amount first",
+          variant: "destructive",
+        });
+      }
     }
   };
 
-  // Create expense and link to event
-  const createExpenseForEvent = async (amount: string, status: string, onValueChange: (value: string) => void) => {
+  // Create or update expense linked to event - returns true on success, false on failure
+  const createOrUpdateExpense = async (amount: string): Promise<boolean> => {
     if (!event?.id) {
       toast({
         title: "Error",
-        description: "Cannot create expense: event ID is required",
+        description: "Cannot link expense: event ID is required",
         variant: "destructive",
       });
-      return;
+      return false;
+    }
+
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid amount greater than 0",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    const maxAmount = parseFloat(form.getValues("finalizedQuote") || invoiceAmount?.toString() || "0");
+    if (numericAmount > maxAmount) {
+      toast({
+        title: "Error",
+        description: `Amount cannot exceed the total quote (₹${maxAmount.toLocaleString("en-IN")})`,
+        variant: "destructive",
+      });
+      return false;
     }
 
     setIsCreatingExpense(true);
     try {
-      const expenseData = {
-        type: "Credit",
-        category: "Event",
-        from_account: event?.clientName || "Client Payment",
-        to_account: "DDC Fund",
-        description: `Payment for ${event?.eventName || "Event"} - ${status}`,
-        amount: amount,
-        date: new Date().toISOString().split("T")[0],
-        status: "Completed",
-        eventId: event.id,
-        contributor: [],
-        contribution: [],
-        contribution_status: [],
-      };
+      const currentStatus = form.getValues("paymentStatus");
+      
+      if (linkedExpenseId) {
+        // EDIT existing expense
+        await apiRequest("PATCH", `/api/expenses/${linkedExpenseId}`, {
+          amount: amount,
+          description: `Payment for ${event?.eventName || "Event"} - ${currentStatus}`,
+        });
 
-      const res = await apiRequest("POST", "/api/expenses", expenseData);
-      const createdExpense = await res.json();
+        queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/events", event.id] });
 
-      // Update event with linked expense ID
-      await apiRequest("PATCH", `/api/events/${event.id}`, {
-        expenseId: createdExpense.id,
-        paymentStatus: status,
-      });
+        toast({
+          title: "Success",
+          description: `Expense updated (₹${numericAmount.toLocaleString("en-IN")})`,
+        });
+      } else {
+        // CREATE new expense
+        const expenseData = {
+          type: "Credit",
+          category: "Event",
+          from_account: event?.clientName || "Client Payment",
+          to_account: "DDC Fund",
+          description: `Payment for ${event?.eventName || "Event"} - ${currentStatus}`,
+          amount: amount,
+          date: new Date().toISOString().split("T")[0],
+          status: "Completed",
+          eventId: event.id,
+          contributor: [],
+          contribution: [],
+          contribution_status: [],
+        };
 
-      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/events", event.id] });
+        const res = await apiRequest("POST", "/api/expenses", expenseData);
+        const createdExpense = await res.json();
 
-      toast({
-        title: "Success",
-        description: `Expense created and linked to event (₹${parseFloat(amount).toLocaleString("en-IN")})`,
-      });
+        // Update event with linked expense ID
+        await apiRequest("PATCH", `/api/events/${event.id}`, {
+          expenseId: createdExpense.id,
+        });
 
-      onValueChange(status);
+        // Update local state so subsequent clicks will EDIT, not CREATE
+        setLinkedExpenseId(createdExpense.id);
+
+        queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/events", event.id] });
+
+        toast({
+          title: "Success",
+          description: `Expense created and linked (₹${numericAmount.toLocaleString("en-IN")})`,
+        });
+      }
+      return true;
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to create expense: " + (error as Error).message,
+        description: "Failed to link expense: " + (error as Error).message,
         variant: "destructive",
       });
+      return false;
     } finally {
       setIsCreatingExpense(false);
     }
   };
 
   // Handle partial expense dialog confirmation
-  const handlePartialExpenseConfirm = () => {
-    if (pendingPaymentStatus && partialExpenseAmount && isEditing && event?.id) {
-      createExpenseForEvent(partialExpenseAmount, pendingPaymentStatus, (status) => {
-        form.setValue("paymentStatus", status);
-      });
+  const handlePartialExpenseConfirm = async () => {
+    if (partialExpenseAmount && isEditing && event?.id) {
+      const success = await createOrUpdateExpense(partialExpenseAmount);
+      if (success) {
+        setShowPartialExpenseDialog(false);
+        setPartialExpenseAmount("");
+      }
+      // If failed, dialog stays open for retry
     }
-    setShowPartialExpenseDialog(false);
-    setPendingPaymentStatus(null);
   };
 
   const handlePartialExpenseCancel = () => {
     setShowPartialExpenseDialog(false);
-    setPendingPaymentStatus(null);
     setPartialExpenseAmount("");
   };
 
@@ -656,26 +721,44 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
                     name="paymentStatus"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Status {isEditing && (field.value === "Paid" || field.value === "Partial") && "(Linked to Expense)"}</FormLabel>
-                        <Select 
-                          onValueChange={(value) => handlePaymentStatusChange(value, field.onChange)} 
-                          defaultValue={field.value}
-                          disabled={isCreatingExpense}
-                        >
-                          <FormControl>
-                            <SelectTrigger data-testid="select-payment-status">
-                              <SelectValue placeholder="Select payment status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {config?.paymentStatuses?.map((status) => (
-                              <SelectItem key={status} value={status}>
-                                {status}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {isCreatingExpense && <p className="text-sm text-muted-foreground">Creating expense...</p>}
+                        <FormLabel>
+                          Status
+                          {isEditing && linkedExpenseId && (
+                            <span className="ml-2 text-xs text-green-600 dark:text-green-400">(Expense Linked)</span>
+                          )}
+                        </FormLabel>
+                        <div className="flex gap-2 items-start">
+                          <Select 
+                            onValueChange={field.onChange} 
+                            defaultValue={field.value}
+                            disabled={isCreatingExpense}
+                          >
+                            <FormControl>
+                              <SelectTrigger data-testid="select-payment-status" className="flex-1">
+                                <SelectValue placeholder="Select payment status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {config?.paymentStatuses?.map((status) => (
+                                <SelectItem key={status} value={status}>
+                                  {status}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {isEditing && (field.value === "Paid" || field.value === "Partial") && (
+                            <Button
+                              type="button"
+                              variant={linkedExpenseId ? "outline" : "default"}
+                              size="sm"
+                              onClick={handleLinkExpense}
+                              disabled={isCreatingExpense || !isEventLoaded}
+                              data-testid="button-link-expense"
+                            >
+                              {isCreatingExpense ? "Linking..." : !isEventLoaded ? "Loading..." : linkedExpenseId ? "Update Expense" : "Link Expense"}
+                            </Button>
+                          )}
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
