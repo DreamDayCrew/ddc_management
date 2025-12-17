@@ -164,6 +164,8 @@ export const events = pgTable("events", {
   initialQuote: decimal("initial_quote", { precision: 10, scale: 2 }),
   ddcCost: decimal("ddc_cost", { precision: 10, scale: 2 }),
   profitLoss: decimal("profit_loss", { precision: 10, scale: 2 }),
+  // Linked expense for payment tracking
+  expenseId: varchar("expense_id"),
 });
 
 // Requirements Schema (nested under Events)
@@ -223,6 +225,9 @@ export const fulfillmentPlans = pgTable('fulfillment_plans', {
   customerRating: integer('customer_rating'),
   teamRating: integer('team_rating'),
   reviewNotes: text('review_notes'),
+  
+  // Linked expense for payment tracking
+  expenseId: text('expense_id').references(() => expenses.id, { onDelete: 'set null' }),
 }, (table) => ({
   // Add check constraints
   chkVendorPlan: check('chk_vendor_plan', 
