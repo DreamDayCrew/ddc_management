@@ -39,6 +39,12 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
   const [showEventStatusDropdown, setShowEventStatusDropdown] = useState(false);
   const [showPaymentModeDropdown, setShowPaymentModeDropdown] = useState(false);
   const [showPaymentStatusDropdown, setShowPaymentStatusDropdown] = useState(false);
+  
+  const [showPartialExpenseDialog, setShowPartialExpenseDialog] = useState(false);
+  const [partialExpenseAmount, setPartialExpenseAmount] = useState('');
+  const [pendingPaymentStatus, setPendingPaymentStatus] = useState<string | null>(null);
+  const [isCreatingExpense, setIsCreatingExpense] = useState(false);
+  
   const [formData, setFormData] = useState({
     eventName: '',
     providedService: '',
@@ -125,6 +131,108 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
     setShowEventStatusDropdown(false);
     setShowPaymentModeDropdown(false);
     setShowPaymentStatusDropdown(false);
+    setShowPartialExpenseDialog(false);
+    setPartialExpenseAmount('');
+    setPendingPaymentStatus(null);
+    setIsCreatingExpense(false);
+  };
+
+  const createExpenseForEvent = async (amount: string, status: string) => {
+    if (!event?.id) {
+      Alert.alert('Error', 'Cannot create expense: event ID is required');
+      return;
+    }
+
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+
+    setIsCreatingExpense(true);
+    try {
+      const expenseData = {
+        type: 'Credit',
+        category: 'Event',
+        from_account: event.clientName || 'Client Payment',
+        to_account: 'DDC Fund',
+        description: `Payment for ${formData.eventName || event.eventName} - ${status}`,
+        amount: amount,
+        date: new Date().toISOString().split('T')[0],
+        status: 'Completed',
+        eventId: event.id,
+        contributor: [],
+        contribution: [],
+        contribution_status: [],
+      };
+
+      const createdExpense = await api.createExpense(expenseData as any);
+
+      await api.updateEvent(event.id, {
+        expenseId: createdExpense.id,
+        paymentStatus: status,
+      } as any);
+
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/events', event.id] });
+
+      setFormData({ ...formData, paymentStatus: status });
+
+      Alert.alert(
+        'Success',
+        `Expense created and linked to event (₹${numericAmount.toLocaleString('en-IN')})`
+      );
+    } catch (error) {
+      Alert.alert('Error', `Failed to create expense: ${(error as Error).message}`);
+    } finally {
+      setIsCreatingExpense(false);
+    }
+  };
+
+  const handlePaymentStatusChange = (newStatus: string) => {
+    if (!event) {
+      setFormData({ ...formData, paymentStatus: newStatus });
+      setShowPaymentStatusDropdown(false);
+      return;
+    }
+
+    const currentStatus = event.paymentStatus;
+    if (newStatus === currentStatus) {
+      setShowPaymentStatusDropdown(false);
+      return;
+    }
+
+    if (newStatus === 'Paid') {
+      setShowPaymentStatusDropdown(false);
+      const amount = event.finalizedQuote || '0';
+      if (parseFloat(amount) > 0) {
+        createExpenseForEvent(amount, newStatus);
+      } else {
+        setFormData({ ...formData, paymentStatus: newStatus });
+      }
+    } else if (newStatus === 'Partial') {
+      setShowPaymentStatusDropdown(false);
+      setPendingPaymentStatus(newStatus);
+      setPartialExpenseAmount(event.finalizedQuote || '');
+      setShowPartialExpenseDialog(true);
+    } else {
+      setFormData({ ...formData, paymentStatus: newStatus });
+      setShowPaymentStatusDropdown(false);
+    }
+  };
+
+  const handlePartialExpenseConfirm = () => {
+    if (pendingPaymentStatus && partialExpenseAmount && event?.id) {
+      createExpenseForEvent(partialExpenseAmount, pendingPaymentStatus);
+    }
+    setShowPartialExpenseDialog(false);
+    setPendingPaymentStatus(null);
+  };
+
+  const handlePartialExpenseCancel = () => {
+    setShowPartialExpenseDialog(false);
+    setPendingPaymentStatus(null);
+    setPartialExpenseAmount('');
   };
 
   const handleSubmit = () => {
@@ -547,7 +655,7 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
                 indicatorStyle={isDark ? "white" : "black"}
                 style={styles.dropdownScroll}
               >
-                {(config?.paymentStatuses || ['Pending', 'Partial', 'Completed', 'Refunded']).map((status: string) => (
+                {(config?.paymentStatuses || ['Pending', 'Partial', 'Paid']).map((status: string) => (
                   <TouchableOpacity 
                     key={status}
                     style={[
@@ -555,10 +663,8 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
                       { backgroundColor: colors.card, borderBottomColor: colors.border },
                       formData.paymentStatus === status && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
                     ]}
-                    onPress={() => {
-                      setFormData({ ...formData, paymentStatus: status });
-                      setShowPaymentStatusDropdown(false);
-                    }}
+                    onPress={() => handlePaymentStatusChange(status)}
+                    disabled={isCreatingExpense}
                   >
                     <Ionicons name="checkmark-circle" size={18} color={formData.paymentStatus === status ? colors.primary : colors.textSecondary} style={styles.dropdownItemIcon} />
                     <Text style={[styles.dropdownItemText, { color: colors.text }, formData.paymentStatus === status && [styles.selectedDropdownItemText, { color: isDark ? '#e2e8f0' : colors.primary }]]}>
@@ -588,6 +694,68 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
           )}
         </View>
       </KeyboardAvoidingView>
+
+      {/* Partial Payment Amount Dialog */}
+      <Modal
+        visible={showPartialExpenseDialog}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={handlePartialExpenseCancel}
+      >
+        <View style={styles.dialogOverlay}>
+          <View style={[styles.dialogContainer, { backgroundColor: colors.card }]}>
+            <View style={[styles.dialogHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.dialogTitle, { color: colors.text }]}>Enter Partial Payment Amount</Text>
+              <TouchableOpacity onPress={handlePartialExpenseCancel} style={styles.dialogCloseButton}>
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.dialogContent}>
+              <Text style={[styles.dialogLabel, { color: colors.textSecondary }]}>
+                Enter the amount received for this partial payment:
+              </Text>
+              <TextInput
+                style={[styles.dialogInput, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
+                value={partialExpenseAmount}
+                onChangeText={setPartialExpenseAmount}
+                placeholder="Enter amount"
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="numeric"
+                autoFocus={true}
+                data-testid="input-partial-amount"
+              />
+              <Text style={[styles.dialogHint, { color: colors.textSecondary }]}>
+                This will create a Credit expense from Client Payment to DDC Fund
+              </Text>
+            </View>
+            
+            <View style={styles.dialogActions}>
+              <TouchableOpacity
+                style={[styles.dialogCancelButton, { backgroundColor: isDark ? '#374151' : '#f3f4f6', borderColor: colors.border }]}
+                onPress={handlePartialExpenseCancel}
+                disabled={isCreatingExpense}
+                data-testid="button-cancel-partial"
+              >
+                <Text style={[styles.dialogCancelButtonText, { color: colors.textSecondary }]}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.dialogConfirmButton, { backgroundColor: isDark ? '#4a5568' : '#800020' }, isCreatingExpense && styles.dialogConfirmButtonDisabled]}
+                onPress={handlePartialExpenseConfirm}
+                disabled={isCreatingExpense || !partialExpenseAmount}
+                data-testid="button-confirm-partial"
+              >
+                {isCreatingExpense ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.dialogConfirmButtonText}>Confirm</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 }
@@ -746,6 +914,90 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  dialogOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  dialogContainer: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  dialogHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+  },
+  dialogTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    flex: 1,
+  },
+  dialogCloseButton: {
+    padding: 4,
+  },
+  dialogContent: {
+    padding: 16,
+  },
+  dialogLabel: {
+    fontSize: 14,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  dialogInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  dialogHint: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    lineHeight: 16,
+  },
+  dialogActions: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  dialogCancelButton: {
+    flex: 1,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  dialogCancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  dialogConfirmButton: {
+    flex: 1,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+  },
+  dialogConfirmButtonDisabled: {
+    opacity: 0.6,
+  },
+  dialogConfirmButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',

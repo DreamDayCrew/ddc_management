@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useState as useFragmentState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -8,6 +8,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -79,6 +87,10 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
   const isEditing = !!event;
   const [showDiscountAlert, setShowDiscountAlert] = useState(false);
   const [pendingDiscountChange, setPendingDiscountChange] = useState<boolean | null>(null);
+  const [showPartialExpenseDialog, setShowPartialExpenseDialog] = useState(false);
+  const [partialExpenseAmount, setPartialExpenseAmount] = useState("");
+  const [pendingPaymentStatus, setPendingPaymentStatus] = useState<string | null>(null);
+  const [isCreatingExpense, setIsCreatingExpense] = useState(false);
 
   const { data: config } = useQuery<Configuration>({
     queryKey: ["/api/configuration"],
@@ -154,6 +166,101 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
     setShowDiscountAlert(false);
     setPendingDiscountChange(null);
     // Keep the current discount state
+  };
+
+  // Handle payment status change for expense linking
+  const handlePaymentStatusChange = (newStatus: string, onValueChange: (value: string) => void) => {
+    if (newStatus === "Paid") {
+      // For "Paid" status, auto-create an expense (Credit: Client Payment → DDC Fund)
+      const amount = form.getValues("finalizedQuote") || invoiceAmount?.toString() || "0";
+      if (parseFloat(amount) > 0 && isEditing && event?.id) {
+        createExpenseForEvent(amount, newStatus, onValueChange);
+      } else {
+        onValueChange(newStatus);
+      }
+    } else if (newStatus === "Partial") {
+      // For "Partial" status, show dialog to enter partial amount
+      setPendingPaymentStatus(newStatus);
+      setPartialExpenseAmount(form.getValues("finalizedQuote") || "");
+      setShowPartialExpenseDialog(true);
+    } else {
+      // For "Pending" or other statuses, just update the field
+      onValueChange(newStatus);
+    }
+  };
+
+  // Create expense and link to event
+  const createExpenseForEvent = async (amount: string, status: string, onValueChange: (value: string) => void) => {
+    if (!event?.id) {
+      toast({
+        title: "Error",
+        description: "Cannot create expense: event ID is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingExpense(true);
+    try {
+      const expenseData = {
+        type: "Credit",
+        category: "Event",
+        from_account: event?.clientName || "Client Payment",
+        to_account: "DDC Fund",
+        description: `Payment for ${event?.eventName || "Event"} - ${status}`,
+        amount: amount,
+        date: new Date().toISOString().split("T")[0],
+        status: "Completed",
+        eventId: event.id,
+        contributor: [],
+        contribution: [],
+        contribution_status: [],
+      };
+
+      const res = await apiRequest("POST", "/api/expenses", expenseData);
+      const createdExpense = await res.json();
+
+      // Update event with linked expense ID
+      await apiRequest("PATCH", `/api/events/${event.id}`, {
+        expenseId: createdExpense.id,
+        paymentStatus: status,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events", event.id] });
+
+      toast({
+        title: "Success",
+        description: `Expense created and linked to event (₹${parseFloat(amount).toLocaleString("en-IN")})`,
+      });
+
+      onValueChange(status);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create expense: " + (error as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingExpense(false);
+    }
+  };
+
+  // Handle partial expense dialog confirmation
+  const handlePartialExpenseConfirm = () => {
+    if (pendingPaymentStatus && partialExpenseAmount && isEditing && event?.id) {
+      createExpenseForEvent(partialExpenseAmount, pendingPaymentStatus, (status) => {
+        form.setValue("paymentStatus", status);
+      });
+    }
+    setShowPartialExpenseDialog(false);
+    setPendingPaymentStatus(null);
+  };
+
+  const handlePartialExpenseCancel = () => {
+    setShowPartialExpenseDialog(false);
+    setPendingPaymentStatus(null);
+    setPartialExpenseAmount("");
   };
 
   const createMutation = useMutation({
@@ -549,8 +656,12 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
                     name="paymentStatus"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Status</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormLabel>Status {isEditing && (field.value === "Paid" || field.value === "Partial") && "(Linked to Expense)"}</FormLabel>
+                        <Select 
+                          onValueChange={(value) => handlePaymentStatusChange(value, field.onChange)} 
+                          defaultValue={field.value}
+                          disabled={isCreatingExpense}
+                        >
                           <FormControl>
                             <SelectTrigger data-testid="select-payment-status">
                               <SelectValue placeholder="Select payment status" />
@@ -564,6 +675,7 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
                             ))}
                           </SelectContent>
                         </Select>
+                        {isCreatingExpense && <p className="text-sm text-muted-foreground">Creating expense...</p>}
                         <FormMessage />
                       </FormItem>
                     )}
@@ -598,6 +710,44 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    {/* Partial Payment Expense Dialog */}
+    <Dialog open={showPartialExpenseDialog} onOpenChange={setShowPartialExpenseDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Record Partial Payment</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <p className="text-sm text-muted-foreground">
+            Enter the amount received as partial payment. This will create an expense transaction (Credit: Client Payment to DDC Fund).
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor="partial-amount">Amount Received</Label>
+            <Input
+              id="partial-amount"
+              type="number"
+              step="0.01"
+              min="0"
+              value={partialExpenseAmount}
+              onChange={(e) => setPartialExpenseAmount(e.target.value)}
+              placeholder="Enter partial payment amount"
+              data-testid="input-partial-expense-amount"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={handlePartialExpenseCancel}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handlePartialExpenseConfirm} 
+            disabled={!partialExpenseAmount || parseFloat(partialExpenseAmount) <= 0 || isCreatingExpense}
+          >
+            {isCreatingExpense ? "Creating..." : "Create Expense"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </Fragment>
   );
 }

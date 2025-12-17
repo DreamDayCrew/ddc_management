@@ -9,10 +9,12 @@ import {
   type Configuration,
   type TeamMember,
   type Vendor,
-  type Asset
+  type Asset,
+  type Event
 } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -79,6 +81,12 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
   const [newAssetCategory, setNewAssetCategory] = useState("");
   const [newAssetQuantity, setNewAssetQuantity] = useState("1");
   const [assetCreateLoading, setAssetCreateLoading] = useState(false);
+  
+  // Expense linking state
+  const [showPartialExpenseDialog, setShowPartialExpenseDialog] = useState(false);
+  const [partialExpenseAmount, setPartialExpenseAmount] = useState("");
+  const [pendingPaymentStatus, setPendingPaymentStatus] = useState<string | null>(null);
+  const [isCreatingExpense, setIsCreatingExpense] = useState(false);
 
   const { data: config } = useQuery<Configuration>({
     queryKey: ["/api/configuration"],
@@ -94,6 +102,12 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
 
   const { data: assets } = useQuery<Asset[]>({
     queryKey: ["/api/assets"],
+  });
+
+  // Get event for expense description
+  const { data: event } = useQuery<Event>({
+    queryKey: ["/api/events", eventId],
+    enabled: !!eventId,
   });
   
   // Get vendor categories from config
@@ -201,6 +215,115 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
       });
     }
   }, [plan, form]);
+
+  // Get recipient name for expense based on plan type
+  const getRecipientName = () => {
+    if (planType === "Vendor") {
+      const vendor = vendors?.find(v => v.id === form.getValues("vendorId"));
+      return vendor?.name || "Vendor";
+    } else if (planType === "Team") {
+      const teamMember = teamMembers?.find(t => t.id === form.getValues("teamMemberId"));
+      return teamMember?.name || "Team Member";
+    }
+    return "Recipient";
+  };
+
+  // Handle payment status change for expense linking
+  const handlePaymentStatusChange = (newStatus: string, onValueChange: (value: string) => void) => {
+    if (newStatus === "Paid") {
+      // For "Paid" status, auto-create an expense (Debit: DDC Fund → vendor/team)
+      const amount = form.getValues("payment") || "0";
+      if (parseFloat(amount as string) > 0 && isEditing && plan?.id) {
+        createExpenseForPlan(amount as string, newStatus, onValueChange);
+      } else {
+        onValueChange(newStatus);
+      }
+    } else if (newStatus === "Partial") {
+      // For "Partial" status, show dialog to enter partial amount
+      setPendingPaymentStatus(newStatus);
+      setPartialExpenseAmount(form.getValues("payment") as string || "");
+      setShowPartialExpenseDialog(true);
+    } else {
+      // For "Pending" or other statuses, just update the field
+      onValueChange(newStatus);
+    }
+  };
+
+  // Create expense and link to fulfillment plan
+  const createExpenseForPlan = async (amount: string, status: string, onValueChange: (value: string) => void) => {
+    if (!plan?.id) {
+      toast({
+        title: "Error",
+        description: "Cannot create expense: plan ID is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingExpense(true);
+    try {
+      const recipientName = getRecipientName();
+      const expenseData = {
+        type: "Debit",
+        category: "Event",
+        from_account: "DDC Fund",
+        to_account: recipientName,
+        description: `Payment to ${recipientName} for ${event?.eventName || "Event"} - ${status}`,
+        amount: amount,
+        date: new Date().toISOString().split("T")[0],
+        status: "Completed",
+        eventId: eventId,
+        contributor: [],
+        contribution: [],
+        contribution_status: [],
+      };
+
+      const res = await apiRequest("POST", "/api/expenses", expenseData);
+      const createdExpense = await res.json();
+
+      // Update plan with linked expense ID
+      await apiRequest("PATCH", `/api/plans/${plan.id}`, {
+        expenseId: createdExpense.id,
+        paymentStatus: status,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/requirements", requirementId, "plans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events", eventId, "requirements"] });
+
+      toast({
+        title: "Success",
+        description: `Expense created and linked to plan (₹${parseFloat(amount).toLocaleString("en-IN")})`,
+      });
+
+      onValueChange(status);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create expense: " + (error as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingExpense(false);
+    }
+  };
+
+  // Handle partial expense dialog confirmation
+  const handlePartialExpenseConfirm = () => {
+    if (pendingPaymentStatus && partialExpenseAmount && isEditing && plan?.id) {
+      createExpenseForPlan(partialExpenseAmount, pendingPaymentStatus, (status) => {
+        form.setValue("paymentStatus", status);
+      });
+    }
+    setShowPartialExpenseDialog(false);
+    setPendingPaymentStatus(null);
+  };
+
+  const handlePartialExpenseCancel = () => {
+    setShowPartialExpenseDialog(false);
+    setPendingPaymentStatus(null);
+    setPartialExpenseAmount("");
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertFulfillmentPlan) => {
@@ -421,10 +544,11 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
                 name="paymentStatus"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Payment Status</FormLabel>
+                    <FormLabel>Payment Status {isEditing && (field.value === "Paid" || field.value === "Partial") && "(Linked to Expense)"}</FormLabel>
                     <Select 
-                      onValueChange={field.onChange} 
+                      onValueChange={(value) => handlePaymentStatusChange(value, field.onChange)} 
                       value={field.value || "Pending"}
+                      disabled={isCreatingExpense}
                     >
                       <FormControl>
                         <SelectTrigger data-testid="select-payment-status">
@@ -439,6 +563,7 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
                         ))}
                       </SelectContent>
                     </Select>
+                    {isCreatingExpense && <p className="text-sm text-muted-foreground">Creating expense...</p>}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -612,10 +737,11 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
                 name="paymentStatus"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Payment Status</FormLabel>
+                    <FormLabel>Payment Status {isEditing && (field.value === "Paid" || field.value === "Partial") && "(Linked to Expense)"}</FormLabel>
                     <Select 
-                      onValueChange={field.onChange} 
+                      onValueChange={(value) => handlePaymentStatusChange(value, field.onChange)} 
                       value={field.value || "Pending"}
+                      disabled={isCreatingExpense}
                     >
                       <FormControl>
                         <SelectTrigger data-testid="select-payment-status">
@@ -630,6 +756,7 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
                         ))}
                       </SelectContent>
                     </Select>
+                    {isCreatingExpense && <p className="text-sm text-muted-foreground">Creating expense...</p>}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -946,6 +1073,44 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
             }}
           />
           <DialogFooter className="hidden" />
+        </DialogContent>
+      </Dialog>
+
+      {/* Partial Payment Expense Dialog */}
+      <Dialog open={showPartialExpenseDialog} onOpenChange={setShowPartialExpenseDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Partial Payment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Enter the amount paid. This will create an expense transaction (Debit: DDC Fund to {getRecipientName()}).
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="partial-plan-amount">Amount Paid</Label>
+              <Input
+                id="partial-plan-amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={partialExpenseAmount}
+                onChange={(e) => setPartialExpenseAmount(e.target.value)}
+                placeholder="Enter partial payment amount"
+                data-testid="input-partial-plan-expense-amount"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handlePartialExpenseCancel}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handlePartialExpenseConfirm} 
+              disabled={!partialExpenseAmount || parseFloat(partialExpenseAmount) <= 0 || isCreatingExpense}
+            >
+              {isCreatingExpense ? "Creating..." : "Create Expense"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Form>
