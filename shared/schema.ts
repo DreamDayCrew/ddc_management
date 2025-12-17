@@ -227,7 +227,7 @@ export const fulfillmentPlans = pgTable('fulfillment_plans', {
   reviewNotes: text('review_notes'),
   
   // Linked expense for payment tracking
-  expenseId: text('expense_id').references(() => expenses.id, { onDelete: 'set null' }),
+  expenseId: text('expense_id'),
 }, (table) => ({
   // Add check constraints
   chkVendorPlan: check('chk_vendor_plan', 

@@ -47,7 +47,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { EventForm } from "@/components/forms/event-form";
-import { ExpenseForm } from "@/components/forms/expense-form";
 import { RequirementForm } from "@/components/forms/requirement-form";
 import { FulfillmentForm } from "@/components/forms/fulfillment-form";
 import { RequirementItem } from "@/components/requirement-item";
@@ -71,7 +70,6 @@ export default function EventDetails() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showDeleteEventDialog, setShowDeleteEventDialog] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [showAddExpense, setShowAddExpense] = useState(false);
   
   // Handle refresh invoice value button click
   const handleRefreshInvoice = async () => {
@@ -1023,15 +1021,6 @@ export default function EventDetails() {
                   <p className="font-medium">
                     ₹{totalReceived.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                   </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-1"
-                    onClick={() => setShowAddExpense(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Expense
-                  </Button>
                 </div>
                 </div>
               </AccordionContent>
@@ -1084,21 +1073,6 @@ export default function EventDetails() {
             ))}
         </Accordion>
       )}
-
-      <Dialog open={showAddExpense} onOpenChange={setShowAddExpense}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Add Expense for this Event</DialogTitle>
-          </DialogHeader>
-          <ExpenseForm
-            eventId={id!}
-            onSuccess={() => {
-              setShowAddExpense(false);
-              queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
-            }}
-          />
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog open={!!deleteRequirement} onOpenChange={(open) => !open && setDeleteRequirement(null)}>
         <AlertDialogContent>
