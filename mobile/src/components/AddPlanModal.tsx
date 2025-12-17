@@ -296,6 +296,13 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
     const paymentAmount = parseFloat(formData.payment);
     const hasValidPayment = !isNaN(paymentAmount) && paymentAmount > 0;
     
+    // Guard: If expense is already linked, skip expense creation and just update status
+    if (plan?.expenseId) {
+      setFormData(prev => ({ ...prev, paymentStatus: newStatus }));
+      setShowPaymentStatusDropdown(false);
+      return;
+    }
+    
     if (plan && hasValidPayment) {
       if (newStatus === 'Paid' || newStatus === 'Completed') {
         // For "Paid/Completed" status, auto-create an expense with full payment amount
@@ -304,7 +311,7 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
       } else if (newStatus === 'Partial') {
         // For "Partial" status, show dialog to enter partial amount
         setPendingPaymentStatus(newStatus);
-        setPartialExpenseAmount(formData.payment);
+        setPartialExpenseAmount('');
         setShowPartialExpenseDialog(true);
         setShowPaymentStatusDropdown(false);
       } else {
@@ -321,9 +328,24 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
 
   // Handle partial expense dialog confirmation
   const handlePartialExpenseConfirm = () => {
-    if (pendingPaymentStatus && partialExpenseAmount && plan?.id) {
-      createExpenseForPlan(partialExpenseAmount, pendingPaymentStatus);
+    if (!pendingPaymentStatus || !partialExpenseAmount || !plan?.id) {
+      return;
     }
+
+    const amount = parseFloat(partialExpenseAmount);
+    const maxAmount = parseFloat(formData.payment || '0');
+    
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount greater than 0');
+      return;
+    }
+    
+    if (amount > maxAmount) {
+      Alert.alert('Error', `Amount cannot exceed the total payment (₹${maxAmount.toLocaleString('en-IN')})`);
+      return;
+    }
+
+    createExpenseForPlan(partialExpenseAmount, pendingPaymentStatus);
     setShowPartialExpenseDialog(false);
     setPendingPaymentStatus(null);
   };
