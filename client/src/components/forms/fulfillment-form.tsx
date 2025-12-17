@@ -43,6 +43,15 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { VendorForm } from "@/components/forms/vendor-form";
+import { AssetForm } from "@/components/forms/asset-form";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +66,19 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
   const { toast } = useToast();
   const isEditing = !!plan;
   const [assetOpen, setAssetOpen] = useState(false);
+  const [vendorOpen, setVendorOpen] = useState(false);
+  const [vendorSearchAll, setVendorSearchAll] = useState(false);
+  const [assetSearchAll, setAssetSearchAll] = useState(false);
+  const [vendorCreateOpen, setVendorCreateOpen] = useState(false);
+  const [assetCreateOpen, setAssetCreateOpen] = useState(false);
+  const [newVendorName, setNewVendorName] = useState("");
+  const [newVendorCategory, setNewVendorCategory] = useState("");
+  const [newVendorRating, setNewVendorRating] = useState("");
+  const [vendorCreateLoading, setVendorCreateLoading] = useState(false);
+  const [newAssetName, setNewAssetName] = useState("");
+  const [newAssetCategory, setNewAssetCategory] = useState("");
+  const [newAssetQuantity, setNewAssetQuantity] = useState("1");
+  const [assetCreateLoading, setAssetCreateLoading] = useState(false);
 
   const { data: config } = useQuery<Configuration>({
     queryKey: ["/api/configuration"],
@@ -104,6 +126,7 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
   const selectedVendorCategory = form.watch("vendorCategory");
   const selectedVendorId = form.watch("vendorId");
   const selectedAssetCategory = form.watch("assetCategory");
+  const selectedAssetId = form.watch("assetId");
   const paymentAmount = form.watch("payment") as string;
   const showPaymentStatus = paymentAmount ? parseFloat(paymentAmount) > 0 : false;
 
@@ -111,6 +134,8 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
   const filteredVendors = selectedVendorCategory 
     ? vendors?.filter(vendor => vendor.category === selectedVendorCategory) || []
     : [];
+
+  const vendorsToShow = vendorSearchAll ? vendors || [] : filteredVendors;
 
   const selectedVendor = vendors?.find((vendor) => vendor.id === selectedVendorId);
 
@@ -133,19 +158,24 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
     ? assets?.filter(a => a.category === selectedAssetCategory) || []
     : [];
 
+  const assetsToShow = assetSearchAll ? assets || [] : filteredAssets;
+
   // Reset vendorId when vendorCategory changes
   useEffect(() => {
-    if (selectedVendorCategory) {
+    if (!selectedVendorCategory) return;
+    // Avoid clearing while the vendor selection is still syncing
+    if (!selectedVendor) return;
+    if (selectedVendor.category === selectedVendorCategory) return;
       form.setValue("vendorId", "");
-    }
-  }, [selectedVendorCategory, form]);
+  }, [selectedVendorCategory, selectedVendor, form]);
 
   // Reset assetId when assetCategory changes
   useEffect(() => {
-    if (selectedAssetCategory) {
+    const currentAsset = assets?.find((a) => a.id === selectedAssetId);
+    if (!selectedAssetCategory) return;
+    if (currentAsset && currentAsset.category === selectedAssetCategory) return;
       form.setValue("assetId", "");
-    }
-  }, [selectedAssetCategory, form]);
+  }, [selectedAssetCategory, selectedAssetId, assets, form]);
 
   // Reset fields when planType changes
   useEffect(() => {
@@ -261,6 +291,8 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
       createMutation.mutate(transformedData);
     }
   };
+
+  // creation handled via VendorForm/AssetForm dialogs
 
   // Add form state logging
   useEffect(() => {
@@ -448,43 +480,110 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
             <FormField
               control={form.control}
               name="vendorId"
-              render={({ field }) => (
-                <FormItem>
+              render={({ field }) => {
+                const selected = vendors?.find((v) => v.id === field.value);
+                return (
+                  <FormItem className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
                   <FormLabel>Vendor</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    value={field.value || ""}
-                    disabled={!selectedVendorCategory || planType !== "Vendor"}
+                      <div className="flex items-center gap-2 text-xs">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="px-0"
+                          onClick={() => setVendorSearchAll((v) => !v)}
+                          disabled={planType !== "Vendor"}
+                        >
+                          {vendorSearchAll ? "Filter by category" : "Search all"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="px-0"
+                          onClick={() => {
+                            setNewVendorCategory(selectedVendorCategory || "");
+                            setVendorCreateOpen(true);
+                          }}
+                          disabled={planType !== "Vendor"}
                   >
+                          Add new & link
+                        </Button>
+                      </div>
+                    </div>
+                    <Popover open={vendorOpen} onOpenChange={setVendorOpen}>
+                      <PopoverTrigger asChild>
                     <FormControl>
-                      <SelectTrigger data-testid="select-vendor">
-                        <SelectValue 
-                          placeholder={
-                            !selectedVendorCategory 
-                              ? "Select a vendor category first" 
-                              : filteredVendors.length === 0 
-                                ? "No vendors available for this category"
-                                : "Select vendor"
-                          } 
-                        />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {filteredVendors.map((vendor) => (
-                        <SelectItem key={vendor.id} value={vendor.id}>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={vendorOpen}
+                            disabled={planType !== "Vendor"}
+                            className={cn(
+                              "w-full justify-between font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            data-testid="select-vendor"
+                          >
+                            {selected
+                              ? selected.name
+                              : vendorsToShow.length === 0
+                                ? vendorSearchAll
+                                  ? "No vendors available"
+                                  : "Select a vendor category first"
+                                : "Select vendor"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search vendors..." />
+                          <CommandList>
+                            <CommandEmpty>No vendor found.</CommandEmpty>
+                            <CommandGroup>
+                              {vendorsToShow.map((vendor) => (
+                                <CommandItem
+                                  key={vendor.id}
+                                  value={vendor.name}
+                                  onSelect={() => {
+                                    field.onChange(vendor.id);
+                                    if (!selectedVendorCategory && vendor.category) {
+                                      form.setValue("vendorCategory", vendor.category);
+                                    }
+                                    setVendorOpen(false);
+                                  }}
+                                  data-testid={`vendor-option-${vendor.id}`}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      field.value === vendor.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
                           {vendor.name}
-                        </SelectItem>
+                                  {vendor.category ? (
+                                    <span className="ml-auto text-xs text-muted-foreground">
+                                      {vendor.category}
+                                    </span>
+                                  ) : null}
+                                </CommandItem>
                       ))}
-                    </SelectContent>
-                  </Select>
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   <FormMessage />
                 </FormItem>
-              )}
+                );
+              }}
             />
             {vendorRatingInfo && (
               <div className={`mt-2 rounded-md border px-3 py-2 text-sm ${vendorRatingInfo.bgClass} ${vendorRatingInfo.borderClass} ${vendorRatingInfo.colorClass}`}>
                 {vendorRatingInfo.text}
-              </div>
+            </div>
             )}
             <FormField
               control={form.control}
@@ -596,10 +695,37 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
                   control={form.control}
                   name="assetId"
                   render={({ field }) => {
-                    const selectedAsset = filteredAssets.find(a => a.id === field.value);
+                    const selectedAsset = assets?.find(a => a.id === field.value);
                     return (
-                      <FormItem className="flex flex-col">
+                      <FormItem className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
                         <FormLabel>Asset</FormLabel>
+                          <div className="flex items-center gap-2 text-xs">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="px-0"
+                              onClick={() => setAssetSearchAll((v) => !v)}
+                              disabled={planType !== "Asset"}
+                            >
+                              {assetSearchAll ? "Filter by category" : "Search all"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="px-0"
+                              onClick={() => {
+                                setNewAssetCategory(selectedAssetCategory || "");
+                                setAssetCreateOpen(true);
+                              }}
+                              disabled={planType !== "Asset"}
+                            >
+                              Add new & link
+                            </Button>
+                          </div>
+                        </div>
                         <Popover open={assetOpen} onOpenChange={setAssetOpen}>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -607,19 +733,19 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
                                 variant="outline"
                                 role="combobox"
                                 aria-expanded={assetOpen}
-                                disabled={!selectedAssetCategory || planType !== "Asset"}
+                                disabled={planType !== "Asset"}
                                 className={cn(
                                   "w-full justify-between font-normal",
                                   !field.value && "text-muted-foreground"
                                 )}
                                 data-testid="select-asset"
                               >
-                                {!selectedAssetCategory 
-                                  ? "Select an asset category first" 
-                                  : filteredAssets.length === 0 
-                                    ? "No assets available"
-                                    : selectedAsset 
+                                {selectedAsset
                                       ? selectedAsset.name 
+                                  : assetsToShow.length === 0
+                                    ? assetSearchAll
+                                      ? "No assets available"
+                                      : "Select an asset category first"
                                       : "Search and select asset..."}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
@@ -634,12 +760,15 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
                               <CommandList>
                                 <CommandEmpty>No asset found.</CommandEmpty>
                                 <CommandGroup>
-                                  {filteredAssets.map((asset) => (
+                                  {assetsToShow.map((asset) => (
                                     <CommandItem
                                       key={asset.id}
                                       value={asset.name}
                                       onSelect={() => {
                                         field.onChange(asset.id);
+                                        if (!selectedAssetCategory && asset.category) {
+                                          form.setValue("assetCategory", asset.category);
+                                        }
                                         setAssetOpen(false);
                                       }}
                                       data-testid={`asset-option-${asset.id}`}
@@ -651,6 +780,11 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
                                         )}
                                       />
                                       {asset.name}
+                                      {asset.category ? (
+                                        <span className="ml-auto text-xs text-muted-foreground">
+                                          {asset.category}
+                                        </span>
+                                      ) : null}
                                     </CommandItem>
                                   ))}
                                 </CommandGroup>
@@ -769,6 +903,51 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
           </Button>
         </div>
       </form>
+
+      <Dialog open={vendorCreateOpen} onOpenChange={setVendorCreateOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Add Vendor & Link</DialogTitle>
+          </DialogHeader>
+          <VendorForm
+            onCreated={(created) => {
+              form.setValue("vendorCategory", created.category || "");
+              form.setValue("vendorId", created.id);
+              setVendorCreateOpen(false);
+              setVendorSearchAll(false);
+            }}
+            onSuccess={() => {
+              // handled in onCreated
+            }}
+          />
+          <DialogFooter className="hidden" />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={assetCreateOpen} onOpenChange={setAssetCreateOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Add Asset & Link</DialogTitle>
+          </DialogHeader>
+          <AssetForm
+            onCreated={(created) => {
+              form.setValue("assetType", "Inventory");
+              form.setValue("assetCategory", created.category || "");
+              form.setValue("assetId", created.id);
+              form.setValue("assetPurchaseStatus", "New", { shouldDirty: true, shouldTouch: true });
+              if (created.purchasedAmount != null) {
+                form.setValue("payment", String(created.purchasedAmount), { shouldDirty: true, shouldTouch: true });
+              }
+              setAssetCreateOpen(false);
+              setAssetSearchAll(false);
+            }}
+            onSuccess={() => {
+              // handled in onCreated
+            }}
+          />
+          <DialogFooter className="hidden" />
+        </DialogContent>
+      </Dialog>
     </Form>
   );
 }

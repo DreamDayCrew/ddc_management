@@ -47,6 +47,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { EventForm } from "@/components/forms/event-form";
+import { ExpenseForm } from "@/components/forms/expense-form";
 import { RequirementForm } from "@/components/forms/requirement-form";
 import { FulfillmentForm } from "@/components/forms/fulfillment-form";
 import { RequirementItem } from "@/components/requirement-item";
@@ -70,6 +71,7 @@ export default function EventDetails() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showDeleteEventDialog, setShowDeleteEventDialog] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showAddExpense, setShowAddExpense] = useState(false);
   
   // Handle refresh invoice value button click
   const handleRefreshInvoice = async () => {
@@ -135,6 +137,25 @@ export default function EventDetails() {
     queryKey: ['/api/assets'],
     enabled: !!id,
   });
+
+  // Fetch all expenses and filter by this event
+  const { data: allExpenses = [] } = useQuery<any[]>({
+    queryKey: ["/api/expenses"],
+    enabled: !!id,
+  });
+
+  const eventExpenses = useMemo(
+    () => allExpenses.filter((e) => e.eventId === id),
+    [allExpenses, id]
+  );
+
+  const totalReceived = useMemo(() => {
+    if (!eventExpenses.length) return 0;
+    return eventExpenses.reduce((sum, exp) => {
+      const amt = parseFloat(String(exp.amount) || "0");
+      return sum + (isNaN(amt) ? 0 : amt);
+    }, 0);
+  }, [eventExpenses]);
 
   // Calculate total discount amounts
   const calculateDiscountInfo = useCallback(() => {
@@ -980,7 +1001,7 @@ export default function EventDetails() {
                     </div>
                   </div>
 
-                  <div className="space-y-1">
+                <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <BadgeIndianRupee className="h-4 w-4" />
                       <span>Mode of Transaction</span>
@@ -994,6 +1015,24 @@ export default function EventDetails() {
                     </div>
                     <Badge variant="outline" data-testid="payment-status">{event.paymentStatus}</Badge>
                   </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <BadgeIndianRupee className="h-4 w-4" />
+                    <span>Linked Expenses (Total)</span>
+                  </div>
+                  <p className="font-medium">
+                    ₹{totalReceived.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-1"
+                    onClick={() => setShowAddExpense(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Expense
+                  </Button>
+                </div>
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -1045,6 +1084,21 @@ export default function EventDetails() {
             ))}
         </Accordion>
       )}
+
+      <Dialog open={showAddExpense} onOpenChange={setShowAddExpense}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add Expense for this Event</DialogTitle>
+          </DialogHeader>
+          <ExpenseForm
+            eventId={id!}
+            onSuccess={() => {
+              setShowAddExpense(false);
+              queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteRequirement} onOpenChange={(open) => !open && setDeleteRequirement(null)}>
         <AlertDialogContent>

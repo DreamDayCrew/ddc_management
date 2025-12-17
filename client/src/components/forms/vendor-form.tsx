@@ -25,9 +25,10 @@ import {
 interface VendorFormProps {
   vendor?: Vendor;
   onSuccess?: () => void;
+  onCreated?: (vendor: Vendor) => void;
 }
 
-export function VendorForm({ vendor, onSuccess }: VendorFormProps) {
+export function VendorForm({ vendor, onSuccess, onCreated }: VendorFormProps) {
   const { toast } = useToast();
   const isEditing = !!vendor;
 
@@ -50,15 +51,16 @@ export function VendorForm({ vendor, onSuccess }: VendorFormProps) {
   const createMutation = useMutation({
     mutationFn: async (data: InsertVendor) => {
       const res = await apiRequest("POST", "/api/vendors", data);
-      return res.json();
+      return res.json() as Promise<Vendor>;
     },
-    onSuccess: () => {
+    onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
       toast({
         title: "Success",
         description: "Vendor created successfully",
       });
       form.reset();
+      onCreated?.(created);
       onSuccess?.();
     },
     onError: (error: Error) => {

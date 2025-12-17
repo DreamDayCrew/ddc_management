@@ -26,9 +26,10 @@ import { format } from "date-fns";
 interface AssetFormProps {
   asset?: Asset;
   onSuccess?: () => void;
+  onCreated?: (asset: Asset) => void;
 }
 
-export function AssetForm({ asset, onSuccess }: AssetFormProps) {
+export function AssetForm({ asset, onSuccess, onCreated }: AssetFormProps) {
   const { toast } = useToast();
   const isEditing = !!asset;
 
@@ -53,15 +54,16 @@ export function AssetForm({ asset, onSuccess }: AssetFormProps) {
   const createMutation = useMutation({
     mutationFn: async (data: InsertAsset) => {
       const res = await apiRequest("POST", "/api/assets", data);
-      return res.json();
+      return res.json() as Promise<Asset>;
     },
-    onSuccess: () => {
+    onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
       toast({
         title: "Success",
         description: "Asset created successfully",
       });
       form.reset();
+      onCreated?.(created);
       onSuccess?.();
     },
     onError: (error: Error) => {

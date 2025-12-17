@@ -25,9 +25,10 @@ type Props = {
   visible: boolean;
   vendor: Vendor | null;
   onClose: () => void;
+  onCreated?: (vendor: Vendor) => void;
 };
 
-export default function AddVendorModal({ visible, vendor, onClose }: Props) {
+export default function AddVendorModal({ visible, vendor, onClose, onCreated }: Props) {
   const { colors, isDark } = useTheme();
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
@@ -67,9 +68,10 @@ export default function AddVendorModal({ visible, vendor, onClose }: Props) {
   };
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => api.createVendor(data),
-    onSuccess: () => {
+    mutationFn: async (data: any) => api.createVendor(data),
+    onSuccess: (createdVendor: Vendor) => {
       queryClient.invalidateQueries({ queryKey: ['vendors'] });
+      onCreated?.(createdVendor);
       onClose();
       resetForm();
       Alert.alert('Success', 'Vendor added successfully');

@@ -17,6 +17,9 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import ConfirmDialog from './ConfirmDialog';
 import { api } from '../lib/api';
 import { useTheme } from '../contexts';
+import AddVendorModal from './AddVendorModal';
+import AddAssetModal from './AddAssetModal';
+import type { Vendor } from '../types';
 import { set } from 'zod';
 
 interface AddPlanModalProps {
@@ -86,6 +89,16 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
   const [showPurchaseStatusDropdown, setShowPurchaseStatusDropdown] = useState(false);
   const [showPaymentStatusDropdown, setShowPaymentStatusDropdown] = useState(false);
   const [showPlanStatusDropdown, setShowPlanStatusDropdown] = useState(false);
+  const [vendorSearchAll, setVendorSearchAll] = useState(false);
+  const [assetSearchAll, setAssetSearchAll] = useState(false);
+  const [showVendorCreate, setShowVendorCreate] = useState(false);
+  const [showAssetCreate, setShowAssetCreate] = useState(false);
+  const [vendorSearchTerm, setVendorSearchTerm] = useState('');
+  const [assetSearchTerm, setAssetSearchTerm] = useState('');
+  const [newVendor, setNewVendor] = useState({ name: '', category: '', rating: '' });
+  const [newAsset, setNewAsset] = useState({ name: '', category: '', quantity: '1' });
+  const [tempVendor, setTempVendor] = useState<Vendor | null>(null);
+  const [tempAsset, setTempAsset] = useState<any | null>(null);
 
   useEffect(() => {
     if (plan && visible) {
@@ -274,6 +287,8 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
     setShowDeleteConfirm(false);
   };
 
+  // creation handled via dedicated modals
+
   const planStatuses = config?.planStatuses || ['To Do', 'In Progress', 'Completed'];
   const paymentStatuses = config?.paymentStatuses || ['To Do', 'Completed'];
   const vendorCategories = config?.vendorCategories || [];
@@ -303,6 +318,26 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
     return filtered;
   }, [formData.vendorCategory, formData.vendorId, vendors, plan]);
   
+  const vendorsToShow = useMemo(() => {
+    const base = vendorSearchAll ? vendors : filteredVendors;
+    if (tempVendor) {
+      const include =
+        vendorSearchAll ||
+        (!formData.vendorCategory || tempVendor.category === formData.vendorCategory);
+      if (include && !base.some(v => v.id === tempVendor.id)) {
+        return [tempVendor, ...base];
+      }
+    }
+    return base;
+  }, [vendorSearchAll, vendors, filteredVendors, tempVendor, formData.vendorCategory]);
+  
+const selectedVendor = useMemo(
+  () =>
+    vendors.find((vendor) => vendor.id === formData.vendorId) ||
+    (tempVendor && tempVendor.id === formData.vendorId ? tempVendor : undefined),
+  [vendors, formData.vendorId, tempVendor]
+);
+  
   // Filter assets based on selected category
   const filteredAssets = useMemo(() => {
     if (!formData.assetCategory) {
@@ -325,10 +360,38 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
     return filtered;
   }, [formData.assetCategory, formData.assetId, assets, plan]);
 
-  const selectedVendor = useMemo(
-    () => vendors.find((vendor) => vendor.id === formData.vendorId),
-    [vendors, formData.vendorId]
+  const selectedAsset = useMemo(
+    () =>
+      assets.find((asset) => asset.id === formData.assetId) ||
+      (tempAsset && tempAsset.id === formData.assetId ? tempAsset : undefined),
+    [assets, formData.assetId, tempAsset]
   );
+
+  const assetsToShow = useMemo(() => {
+    const base = assetSearchAll ? assets : filteredAssets;
+    if (tempAsset) {
+      const include =
+        assetSearchAll ||
+        (!formData.assetCategory || tempAsset.category === formData.assetCategory);
+      if (include && !base.some(a => a.id === tempAsset.id)) {
+        return [tempAsset, ...base];
+      }
+    }
+    return base;
+  }, [assetSearchAll, assets, filteredAssets, tempAsset, formData.assetCategory]);
+
+// Clear temp items once real lists contain them
+useEffect(() => {
+  if (tempVendor && vendors.some(v => v.id === tempVendor.id)) {
+    setTempVendor(null);
+  }
+}, [vendors, tempVendor]);
+
+useEffect(() => {
+  if (tempAsset && assets.some(a => a.id === tempAsset.id)) {
+    setTempAsset(null);
+  }
+}, [assets, tempAsset]);
 
   const vendorRatingInfo = useMemo(() => {
     if (!selectedVendor || selectedVendor.rating == null || selectedVendor.rating <= 0) return null;
@@ -346,17 +409,25 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
 
   // Reset vendorId when vendorCategory changes
   useEffect(() => {
+    const currentVendor = vendors.find(v => v.id === formData.vendorId);
     if (formData.vendorCategory && planType === 'Vendor' && !isInitialLoad && !plan) {
+      if (currentVendor && currentVendor.category === formData.vendorCategory) {
+        return;
+      }
       setFormData(prev => ({ ...prev, vendorId: '' }));
     }
-  }, [formData.vendorCategory, planType, isInitialLoad, plan]);
+  }, [formData.vendorCategory, formData.vendorId, planType, isInitialLoad, plan, vendors]);
   
   // Reset assetId when assetCategory changes
   useEffect(() => {
+    const currentAsset = assets.find(a => a.id === formData.assetId);
     if (formData.assetCategory && planType === 'Asset' && !isInitialLoad && !plan) {
+      if (currentAsset && currentAsset.category === formData.assetCategory) {
+        return;
+      }
       setFormData(prev => ({ ...prev, assetId: '' }));
     }
-  }, [formData.assetCategory, planType, isInitialLoad, plan]);
+  }, [formData.assetCategory, formData.assetId, planType, isInitialLoad, plan, assets]);
   
   // Track initial loading state
   useEffect(() => {
@@ -461,22 +532,37 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
                   </View>
                 </View>
                 <View style={styles.inputGroup}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Text style={[styles.label, { color: colors.text }]}>Vendor *</Text>
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <TouchableOpacity onPress={() => setVendorSearchAll(!vendorSearchAll)}>
+                        <Text style={{ color: colors.primary, fontSize: 12 }}>
+                          {vendorSearchAll ? 'Filter by category' : 'Search all'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => {
+                        setNewVendor(prev => ({ ...prev, category: formData.vendorCategory }));
+                        setShowVendorCreate(true);
+                      }}>
+                        <Text style={{ color: colors.primary, fontSize: 12 }}>Add new & link</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                   <View style={styles.dropdownContainer}>
                     <TouchableOpacity
-                      style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border, opacity: !formData.vendorCategory ? 0.6 : 1 }]}
+                      style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border, opacity: (!formData.vendorCategory && !vendorSearchAll) ? 0.6 : 1 }]}
                       onPress={() => {
-                        if (formData.vendorCategory) {
+                        if (formData.vendorCategory || vendorSearchAll) {
                           closeDropdowns();
                           setShowVendorDropdown(!showVendorDropdown);
                         }
                       }}
-                      disabled={!formData.vendorCategory}
+                      disabled={!formData.vendorCategory && !vendorSearchAll}
                       testID="dropdown-vendor"
                     >
                       <MaterialIcons name="business" size={20} color={colors.text} style={styles.dropdownIcon} />
                       <Text style={[styles.dropdownText, { color: formData.vendorId ? colors.text : colors.textSecondary }]}>
-                        {filteredVendors.find(v => v.id === formData.vendorId)?.name || 'Select vendor'}
+                        {vendors.find(v => v.id === formData.vendorId)?.name || 'Select vendor'}
                       </Text>
                       <MaterialIcons 
                         name={showVendorDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
@@ -601,7 +687,22 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
                       </View>
                     </View>
                     <View style={styles.inputGroup}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Text style={[styles.label, { color: colors.text }]}>Asset *</Text>
+                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                          <TouchableOpacity onPress={() => setAssetSearchAll(!assetSearchAll)}>
+                            <Text style={{ color: colors.primary, fontSize: 12 }}>
+                              {assetSearchAll ? 'Filter by category' : 'Search all'}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => {
+                            setNewAsset(prev => ({ ...prev, category: formData.assetCategory }));
+                            setShowAssetCreate(true);
+                          }}>
+                            <Text style={{ color: colors.primary, fontSize: 12 }}>Add new & link</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
                       <View style={styles.dropdownContainer}>
                         <TouchableOpacity
                           activeOpacity={1}
@@ -609,7 +710,7 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
                         >
                           <TextInput
                             style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-                            value={formData.assetSearch || (filteredAssets.find(a => a.id === formData.assetId)?.name || '')}
+                            value={formData.assetSearch || (assets.find(a => a.id === formData.assetId)?.name || '')}
                             onFocus={() => setShowAssetDropdown(true)}
                             editable={false}
                             placeholder="Select or search asset..."
@@ -621,21 +722,30 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
                           <View style={{ position: 'absolute', top: 48, left: 0, right: 0, zIndex: 9999, elevation: 20, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, maxHeight: 300, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16 }}>
                             <TextInput
                               style={{ padding: 12, borderBottomWidth: 1, borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }}
-                              value={formData.assetSearch}
-                              onChangeText={(text) => setFormData({ ...formData, assetSearch: text, assetId: '' })}
+                              value={assetSearchTerm}
+                              onChangeText={(text) => {
+                                setAssetSearchTerm(text);
+                                setFormData({ ...formData, assetId: '' });
+                              }}
                               placeholder="Search asset by name..."
                               placeholderTextColor={colors.textSecondary}
                               autoFocus
                             />
                             <ScrollView style={{ maxHeight: 250 }} keyboardShouldPersistTaps="handled">
-                              {(formData.assetSearch ? filteredAssets.filter(asset => asset.name.toLowerCase().includes(formData.assetSearch.toLowerCase())) : filteredAssets)
+                              {(assetSearchTerm ? assetsToShow.filter(asset => asset.name.toLowerCase().includes(assetSearchTerm.toLowerCase())) : assetsToShow)
                                 .map(asset => (
                                   <TouchableOpacity
                                     key={asset.id}
                                     style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
                                     onPress={() => {
-                                      setFormData({ ...formData, assetId: asset.id, assetSearch: asset.name });
+                                      setFormData({ 
+                                        ...formData, 
+                                        assetId: asset.id, 
+                                        assetSearch: asset.name,
+                                        assetCategory: formData.assetCategory || asset.category || ''
+                                      });
                                       setShowAssetDropdown(false);
+                                      setAssetSearchTerm('');
                                     }}
                                   >
                                     <MaterialIcons name="inventory" size={20} color={colors.text} />
@@ -645,7 +755,7 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
                                     )}
                                   </TouchableOpacity>
                                 ))}
-                              {(formData.assetSearch ? filteredAssets.filter(asset => asset.name.toLowerCase().includes(formData.assetSearch.toLowerCase())) : filteredAssets).length === 0 && (
+                              {(assetSearchTerm ? assetsToShow.filter(asset => asset.name.toLowerCase().includes(assetSearchTerm.toLowerCase())) : assetsToShow).length === 0 && (
                                 <Text style={{ padding: 12, color: colors.textSecondary }}>No asset found.</Text>
                               )}
                             </ScrollView>
@@ -883,8 +993,17 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
           {/* Vendor Dropdown */}
           {showVendorDropdown && (
             <View style={[styles.fixedDropdownList, { backgroundColor: colors.card, borderColor: colors.border, top: 320 }]}>
+              <View style={{ padding: 8, borderBottomWidth: 1, borderColor: colors.border }}>
+                <TextInput
+                  style={{ padding: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 8, color: colors.text }}
+                  value={vendorSearchTerm}
+                  onChangeText={setVendorSearchTerm}
+                  placeholder="Search vendor by name..."
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </View>
               <ScrollView style={styles.dropdownScroll} keyboardShouldPersistTaps="handled">
-                {filteredVendors.map(vendor => (
+                {(vendorSearchTerm ? vendorsToShow.filter(v => v.name.toLowerCase().includes(vendorSearchTerm.toLowerCase())) : vendorsToShow).map(vendor => (
                   <TouchableOpacity
                     key={vendor.id}
                     style={[
@@ -893,8 +1012,9 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
                       formData.vendorId === vendor.id && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
                     ]}
                     onPress={() => {
-                      setFormData({ ...formData, vendorId: vendor.id });
+                      setFormData({ ...formData, vendorId: vendor.id, vendorCategory: vendor.category || formData.vendorCategory });
                       setShowVendorDropdown(false);
+                      setVendorSearchTerm('');
                     }}
                   >
                     <MaterialIcons name="business" size={20} color={colors.text} />
@@ -904,6 +1024,9 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
                     )}
                   </TouchableOpacity>
                 ))}
+                {(vendorSearchTerm ? vendorsToShow.filter(v => v.name.toLowerCase().includes(vendorSearchTerm.toLowerCase())) : vendorsToShow).length === 0 && (
+                  <Text style={{ padding: 12, color: colors.textSecondary }}>No vendor found.</Text>
+                )}
               </ScrollView>
             </View>
           )}
@@ -995,8 +1118,20 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
           {/* Asset Dropdown */}
           {showAssetDropdown && (
             <View style={[styles.fixedDropdownList, { backgroundColor: colors.card, borderColor: colors.border, top: 320 }]}>
+              <View style={{ padding: 8, borderBottomWidth: 1, borderColor: colors.border }}>
+                <TextInput
+                  style={{ padding: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 8, color: colors.text }}
+                  value={assetSearchTerm}
+                  onChangeText={(text) => {
+                    setAssetSearchTerm(text);
+                    setFormData({ ...formData, assetId: '' });
+                  }}
+                  placeholder="Search asset by name..."
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </View>
               <ScrollView style={styles.dropdownScroll} keyboardShouldPersistTaps="handled">
-                {filteredAssets.map(asset => (
+                {(assetSearchTerm ? assetsToShow.filter(a => a.name.toLowerCase().includes(assetSearchTerm.toLowerCase())) : assetsToShow).map(asset => (
                   <TouchableOpacity
                     key={asset.id}
                     style={[
@@ -1005,8 +1140,14 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
                       formData.assetId === asset.id && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
                     ]}
                     onPress={() => {
-                      setFormData({ ...formData, assetId: asset.id });
+                      setFormData({ 
+                        ...formData, 
+                        assetId: asset.id,
+                        assetCategory: formData.assetCategory || asset.category || '',
+                        assetSearch: asset.name
+                      });
                       setShowAssetDropdown(false);
+                      setAssetSearchTerm('');
                     }}
                   >
                     <MaterialIcons name="inventory" size={20} color={colors.text} />
@@ -1016,6 +1157,9 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
                     )}
                   </TouchableOpacity>
                 ))}
+                {(assetSearchTerm ? assetsToShow.filter(a => a.name.toLowerCase().includes(assetSearchTerm.toLowerCase())) : assetsToShow).length === 0 && (
+                  <Text style={{ padding: 12, color: colors.textSecondary }}>No asset found.</Text>
+                )}
               </ScrollView>
             </View>
           )}
@@ -1148,6 +1292,38 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
         onConfirm={confirmDelete}
         onCancel={() => setShowDeleteConfirm(false)}
         confirmText="Delete"
+      />
+
+      <AddVendorModal
+        visible={showVendorCreate}
+        vendor={null}
+        onClose={() => setShowVendorCreate(false)}
+        onCreated={(created) => {
+          setTempVendor(created);
+          setFormData(prev => ({
+            ...prev,
+            vendorCategory: created.category || '',
+            vendorId: created.id,
+          }));
+          setVendorSearchAll(true);
+        }}
+      />
+
+      <AddAssetModal
+        visible={showAssetCreate}
+        asset={null}
+        onClose={() => setShowAssetCreate(false)}
+        onCreated={(created) => {
+          setTempAsset(created);
+          setFormData(prev => ({
+            ...prev,
+            assetCategory: created.category || '',
+            assetId: created.id,
+            assetPurchaseStatus: 'New',
+            payment: created.purchasedAmount ? String(created.purchasedAmount) : prev.payment,
+          }));
+          setAssetSearchAll(true);
+        }}
       />
     </Modal>
   );

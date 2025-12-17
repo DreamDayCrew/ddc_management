@@ -23,11 +23,12 @@ interface AddAssetModalProps {
   visible: boolean;
   onClose: () => void;
   asset?: any;
+  onCreated?: (asset: any) => void;
 }
 
 const BRAND_MAROON = '#800020';
 
-export default function AddAssetModal({ visible, onClose, asset }: AddAssetModalProps) {
+export default function AddAssetModal({ visible, onClose, asset, onCreated }: AddAssetModalProps) {
   const { colors, isDark } = useTheme();
   const queryClient = useQueryClient();
   const { data: config } = useConfiguration();
@@ -72,8 +73,9 @@ export default function AddAssetModal({ visible, onClose, asset }: AddAssetModal
       }
       return await api.createAsset(submitData as any);
     },
-    onSuccess: () => {
+    onSuccess: (createdAsset) => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
+      onCreated?.(createdAsset);
       resetForm();
       onClose();
     },

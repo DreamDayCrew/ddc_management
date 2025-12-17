@@ -31,6 +31,7 @@ const expenseFormSchema = z.object({
   status: z.string().optional(),
   splitEnabled: z.boolean(),
   splitType: z.enum(['from', 'to', 'both']).optional(),
+  eventId: z.string().optional().nullable(),
 }).refine(data => {
   // If split is enabled, splitType must be selected
   if (data.splitEnabled && !data.splitType) {
@@ -84,6 +85,7 @@ interface ExpenseApiPayload {
   contributionStatus?: string[];
   splitType?: 'from' | 'to' | 'both' | null;
   splitEnabled?: boolean;
+  eventId?: string | null;
   
   // Backend fields (snake_case, for API compatibility)
   from_account?: string;
@@ -95,8 +97,9 @@ interface ExpenseApiPayload {
 }
 
 interface ExpenseFormProps {
-  expense?: ExpenseFormData & { id?: string };
+  expense?: ExpenseFormData & { id?: string; eventId?: string | null };
   onSuccess?: () => void;
+  eventId?: string;
 }
 
 interface TeamMember {
@@ -111,7 +114,7 @@ interface Configuration {
 }
 
 // -------------------- Component --------------------
-export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
+export function ExpenseForm({ expense, onSuccess, eventId }: ExpenseFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showCustomInput, setShowCustomInput] = useState(false);
@@ -203,6 +206,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       contributor: [] as string[],
       contribution: [] as number[],
       contributionStatus: [] as string[],
+      eventId: eventId ?? null,
     };
 
     if (!expense) return defaultValues;
@@ -224,6 +228,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         ? expense.contribution.map(c => typeof c === 'string' ? parseFloat(c) : c)
         : [],
       contributionStatus: getValue(expense, 'contributionStatus', []),
+      eventId: getValue(expense, 'eventId', defaultValues.eventId),
     };
     
     console.log('Computed form values:', values);
@@ -666,6 +671,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       contributor: data.splitEnabled ? data.contributor || [] : [],
       contribution: data.splitEnabled ? data.contribution?.map(Number) || [] : [],
       contributionStatus: data.splitEnabled ? (data.contributionStatus || []) : [],
+      eventId: data.eventId ?? eventId ?? null,
       
       // Backend fields (snake_case)
       from_account: data.fromAccount,

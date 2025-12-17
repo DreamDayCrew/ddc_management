@@ -100,6 +100,7 @@ export const expenses = pgTable("expenses", {
   contribution_status: text("contribution_status").array().notNull().default(sql`ARRAY[]::text[]`),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  eventId: varchar("event_id"),
 });
 
 // Expenses with Balance View Schema
