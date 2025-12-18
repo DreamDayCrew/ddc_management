@@ -53,6 +53,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { VendorForm } from "@/components/forms/vendor-form";
 import { AssetForm } from "@/components/forms/asset-form";
 import { Check, ChevronsUpDown } from "lucide-react";
@@ -86,7 +96,10 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
   // Expense linking state
   const [showPartialExpenseDialog, setShowPartialExpenseDialog] = useState(false);
   const [partialExpenseAmount, setPartialExpenseAmount] = useState("");
+  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split("T")[0]);
   const [isCreatingExpense, setIsCreatingExpense] = useState(false);
+  const [showPendingConfirmDialog, setShowPendingConfirmDialog] = useState(false);
+  const [previousPaymentStatus, setPreviousPaymentStatus] = useState<string | undefined>(plan?.paymentStatus);
   // Track if form is in a valid state for expense operations
   const isPlanLoaded = plan !== undefined && plan?.id !== undefined;
   
@@ -253,18 +266,75 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
   // Handle Link Expense button click
   const handleLinkExpense = () => {
     const currentStatus = form.getValues("paymentStatus");
+    // Pre-fill expense date from linked expense or today
+    const existingDate = linkedExpense?.date ? new Date(linkedExpense.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
+    setExpenseDate(existingDate);
+    
     if (currentStatus === "Partial") {
-      // For Partial, show dialog to enter amount (pre-fill with existing expense amount or payment)
+      // For Partial, show dialog with date + amount
       const existingAmount = linkedExpense?.amount;
-      setPartialExpenseAmount(existingAmount || form.getValues("payment") as string || "0");
+      setPartialExpenseAmount(existingAmount || "");
       setShowPartialExpenseDialog(true);
     } else if (currentStatus === "Paid") {
-      // For Paid, show dialog with full amount pre-filled
-      const existingAmount = linkedExpense?.amount;
+      // For Paid, show dialog with only date (amount is auto-set to full payment)
       const fullAmount = form.getValues("payment") as string || "0";
-      setPartialExpenseAmount(existingAmount || fullAmount);
+      setPartialExpenseAmount(fullAmount);
       setShowPartialExpenseDialog(true);
     }
+  };
+
+  // Handle payment status change
+  const handlePaymentStatusChange = async (newStatus: string) => {
+    const oldStatus = previousPaymentStatus;
+    
+    // If changing to Pending and there's a linked expense, show confirmation
+    if (newStatus === "Pending" && linkedExpenseId) {
+      setShowPendingConfirmDialog(true);
+      return; // Don't change status yet, wait for confirmation
+    }
+    
+    // If changing from Partial to Paid and there's a linked expense, update expense to full amount
+    if (oldStatus === "Partial" && newStatus === "Paid" && linkedExpenseId) {
+      const fullAmount = form.getValues("payment") as string || "0";
+      await createOrUpdateExpense(fullAmount);
+    }
+    
+    // Update the form value
+    form.setValue("paymentStatus", newStatus);
+    setPreviousPaymentStatus(newStatus);
+  };
+
+  // Handle pending confirmation dialog - delete expense and set status to Pending
+  const handlePendingConfirm = async () => {
+    if (linkedExpenseId) {
+      setIsCreatingExpense(true);
+      try {
+        await apiRequest("DELETE", `/api/expenses/${linkedExpenseId}`);
+        queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/expenses/by-plan", plan?.id] });
+        await refetchLinkedExpense();
+        toast({
+          title: "Expense Deleted",
+          description: "The linked expense has been removed",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to delete expense: " + (error as Error).message,
+          variant: "destructive",
+        });
+      } finally {
+        setIsCreatingExpense(false);
+      }
+    }
+    form.setValue("paymentStatus", "Pending");
+    setPreviousPaymentStatus("Pending");
+    setShowPendingConfirmDialog(false);
+  };
+
+  const handlePendingCancel = () => {
+    setShowPendingConfirmDialog(false);
+    // Keep the current status
   };
 
   // Handle delete/unlink expense
@@ -338,6 +408,7 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
         // EDIT existing expense
         await apiRequest("PATCH", `/api/expenses/${linkedExpenseId}`, {
           amount: amount,
+          date: expenseDate,
           description: `Payment to ${recipientName} for ${event?.eventName || "Event"} - ${currentStatus}`,
         });
 
@@ -358,7 +429,7 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
           to_account: null,
           description: `Payment to ${recipientName} for ${event?.eventName || "Event"} - ${currentStatus}`,
           amount: amount,
-          date: new Date().toISOString().split("T")[0],
+          date: expenseDate,
           status: "Completed",
           fulfillmentPlanId: plan.id,
           contributor: [],
@@ -400,6 +471,17 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
     if (partialExpenseAmount && isEditing && plan?.id) {
       const success = await createOrUpdateExpense(partialExpenseAmount);
       if (success) {
+        // Auto-update status to Paid if partial amount equals payment amount
+        const maxAmount = parseFloat(form.getValues("payment") as string || "0");
+        const enteredAmount = parseFloat(partialExpenseAmount);
+        if (form.getValues("paymentStatus") === "Partial" && enteredAmount >= maxAmount) {
+          form.setValue("paymentStatus", "Paid");
+          setPreviousPaymentStatus("Paid");
+          toast({
+            title: "Status Updated",
+            description: "Payment status changed to Paid as full amount is paid",
+          });
+        }
         setShowPartialExpenseDialog(false);
         setPartialExpenseAmount("");
       }
@@ -646,7 +728,7 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
                       )}
                     </div>
                     <Select 
-                      onValueChange={field.onChange} 
+                      onValueChange={(value) => handlePaymentStatusChange(value)} 
                       value={field.value || "Pending"}
                       disabled={isCreatingExpense}
                     >
@@ -851,7 +933,7 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
                       )}
                     </div>
                     <Select 
-                      onValueChange={field.onChange} 
+                      onValueChange={(value) => handlePaymentStatusChange(value)} 
                       value={field.value || "Pending"}
                       disabled={isCreatingExpense}
                     >
@@ -1187,7 +1269,25 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
         </DialogContent>
       </Dialog>
 
-      {/* Partial Payment Expense Dialog */}
+      {/* Pending Status Confirmation Dialog */}
+      <AlertDialog open={showPendingConfirmDialog} onOpenChange={setShowPendingConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change to Pending Status</AlertDialogTitle>
+            <AlertDialogDescription>
+              Expense record will be deleted if the payment status is changed to Pending. If you want, you can choose Partial to provide partial payment.
+              <br /><br />
+              Are you sure you want to continue? This will remove the expense linking also.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handlePendingCancel}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePendingConfirm}>Continue</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Payment Expense Dialog */}
       <Dialog open={showPartialExpenseDialog} onOpenChange={setShowPartialExpenseDialog}>
         <DialogContent>
           <DialogHeader>
@@ -1198,26 +1298,45 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
           <div className="space-y-4 py-4">
             <p className="text-sm text-muted-foreground">
               {form.getValues("paymentStatus") === "Partial" 
-                ? `Enter the partial payment amount. This will create/update an expense transaction (Debit: DDC Fund to ${getRecipientName()}).`
-                : `Record the full payment. This will create/update an expense transaction (Debit: DDC Fund to ${getRecipientName()}).`}
+                ? `Enter the partial payment amount and date. This will create/update an expense transaction (Debit: DDC Fund to ${getRecipientName()}).`
+                : `Confirm the payment date. This will create/update an expense transaction for the full payment amount (Debit: DDC Fund to ${getRecipientName()}).`}
             </p>
             <div className="space-y-2">
-              <Label htmlFor="partial-plan-amount">Amount Paid</Label>
+              <Label htmlFor="expense-date">Payment Date</Label>
               <Input
-                id="partial-plan-amount"
-                type="number"
-                step="0.01"
-                min="0"
-                max={parseFloat(form.getValues("payment") as string || "0")}
-                value={partialExpenseAmount}
-                onChange={(e) => setPartialExpenseAmount(e.target.value)}
-                placeholder="Enter payment amount"
-                data-testid="input-partial-plan-expense-amount"
+                id="expense-date"
+                type="date"
+                value={expenseDate}
+                onChange={(e) => setExpenseDate(e.target.value)}
+                data-testid="input-expense-date"
               />
-              <p className="text-xs text-muted-foreground">
-                Maximum: ₹{parseFloat(form.getValues("payment") as string || "0").toLocaleString("en-IN")}
-              </p>
             </div>
+            {form.getValues("paymentStatus") === "Partial" && (
+              <div className="space-y-2">
+                <Label htmlFor="partial-plan-amount">Amount Paid</Label>
+                <Input
+                  id="partial-plan-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max={parseFloat(form.getValues("payment") as string || "0")}
+                  value={partialExpenseAmount}
+                  onChange={(e) => setPartialExpenseAmount(e.target.value)}
+                  placeholder="Enter payment amount"
+                  data-testid="input-partial-plan-expense-amount"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Maximum: ₹{parseFloat(form.getValues("payment") as string || "0").toLocaleString("en-IN")}
+                </p>
+              </div>
+            )}
+            {form.getValues("paymentStatus") === "Paid" && (
+              <div className="p-3 bg-muted rounded-md">
+                <p className="text-sm">
+                  <span className="font-medium">Amount:</span> ₹{parseFloat(form.getValues("payment") as string || "0").toLocaleString("en-IN")}
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
             {linkedExpenseId && (
