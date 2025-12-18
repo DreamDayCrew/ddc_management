@@ -45,6 +45,8 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
   const [partialExpenseAmount, setPartialExpenseAmount] = useState('');
   const [pendingPaymentStatus, setPendingPaymentStatus] = useState<string | null>(null);
   const [isCreatingExpense, setIsCreatingExpense] = useState(false);
+  const [showPendingConfirmDialog, setShowPendingConfirmDialog] = useState(false);
+  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]);
   
   const [formData, setFormData] = useState({
     eventName: '',
@@ -138,7 +140,7 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
     setIsCreatingExpense(false);
   };
 
-  const createExpenseForEvent = async (amount: string, status: string) => {
+  const createExpenseForEvent = async (amount: string, status: string, dateStr?: string) => {
     if (!event?.id) {
       Alert.alert('Error', 'Cannot create expense: event ID is required');
       return;
@@ -159,7 +161,7 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
         to_account: 'DDC Fund',
         description: `Payment for ${formData.eventName || event.eventName} - ${status}`,
         amount: amount,
-        date: new Date().toISOString().split('T')[0],
+        date: dateStr || new Date().toISOString().split('T')[0],
         status: 'Completed',
         eventId: event.id,
         contributor: [],
@@ -198,32 +200,46 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
       return;
     }
 
-    const currentStatus = event.paymentStatus;
+    const currentStatus = formData.paymentStatus || event.paymentStatus;
     if (newStatus === currentStatus) {
       setShowPaymentStatusDropdown(false);
       return;
     }
 
-    // Guard: Check if expense is already linked by querying for it
-    // For simplicity in mobile, we'll check the linked expense via a fetch
-    // Note: In a more complete implementation, this could be cached via react-query
+    // Check if expense is already linked
+    let hasLinkedExpense = false;
     try {
       const res = await fetch(`${envConfig.API_URL}/api/expenses/by-event/${event.id}`);
       if (res.ok) {
-        // Expense already exists, just update status
-        setFormData({ ...formData, paymentStatus: newStatus });
-        setShowPaymentStatusDropdown(false);
-        return;
+        hasLinkedExpense = true;
       }
     } catch {
-      // No expense linked, continue with expense creation
+      // No expense linked
+    }
+
+    // If changing to Pending and expense is linked, show confirmation
+    if (newStatus === 'Pending' && hasLinkedExpense) {
+      setShowPaymentStatusDropdown(false);
+      setShowPendingConfirmDialog(true);
+      return;
+    }
+
+    // If changing from Partial to Paid, update expense to full amount
+    if (currentStatus === 'Partial' && newStatus === 'Paid' && hasLinkedExpense) {
+      setShowPaymentStatusDropdown(false);
+      const fullAmount = event.finalizedQuote || '0';
+      updateExpenseAmount(fullAmount, newStatus);
+      return;
     }
 
     if (newStatus === 'Paid') {
       setShowPaymentStatusDropdown(false);
       const amount = event.finalizedQuote || '0';
       if (parseFloat(amount) > 0) {
-        createExpenseForEvent(amount, newStatus);
+        setPendingPaymentStatus(newStatus);
+        setPartialExpenseAmount(amount);
+        setExpenseDate(new Date().toISOString().split('T')[0]);
+        setShowPartialExpenseDialog(true);
       } else {
         setFormData({ ...formData, paymentStatus: newStatus });
       }
@@ -236,11 +252,81 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
       }
       setPendingPaymentStatus(newStatus);
       setPartialExpenseAmount('');
+      setExpenseDate(new Date().toISOString().split('T')[0]);
       setShowPartialExpenseDialog(true);
     } else {
       setFormData({ ...formData, paymentStatus: newStatus });
       setShowPaymentStatusDropdown(false);
     }
+  };
+
+  const updateExpenseAmount = async (amount: string, status: string) => {
+    if (!event?.id) return;
+    
+    setIsCreatingExpense(true);
+    try {
+      // Get existing expense
+      const res = await fetch(`${envConfig.API_URL}/api/expenses/by-event/${event.id}`);
+      if (!res.ok) {
+        // No expense exists, create a new one
+        createExpenseForEvent(amount, status);
+        return;
+      }
+      const existingExpense = await res.json();
+      
+      // Update the expense amount
+      await api.updateExpense(existingExpense.id, {
+        amount: amount,
+      });
+      
+      // Update payment status
+      await api.updateEvent(event.id, { paymentStatus: status } as any);
+      
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses/by-event', event.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/events', event.id] });
+      
+      setFormData({ ...formData, paymentStatus: status });
+      Alert.alert('Success', `Payment updated to full amount (₹${parseFloat(amount).toLocaleString('en-IN')})`);
+    } catch (error) {
+      Alert.alert('Error', `Failed to update expense: ${(error as Error).message}`);
+    } finally {
+      setIsCreatingExpense(false);
+    }
+  };
+
+  const handlePendingConfirm = async () => {
+    if (!event?.id) return;
+    
+    setShowPendingConfirmDialog(false);
+    setIsCreatingExpense(true);
+    
+    try {
+      // Get and delete the linked expense
+      const res = await fetch(`${envConfig.API_URL}/api/expenses/by-event/${event.id}`);
+      if (res.ok) {
+        const expense = await res.json();
+        await api.deleteExpense(expense.id);
+      }
+      
+      // Update event status to Pending
+      await api.updateEvent(event.id, { paymentStatus: 'Pending' } as any);
+      
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses/by-event', event.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/events', event.id] });
+      
+      setFormData({ ...formData, paymentStatus: 'Pending' });
+      Alert.alert('Success', 'Payment status changed to Pending and expense removed');
+    } catch (error) {
+      Alert.alert('Error', `Failed to update: ${(error as Error).message}`);
+    } finally {
+      setIsCreatingExpense(false);
+    }
+  };
+
+  const handlePendingCancel = () => {
+    setShowPendingConfirmDialog(false);
   };
 
   const handlePartialExpenseConfirm = () => {
@@ -261,7 +347,10 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
       return;
     }
 
-    createExpenseForEvent(partialExpenseAmount, pendingPaymentStatus);
+    // Auto-upgrade to Paid if amount equals full amount
+    const finalStatus = pendingPaymentStatus === 'Partial' && amount >= maxAmount ? 'Paid' : pendingPaymentStatus;
+    
+    createExpenseForEvent(partialExpenseAmount, finalStatus, expenseDate);
     setShowPartialExpenseDialog(false);
     setPendingPaymentStatus(null);
   };
@@ -732,7 +821,57 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
         </View>
       </KeyboardAvoidingView>
 
-      {/* Partial Payment Amount Dialog */}
+      {/* Pending Status Confirmation Dialog */}
+      <Modal
+        visible={showPendingConfirmDialog}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={handlePendingCancel}
+      >
+        <View style={styles.dialogOverlay}>
+          <View style={[styles.dialogContainer, { backgroundColor: colors.card }]}>
+            <View style={[styles.dialogHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.dialogTitle, { color: colors.text }]}>Change to Pending Status</Text>
+              <TouchableOpacity onPress={handlePendingCancel} style={styles.dialogCloseButton}>
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.dialogContent}>
+              <Text style={[styles.dialogLabel, { color: colors.textSecondary }]}>
+                Expense record will be deleted if the payment status is changed to Pending. If you want, you can choose Partial to provide partial payment.
+              </Text>
+              <Text style={[styles.dialogLabel, { color: colors.textSecondary, marginTop: 12 }]}>
+                Are you sure you want to continue? This will remove the expense linking also.
+              </Text>
+            </View>
+            
+            <View style={styles.dialogActions}>
+              <TouchableOpacity
+                style={[styles.dialogCancelButton, { backgroundColor: isDark ? '#374151' : '#f3f4f6', borderColor: colors.border }]}
+                onPress={handlePendingCancel}
+                disabled={isCreatingExpense}
+              >
+                <Text style={[styles.dialogCancelButtonText, { color: colors.textSecondary }]}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.dialogConfirmButton, { backgroundColor: isDark ? '#4a5568' : '#dc2626' }, isCreatingExpense && styles.dialogConfirmButtonDisabled]}
+                onPress={handlePendingConfirm}
+                disabled={isCreatingExpense}
+              >
+                {isCreatingExpense ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.dialogConfirmButtonText}>Continue</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Payment Dialog */}
       <Modal
         visible={showPartialExpenseDialog}
         animationType="fade"
@@ -742,7 +881,9 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
         <View style={styles.dialogOverlay}>
           <View style={[styles.dialogContainer, { backgroundColor: colors.card }]}>
             <View style={[styles.dialogHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.dialogTitle, { color: colors.text }]}>Enter Partial Payment Amount</Text>
+              <Text style={[styles.dialogTitle, { color: colors.text }]}>
+                {pendingPaymentStatus === 'Partial' ? 'Enter Partial Payment' : 'Record Payment'}
+              </Text>
               <TouchableOpacity onPress={handlePartialExpenseCancel} style={styles.dialogCloseButton}>
                 <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
@@ -750,19 +891,50 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
             
             <View style={styles.dialogContent}>
               <Text style={[styles.dialogLabel, { color: colors.textSecondary }]}>
-                Enter the amount received for this partial payment:
+                {pendingPaymentStatus === 'Partial' 
+                  ? 'Enter the partial payment amount and date:' 
+                  : 'Confirm the payment date for the full amount:'}
               </Text>
+              
+              {/* Date Input */}
+              <Text style={[styles.label, { color: colors.text, marginTop: 12 }]}>Payment Date</Text>
               <TextInput
                 style={[styles.dialogInput, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
-                value={partialExpenseAmount}
-                onChangeText={setPartialExpenseAmount}
-                placeholder="Enter amount"
+                value={expenseDate}
+                onChangeText={setExpenseDate}
+                placeholder="YYYY-MM-DD"
                 placeholderTextColor={colors.textSecondary}
-                keyboardType="numeric"
-                autoFocus={true}
-                data-testid="input-partial-amount"
               />
-              <Text style={[styles.dialogHint, { color: colors.textSecondary }]}>
+              
+              {/* Amount Input - only for Partial */}
+              {pendingPaymentStatus === 'Partial' && (
+                <>
+                  <Text style={[styles.label, { color: colors.text, marginTop: 12 }]}>Amount</Text>
+                  <TextInput
+                    style={[styles.dialogInput, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
+                    value={partialExpenseAmount}
+                    onChangeText={setPartialExpenseAmount}
+                    placeholder="Enter amount"
+                    placeholderTextColor={colors.textSecondary}
+                    keyboardType="numeric"
+                  />
+                  <Text style={[styles.dialogHint, { color: colors.textSecondary }]}>
+                    Maximum: ₹{parseFloat(event?.finalizedQuote || '0').toLocaleString('en-IN')}
+                  </Text>
+                </>
+              )}
+              
+              {/* Amount Display - for Paid */}
+              {pendingPaymentStatus === 'Paid' && (
+                <View style={[styles.amountDisplay, { backgroundColor: isDark ? '#374151' : '#f3f4f6' }]}>
+                  <Text style={[styles.amountLabel, { color: colors.text }]}>Amount:</Text>
+                  <Text style={[styles.amountValue, { color: colors.text }]}>
+                    ₹{parseFloat(event?.finalizedQuote || '0').toLocaleString('en-IN')}
+                  </Text>
+                </View>
+              )}
+              
+              <Text style={[styles.dialogHint, { color: colors.textSecondary, marginTop: 8 }]}>
                 This will create a Credit expense from Client Payment to DDC Fund
               </Text>
             </View>
@@ -772,7 +944,6 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
                 style={[styles.dialogCancelButton, { backgroundColor: isDark ? '#374151' : '#f3f4f6', borderColor: colors.border }]}
                 onPress={handlePartialExpenseCancel}
                 disabled={isCreatingExpense}
-                data-testid="button-cancel-partial"
               >
                 <Text style={[styles.dialogCancelButtonText, { color: colors.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
@@ -781,7 +952,6 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
                 style={[styles.dialogConfirmButton, { backgroundColor: isDark ? '#4a5568' : '#800020' }, isCreatingExpense && styles.dialogConfirmButtonDisabled]}
                 onPress={handlePartialExpenseConfirm}
                 disabled={isCreatingExpense || !partialExpenseAmount}
-                data-testid="button-confirm-partial"
               >
                 {isCreatingExpense ? (
                   <ActivityIndicator color="#fff" size="small" />
@@ -1006,6 +1176,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontStyle: 'italic',
     lineHeight: 16,
+  },
+  amountDisplay: {
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  amountLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  amountValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 4,
   },
   dialogActions: {
     flexDirection: 'row',
