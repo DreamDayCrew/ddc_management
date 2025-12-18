@@ -316,6 +316,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/expenses/by-event/:eventId", async (req, res) => {
+    const { eventId } = req.params;
+    console.log(`[API] GET /api/expenses/by-event/${eventId} - Fetching expense by event`);
+    try {
+      const expense = await storage.getExpenseByEventId(eventId);
+      if (!expense) {
+        console.log(`[API] No expense found for event ${eventId}`);
+        return res.status(404).json({ error: "Expense not found for this event" });
+      }
+      console.log(`[API] Successfully fetched expense for event ${eventId}`);
+      res.json(expense);
+    } catch (error: any) {
+      console.error(`[API] Error fetching expense by event ${eventId}:`, error);
+      res.status(500).json({ 
+        error: `Failed to fetch expense for event ${eventId}`,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
+  app.get("/api/expenses/by-plan/:planId", async (req, res) => {
+    const { planId } = req.params;
+    console.log(`[API] GET /api/expenses/by-plan/${planId} - Fetching expense by plan`);
+    try {
+      const expense = await storage.getExpenseByPlanId(planId);
+      if (!expense) {
+        console.log(`[API] No expense found for plan ${planId}`);
+        return res.status(404).json({ error: "Expense not found for this plan" });
+      }
+      console.log(`[API] Successfully fetched expense for plan ${planId}`);
+      res.json(expense);
+    } catch (error: any) {
+      console.error(`[API] Error fetching expense by plan ${planId}:`, error);
+      res.status(500).json({ 
+        error: `Failed to fetch expense for plan ${planId}`,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
   app.post("/api/expenses", async (req, res) => {
     console.log('[API] POST /api/expenses - Creating new expense');
     console.log('Request body:', JSON.stringify(req.body, null, 2));

@@ -264,6 +264,30 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getExpenseByEventId(eventId: string): Promise<Expense | undefined> {
+    console.log(`[DB] Fetching expense by event ID: ${eventId}`);
+    try {
+      const result = await db.select().from(expenses).where(eq(expenses.eventId, eventId));
+      console.log(`[DB] Expense for event ${eventId}:`, result[0] ? 'Found' : 'Not found');
+      return result[0];
+    } catch (error) {
+      console.error(`[DB] Error fetching expense by event ${eventId}:`, error);
+      throw error;
+    }
+  }
+
+  async getExpenseByPlanId(planId: string): Promise<Expense | undefined> {
+    console.log(`[DB] Fetching expense by plan ID: ${planId}`);
+    try {
+      const result = await db.select().from(expenses).where(eq(expenses.fulfillmentPlanId, planId));
+      console.log(`[DB] Expense for plan ${planId}:`, result[0] ? 'Found' : 'Not found');
+      return result[0];
+    } catch (error) {
+      console.error(`[DB] Error fetching expense by plan ${planId}:`, error);
+      throw error;
+    }
+  }
+
   async createExpense(expense: InsertExpense): Promise<Expense> {
     console.log('[DB] Creating new expense with data:', JSON.stringify(expense, null, 2));
     

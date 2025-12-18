@@ -122,6 +122,8 @@ export const expensesWithBalance = pgTable("expenses_with_balance", {
   created_at: timestamp("created_at", { withTimezone: true }).notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).notNull(),
   closing_balance: decimal("closing_balance", { precision: 10, scale: 2 }),
+  eventId: varchar("event_id"),
+  fulfillmentPlanId: varchar("fulfillment_plan_id"),
 });
 
 // Account Balance Schema

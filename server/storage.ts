@@ -54,6 +54,8 @@ export interface IStorage {
   // Expenses
   getExpenses(): Promise<Expense[]>;
   getExpense(id: string): Promise<Expense | undefined>;
+  getExpenseByEventId(eventId: string): Promise<Expense | undefined>;
+  getExpenseByPlanId(planId: string): Promise<Expense | undefined>;
   createExpense(expense: InsertExpense): Promise<Expense>;
   updateExpense(id: string, expense: Partial<InsertExpense>): Promise<Expense | undefined>;
   deleteExpense(id: string): Promise<boolean>;
@@ -316,6 +318,14 @@ export class MemStorage implements IStorage {
     return this.expenses.get(id);
   }
 
+  async getExpenseByEventId(eventId: string): Promise<Expense | undefined> {
+    return Array.from(this.expenses.values()).find(e => e.eventId === eventId);
+  }
+
+  async getExpenseByPlanId(planId: string): Promise<Expense | undefined> {
+    return Array.from(this.expenses.values()).find(e => e.fulfillmentPlanId === planId);
+  }
+
   async createExpense(expense: InsertExpense): Promise<Expense> {
     // Ensure contribution is an array of numbers and handle null/undefined cases
     const contribution = Array.isArray(expense.contribution)
@@ -358,6 +368,8 @@ export class MemStorage implements IStorage {
       split_type: expense.split_type || null,
       created_at: new Date(), 
       updated_at: new Date(),
+      eventId: expense.eventId || null,
+      fulfillmentPlanId: expense.fulfillmentPlanId || null,
     };
     
     // Update account balance based on transaction type
