@@ -54,6 +54,13 @@ export function VendorForm({ vendor, onSuccess, onCreated }: VendorFormProps) {
       return res.json() as Promise<Vendor>;
     },
     onSuccess: (created) => {
+      // Add the new vendor to the cache immediately so dropdowns can find it
+      // Use deduplication to avoid duplicates when invalidation refetches
+      queryClient.setQueryData<Vendor[]>(["/api/vendors"], (old) => {
+        if (!old) return [created];
+        const exists = old.some(v => v.id === created.id);
+        return exists ? old.map(v => v.id === created.id ? created : v) : [...old, created];
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
       toast({
         title: "Success",

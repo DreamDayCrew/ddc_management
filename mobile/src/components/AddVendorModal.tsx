@@ -70,6 +70,13 @@ export default function AddVendorModal({ visible, vendor, onClose, onCreated }: 
   const createMutation = useMutation({
     mutationFn: async (data: any) => api.createVendor(data),
     onSuccess: (createdVendor: Vendor) => {
+      // Add the new vendor to the cache immediately so dropdowns can find it
+      // Use deduplication to avoid duplicates when invalidation refetches
+      queryClient.setQueryData<Vendor[]>(['vendors'], (old) => {
+        if (!old) return [createdVendor];
+        const exists = old.some(v => v.id === createdVendor.id);
+        return exists ? old.map(v => v.id === createdVendor.id ? createdVendor : v) : [...old, createdVendor];
+      });
       queryClient.invalidateQueries({ queryKey: ['vendors'] });
       onCreated?.(createdVendor);
       onClose();

@@ -706,7 +706,7 @@ useEffect(() => {
                     >
                       <MaterialIcons name="business" size={20} color={colors.text} style={styles.dropdownIcon} />
                       <Text style={[styles.dropdownText, { color: formData.vendorId ? colors.text : colors.textSecondary }]}>
-                        {vendors.find(v => v.id === formData.vendorId)?.name || 'Select vendor'}
+                        {selectedVendor?.name || 'Select vendor'}
                       </Text>
                       <MaterialIcons 
                         name={showVendorDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
@@ -854,7 +854,7 @@ useEffect(() => {
                         >
                           <TextInput
                             style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-                            value={formData.assetSearch || (assets.find(a => a.id === formData.assetId)?.name || '')}
+                            value={formData.assetSearch || (selectedAsset?.name || '')}
                             onFocus={() => setShowAssetDropdown(true)}
                             editable={false}
                             placeholder="Select or search asset..."

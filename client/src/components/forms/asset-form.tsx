@@ -57,6 +57,13 @@ export function AssetForm({ asset, onSuccess, onCreated }: AssetFormProps) {
       return res.json() as Promise<Asset>;
     },
     onSuccess: (created) => {
+      // Add the new asset to the cache immediately so dropdowns can find it
+      // Use deduplication to avoid duplicates when invalidation refetches
+      queryClient.setQueryData<Asset[]>(["/api/assets"], (old) => {
+        if (!old) return [created];
+        const exists = old.some(a => a.id === created.id);
+        return exists ? old.map(a => a.id === created.id ? created : a) : [...old, created];
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
       toast({
         title: "Success",

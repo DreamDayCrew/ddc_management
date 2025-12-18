@@ -74,6 +74,13 @@ export default function AddAssetModal({ visible, onClose, asset, onCreated }: Ad
       return await api.createAsset(submitData as any);
     },
     onSuccess: (createdAsset) => {
+      // Add the new asset to the cache immediately so dropdowns can find it
+      // Use deduplication to avoid duplicates when invalidation refetches
+      queryClient.setQueryData(['assets'], (old: any) => {
+        if (!old) return [createdAsset];
+        const exists = old.some((a: any) => a.id === createdAsset.id);
+        return exists ? old.map((a: any) => a.id === createdAsset.id ? createdAsset : a) : [...old, createdAsset];
+      });
       queryClient.invalidateQueries({ queryKey: ['assets'] });
       onCreated?.(createdAsset);
       resetForm();
