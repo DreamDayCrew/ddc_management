@@ -17,6 +17,7 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import ConfirmDialog from './ConfirmDialog';
 import { api } from '../lib/api';
 import { useTheme } from '../contexts';
+import envConfig from '../config/environment';
 import AddVendorModal from './AddVendorModal';
 import AddAssetModal from './AddAssetModal';
 import type { Vendor } from '../types';
@@ -255,9 +256,10 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
         from_account: 'DDC Fund',
         to_account: recipientName,
         description: `Payment to ${recipientName} - ${status}`,
-        amount: paymentAmount,
-        date: new Date().toISOString().split('T')[0],
+        amount: String(paymentAmount),
+        date: new Date(),
         status: 'Completed',
+        fulfillmentPlanId: plan.id,
         contributor: [],
         contribution: [],
         contribution_status: [],
@@ -265,14 +267,14 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
 
       const createdExpense = await api.createExpense(expenseData);
 
-      // Update plan with linked expense ID and new payment status
+      // Update plan with new payment status only (expense already has fulfillmentPlanId)
       await api.updatePlan(plan.id, {
-        expenseId: createdExpense.id,
         paymentStatus: status,
       });
 
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses/by-plan', plan.id] });
       queryClient.invalidateQueries({ queryKey: ['plans'] });
       queryClient.invalidateQueries({ queryKey: ['requirements'] });
 
@@ -291,16 +293,24 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
   };
 
   // Handle payment status change for expense linking (edit mode only)
-  const handlePaymentStatusChange = (newStatus: string) => {
+  const handlePaymentStatusChange = async (newStatus: string) => {
     // Only trigger expense creation in edit mode with valid payment amount
     const paymentAmount = parseFloat(formData.payment);
     const hasValidPayment = !isNaN(paymentAmount) && paymentAmount > 0;
     
-    // Guard: If expense is already linked, skip expense creation and just update status
-    if (plan?.expenseId) {
-      setFormData(prev => ({ ...prev, paymentStatus: newStatus }));
-      setShowPaymentStatusDropdown(false);
-      return;
+    // Guard: Check if expense is already linked by querying for it
+    if (plan) {
+      try {
+        const res = await fetch(`${envConfig.API_URL}/api/expenses/by-plan/${plan.id}`);
+        if (res.ok) {
+          // Expense already exists, just update status
+          setFormData(prev => ({ ...prev, paymentStatus: newStatus }));
+          setShowPaymentStatusDropdown(false);
+          return;
+        }
+      } catch {
+        // No expense linked, continue with expense creation
+      }
     }
     
     if (plan && hasValidPayment) {

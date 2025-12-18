@@ -2,7 +2,7 @@ import { Fragment, useState as useFragmentState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { insertEventSchema, type Event, type InsertEvent, type Configuration, type Requirement } from "@shared/schema";
+import { insertEventSchema, type Event, type InsertEvent, type Configuration, type Requirement, type Expense } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/accordion";
 import { format } from "date-fns";
 import { z } from "zod";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 
 interface EventFormProps {
@@ -90,30 +90,28 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
   const [showPartialExpenseDialog, setShowPartialExpenseDialog] = useState(false);
   const [partialExpenseAmount, setPartialExpenseAmount] = useState("");
   const [isCreatingExpense, setIsCreatingExpense] = useState(false);
-  // Track linked expense ID locally (updated after create, synced from event prop)
-  // We use a ref to track the previous event ID so we can detect navigation
-  const prevEventIdRef = useRef<string | null>(null);
-  const [linkedExpenseId, setLinkedExpenseId] = useState<string | null>(event?.expenseId || null);
   // Track if form is in a valid state for expense operations
   const isEventLoaded = event !== undefined && event?.id !== undefined;
   
-  // Sync linkedExpenseId when the event prop changes
-  useEffect(() => {
-    // If event is undefined (loading/refetch), clear to prevent stale state
-    if (!event?.id) {
-      setLinkedExpenseId(null);
-      return;
-    }
-    
-    if (event.id !== prevEventIdRef.current) {
-      // Navigation to a different record - update ref and sync expense ID
-      prevEventIdRef.current = event.id;
-      setLinkedExpenseId(event?.expenseId ?? null);
-    } else if (event?.expenseId) {
-      // Same record - only update if expenseId became truthy (after create and refetch)
-      setLinkedExpenseId(event.expenseId);
-    }
-  }, [event?.id, event?.expenseId]);
+  // Fetch linked expense by eventId (new architecture: expense has eventId, not event has expenseId)
+  const { data: linkedExpense, refetch: refetchLinkedExpense } = useQuery<Expense | null>({
+    queryKey: ["/api/expenses/by-event", event?.id],
+    queryFn: async () => {
+      if (!event?.id) return null;
+      try {
+        const res = await fetch(`/api/expenses/by-event/${event.id}`);
+        if (res.status === 404) return null;
+        if (!res.ok) throw new Error("Failed to fetch linked expense");
+        return res.json();
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!event?.id,
+  });
+  
+  // Derive linked expense ID from the query result
+  const linkedExpenseId = linkedExpense?.id || null;
 
   const { data: config } = useQuery<Configuration>({
     queryKey: ["/api/configuration"],
@@ -282,16 +280,11 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
         const res = await apiRequest("POST", "/api/expenses", expenseData);
         const createdExpense = await res.json();
 
-        // Update event with linked expense ID
-        await apiRequest("PATCH", `/api/events/${event.id}`, {
-          expenseId: createdExpense.id,
-        });
-
-        // Update local state so subsequent clicks will EDIT, not CREATE
-        setLinkedExpenseId(createdExpense.id);
+        // Refetch linked expense query so subsequent clicks will EDIT, not CREATE
+        await refetchLinkedExpense();
 
         queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/events", event.id] });
+        queryClient.invalidateQueries({ queryKey: ["/api/expenses/by-event", event.id] });
 
         toast({
           title: "Success",

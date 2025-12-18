@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -10,7 +10,8 @@ import {
   type TeamMember,
   type Vendor,
   type Asset,
-  type Event
+  type Event,
+  type Expense
 } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -86,30 +87,28 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
   const [showPartialExpenseDialog, setShowPartialExpenseDialog] = useState(false);
   const [partialExpenseAmount, setPartialExpenseAmount] = useState("");
   const [isCreatingExpense, setIsCreatingExpense] = useState(false);
-  // Track linked expense ID locally (updated after create, synced from plan prop)
-  // We use a ref to track the previous plan ID so we can detect navigation
-  const prevPlanIdRef = useRef<string | null>(null);
-  const [linkedExpenseId, setLinkedExpenseId] = useState<string | null>(plan?.expenseId || null);
   // Track if form is in a valid state for expense operations
   const isPlanLoaded = plan !== undefined && plan?.id !== undefined;
   
-  // Sync linkedExpenseId when the plan prop changes
-  useEffect(() => {
-    // If plan is undefined (loading/refetch), clear to prevent stale state
-    if (!plan?.id) {
-      setLinkedExpenseId(null);
-      return;
-    }
-    
-    if (plan.id !== prevPlanIdRef.current) {
-      // Navigation to a different record - update ref and sync expense ID
-      prevPlanIdRef.current = plan.id;
-      setLinkedExpenseId(plan?.expenseId ?? null);
-    } else if (plan?.expenseId) {
-      // Same record - only update if expenseId became truthy (after create and refetch)
-      setLinkedExpenseId(plan.expenseId);
-    }
-  }, [plan?.id, plan?.expenseId]);
+  // Fetch linked expense by planId (new architecture: expense has fulfillmentPlanId, not plan has expenseId)
+  const { data: linkedExpense, refetch: refetchLinkedExpense } = useQuery<Expense | null>({
+    queryKey: ["/api/expenses/by-plan", plan?.id],
+    queryFn: async () => {
+      if (!plan?.id) return null;
+      try {
+        const res = await fetch(`/api/expenses/by-plan/${plan.id}`);
+        if (res.status === 404) return null;
+        if (!res.ok) throw new Error("Failed to fetch linked expense");
+        return res.json();
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!plan?.id,
+  });
+  
+  // Derive linked expense ID from the query result
+  const linkedExpenseId = linkedExpense?.id || null;
 
   const { data: config } = useQuery<Configuration>({
     queryKey: ["/api/configuration"],
@@ -335,7 +334,7 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
           amount: amount,
           date: new Date().toISOString().split("T")[0],
           status: "Completed",
-          eventId: eventId,
+          fulfillmentPlanId: plan.id,
           contributor: [],
           contribution: [],
           contribution_status: [],
@@ -344,15 +343,11 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
         const res = await apiRequest("POST", "/api/expenses", expenseData);
         const createdExpense = await res.json();
 
-        // Update plan with linked expense ID
-        await apiRequest("PATCH", `/api/plans/${plan.id}`, {
-          expenseId: createdExpense.id,
-        });
-
-        // Update local state so subsequent clicks will EDIT, not CREATE
-        setLinkedExpenseId(createdExpense.id);
+        // Refetch linked expense query so subsequent clicks will EDIT, not CREATE
+        await refetchLinkedExpense();
 
         queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/expenses/by-plan", plan.id] });
         queryClient.invalidateQueries({ queryKey: ["/api/requirements", requirementId, "plans"] });
         queryClient.invalidateQueries({ queryKey: ["/api/events", eventId, "requirements"] });
 

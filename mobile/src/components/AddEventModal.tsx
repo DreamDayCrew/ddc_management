@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useConfiguration } from '../hooks/useApi';
+import envConfig from '../config/environment';
 import { DatePicker } from './DatePicker';
 import { Picker } from './Picker';
 import { Switch } from './Switch';
@@ -168,12 +169,13 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
 
       const createdExpense = await api.createExpense(expenseData as any);
 
+      // Update payment status on event
       await api.updateEvent(event.id, {
-        expenseId: createdExpense.id,
         paymentStatus: status,
       } as any);
 
       queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses/by-event', event.id] });
       queryClient.invalidateQueries({ queryKey: ['/api/events', event.id] });
 
       setFormData({ ...formData, paymentStatus: status });
@@ -189,7 +191,7 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
     }
   };
 
-  const handlePaymentStatusChange = (newStatus: string) => {
+  const handlePaymentStatusChange = async (newStatus: string) => {
     if (!event) {
       setFormData({ ...formData, paymentStatus: newStatus });
       setShowPaymentStatusDropdown(false);
@@ -202,11 +204,19 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
       return;
     }
 
-    // Guard: If expense is already linked, skip expense creation and just update status
-    if (event.expenseId) {
-      setFormData({ ...formData, paymentStatus: newStatus });
-      setShowPaymentStatusDropdown(false);
-      return;
+    // Guard: Check if expense is already linked by querying for it
+    // For simplicity in mobile, we'll check the linked expense via a fetch
+    // Note: In a more complete implementation, this could be cached via react-query
+    try {
+      const res = await fetch(`${envConfig.API_URL}/api/expenses/by-event/${event.id}`);
+      if (res.ok) {
+        // Expense already exists, just update status
+        setFormData({ ...formData, paymentStatus: newStatus });
+        setShowPaymentStatusDropdown(false);
+        return;
+      }
+    } catch {
+      // No expense linked, continue with expense creation
     }
 
     if (newStatus === 'Paid') {
