@@ -22,6 +22,15 @@ The backend is an Express.js API with TypeScript, supporting CORS and JSON body 
 
 The system manages an event workflow from "Inquired" to "Completed" status. Requirements are added to events, and FulfillmentPlans link these to resources, tracking actual costs. Invoice generation is server-side using `@react-pdf/renderer`, integrating event details, requirements, and configuration data for dynamic PDF creation with branding, GST calculation, and currency formatting. Budget reporting for completed events compares quoted values against actual costs from fulfillment plans to calculate variances.
 
+### Expense Linking Architecture
+
+Expenses use a forward-reference pattern where expenses point to events/plans (not vice versa):
+- **Event payments (income)**: Expense records have an `eventId` field linking to the event receiving payment
+- **Fulfillment payments (debit)**: Expense records have a `fulfillmentPlanId` field linking to the plan being paid
+- **Lookup endpoints**: `/api/expenses/by-event/:eventId` and `/api/expenses/by-plan/:planId` retrieve linked expenses
+- **Storage methods**: `getExpenseByEventId()` and `getExpenseByPlanId()` in both MemStorage and DatabaseStorage
+- **Type inference**: Expense type (Credit/Debit) is implicit based on which foreign key is populated
+
 ### Mobile Application Architecture
 
 The mobile application is built with React Native and Expo, sharing TypeScript types with the web application. It integrates with the Express backend via an Axios-based API client and uses TanStack Query for data fetching and caching. The app supports configuration-driven dropdowns and native date pickers. It features a dashboard with swipeable carousel, KPI cards (Total Income, Total Expense, Account Balance, Pending Repayment), and full CRUD functionality across all main screens (Events, Expenses, Assets, Team).
