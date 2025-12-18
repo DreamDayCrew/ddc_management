@@ -101,6 +101,7 @@ export const expenses = pgTable("expenses", {
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   eventId: varchar("event_id"),
+  fulfillmentPlanId: varchar("fulfillment_plan_id"),
 });
 
 // Expenses with Balance View Schema
@@ -164,8 +165,6 @@ export const events = pgTable("events", {
   initialQuote: decimal("initial_quote", { precision: 10, scale: 2 }),
   ddcCost: decimal("ddc_cost", { precision: 10, scale: 2 }),
   profitLoss: decimal("profit_loss", { precision: 10, scale: 2 }),
-  // Linked expense for payment tracking
-  expenseId: varchar("expense_id"),
 });
 
 // Requirements Schema (nested under Events)
@@ -225,9 +224,6 @@ export const fulfillmentPlans = pgTable('fulfillment_plans', {
   customerRating: integer('customer_rating'),
   teamRating: integer('team_rating'),
   reviewNotes: text('review_notes'),
-  
-  // Linked expense for payment tracking
-  expenseId: text('expense_id'),
 }, (table) => ({
   // Add check constraints
   chkVendorPlan: check('chk_vendor_plan', 
