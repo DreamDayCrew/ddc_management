@@ -319,7 +319,9 @@ export class DatabaseStorage implements IStorage {
           ? expense.contribution_status 
           : [],
         created_at: new Date(),
-        updated_at: new Date()
+        updated_at: new Date(),
+        eventId: expense.eventId || null,
+        fulfillmentPlanId: expense.fulfillmentPlanId || null,
       };
       
       console.log('[DB] Processed expense data for insert:', JSON.stringify(insertData, null, 2));

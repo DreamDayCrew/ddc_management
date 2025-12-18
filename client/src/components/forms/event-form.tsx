@@ -193,21 +193,45 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
   const handleLinkExpense = () => {
     const currentStatus = form.getValues("paymentStatus");
     if (currentStatus === "Partial") {
-      // For Partial, show dialog to enter amount (pre-fill with 0 or existing amount)
-      setPartialExpenseAmount(form.getValues("finalizedQuote") || invoiceAmount?.toString() || "0");
+      // For Partial, show dialog to enter amount (pre-fill with existing expense amount or quote)
+      const existingAmount = linkedExpense?.amount;
+      setPartialExpenseAmount(existingAmount || form.getValues("finalizedQuote") || invoiceAmount?.toString() || "0");
       setShowPartialExpenseDialog(true);
     } else if (currentStatus === "Paid") {
-      // For Paid, directly create/update expense with full amount
-      const amount = form.getValues("finalizedQuote") || invoiceAmount?.toString() || "0";
-      if (parseFloat(amount) > 0) {
-        createOrUpdateExpense(amount);
-      } else {
-        toast({
-          title: "Error",
-          description: "Please set a finalized quote amount first",
-          variant: "destructive",
-        });
-      }
+      // For Paid, show dialog with full amount pre-filled
+      const existingAmount = linkedExpense?.amount;
+      const fullAmount = form.getValues("finalizedQuote") || invoiceAmount?.toString() || "0";
+      setPartialExpenseAmount(existingAmount || fullAmount);
+      setShowPartialExpenseDialog(true);
+    }
+  };
+
+  // Handle delete/unlink expense
+  const handleDeleteExpense = async () => {
+    if (!linkedExpenseId) return;
+    
+    setIsCreatingExpense(true);
+    try {
+      await apiRequest("DELETE", `/api/expenses/${linkedExpenseId}`);
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses/by-event", event?.id] });
+      await refetchLinkedExpense();
+      
+      toast({
+        title: "Success",
+        description: "Expense unlinked and deleted",
+      });
+      setShowPartialExpenseDialog(false);
+      setPartialExpenseAmount("");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete expense: " + (error as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingExpense(false);
     }
   };
 
@@ -714,44 +738,38 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
                     name="paymentStatus"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>
-                          Status
-                          {isEditing && linkedExpenseId && (
-                            <span className="ml-2 text-xs text-green-600 dark:text-green-400">(Expense Linked)</span>
-                          )}
-                        </FormLabel>
-                        <div className="flex gap-2 items-start">
-                          <Select 
-                            onValueChange={field.onChange} 
-                            defaultValue={field.value}
-                            disabled={isCreatingExpense}
-                          >
-                            <FormControl>
-                              <SelectTrigger data-testid="select-payment-status" className="flex-1">
-                                <SelectValue placeholder="Select payment status" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {config?.paymentStatuses?.map((status) => (
-                                <SelectItem key={status} value={status}>
-                                  {status}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                        <div className="flex items-center gap-2">
+                          <FormLabel>Status</FormLabel>
                           {isEditing && (field.value === "Paid" || field.value === "Partial") && (
-                            <Button
+                            <button
                               type="button"
-                              variant={linkedExpenseId ? "outline" : "default"}
-                              size="sm"
+                              className="text-xs text-primary hover:underline disabled:opacity-50"
                               onClick={handleLinkExpense}
                               disabled={isCreatingExpense || !isEventLoaded}
                               data-testid="button-link-expense"
                             >
-                              {isCreatingExpense ? "Linking..." : !isEventLoaded ? "Loading..." : linkedExpenseId ? "Update Expense" : "Link Expense"}
-                            </Button>
+                              {isCreatingExpense ? "Linking..." : !isEventLoaded ? "Loading..." : linkedExpenseId ? "View Linked Expense" : "Link Expense"}
+                            </button>
                           )}
                         </div>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          defaultValue={field.value}
+                          disabled={isCreatingExpense}
+                        >
+                          <FormControl>
+                            <SelectTrigger data-testid="select-payment-status">
+                              <SelectValue placeholder="Select payment status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {config?.paymentStatuses?.map((status) => (
+                              <SelectItem key={status} value={status}>
+                                {status}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -791,11 +809,15 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
     <Dialog open={showPartialExpenseDialog} onOpenChange={setShowPartialExpenseDialog}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Record Partial Payment</DialogTitle>
+          <DialogTitle>
+            {linkedExpenseId ? "Edit Payment Record" : "Record Payment"}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <p className="text-sm text-muted-foreground">
-            Enter the amount received as partial payment. This will create an expense transaction (Credit: Client Payment to DDC Fund).
+            {form.getValues("paymentStatus") === "Partial" 
+              ? "Enter the partial payment amount received. This will create/update an expense transaction (Credit: Client Payment to DDC Fund)."
+              : "Record the full payment received. This will create/update an expense transaction (Credit: Client Payment to DDC Fund)."}
           </p>
           <div className="space-y-2">
             <Label htmlFor="partial-amount">Amount Received</Label>
@@ -804,22 +826,38 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
               type="number"
               step="0.01"
               min="0"
+              max={parseFloat(form.getValues("finalizedQuote") || invoiceAmount?.toString() || "0")}
               value={partialExpenseAmount}
               onChange={(e) => setPartialExpenseAmount(e.target.value)}
-              placeholder="Enter partial payment amount"
+              placeholder="Enter payment amount"
               data-testid="input-partial-expense-amount"
             />
+            <p className="text-xs text-muted-foreground">
+              Maximum: ₹{parseFloat(form.getValues("finalizedQuote") || invoiceAmount?.toString() || "0").toLocaleString("en-IN")}
+            </p>
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          {linkedExpenseId && (
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteExpense}
+              disabled={isCreatingExpense}
+              className="sm:mr-auto"
+              data-testid="button-delete-expense"
+            >
+              Delete Expense
+            </Button>
+          )}
           <Button variant="outline" onClick={handlePartialExpenseCancel}>
             Cancel
           </Button>
           <Button 
             onClick={handlePartialExpenseConfirm} 
             disabled={!partialExpenseAmount || parseFloat(partialExpenseAmount) <= 0 || isCreatingExpense}
+            data-testid="button-save-expense"
           >
-            {isCreatingExpense ? "Creating..." : "Create Expense"}
+            {isCreatingExpense ? "Saving..." : linkedExpenseId ? "Update Expense" : "Create Expense"}
           </Button>
         </DialogFooter>
       </DialogContent>
