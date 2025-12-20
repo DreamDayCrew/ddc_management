@@ -113,20 +113,22 @@ export default function ExpensesScreen() {
       }
 
       // Date filters - use transaction date
+      // Normalize dates to YYYY-MM-DD strings for comparison to avoid timezone issues
       // If only fromDate is given, filter from that date to today
       // If only toDate is given without fromDate, skip the date filter (show validation in UI) but continue with other filters
       if (filters.fromDate) {
-        const expenseDate = new Date(expense.date);
-        const fromDate = new Date(filters.fromDate);
-        if (expenseDate < fromDate) {
+        // Extract just the date part (YYYY-MM-DD) for comparison
+        const expenseDateStr = expense.date.split('T')[0];
+        const fromDateStr = filters.fromDate;
+        
+        if (expenseDateStr < fromDateStr) {
           return false;
         }
         
         // If only fromDate is provided (no toDate), filter up to today
         if (!filters.toDate) {
-          const today = new Date();
-          today.setHours(23, 59, 59, 999);
-          if (expenseDate > today) {
+          const todayStr = new Date().toISOString().split('T')[0];
+          if (expenseDateStr > todayStr) {
             return false;
           }
         }
@@ -134,10 +136,10 @@ export default function ExpensesScreen() {
 
       // Only apply toDate filter when fromDate is also provided
       if (filters.toDate && filters.fromDate) {
-        const expenseDate = new Date(expense.date);
-        const toDate = new Date(filters.toDate);
-        toDate.setHours(23, 59, 59, 999); // Include the entire end date
-        if (expenseDate > toDate) {
+        const expenseDateStr = expense.date.split('T')[0];
+        const toDateStr = filters.toDate;
+        
+        if (expenseDateStr > toDateStr) {
           return false;
         }
       }
