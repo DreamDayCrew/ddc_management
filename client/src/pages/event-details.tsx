@@ -633,6 +633,21 @@ export default function EventDetails() {
           <p className="text-muted-foreground mt-1">{event.providedService}</p>
         </div>
         <div className="flex gap-2">
+          {/* Quotation Download Button - Same format as Invoice but without payment info */}
+          {config && (
+            <PDFDownloadLink
+              document={<InvoiceTemplate config={config} event={event} requirements={requirements} invoiceNumber={generateQuotationNumber(event.id)} documentType="Quotation" />}
+              fileName={`Quotation_${event.eventName}_${format(new Date(), "yyyyMMdd")}.pdf`}
+            >
+              {({ loading }) => (
+                <Button variant="outline" disabled={loading} data-testid="button-generate-quotation">
+                  <FileText className="h-4 w-4 mr-2" />
+                  {loading ? "Generating..." : "Generate Quotation"}
+                </Button>
+              )}
+            </PDFDownloadLink>
+          )}
+
           {config && (
             invoiceValidation.isValid ? (
               <PDFDownloadLink
@@ -697,21 +712,6 @@ export default function EventDetails() {
                 </Button>
               </div>
             )
-          )}
-          
-          {/* Quotation Download Button - Same format as Invoice but without payment info */}
-          {config && (
-            <PDFDownloadLink
-              document={<InvoiceTemplate config={config} event={event} requirements={requirements} invoiceNumber={generateQuotationNumber(event.id)} documentType="Quotation" />}
-              fileName={`Quotation_${event.eventName}_${format(new Date(), "yyyyMMdd")}.pdf`}
-            >
-              {({ loading }) => (
-                <Button variant="outline" disabled={loading} data-testid="button-generate-quotation">
-                  <FileText className="h-4 w-4 mr-2" />
-                  {loading ? "Generating..." : "Generate Quotation"}
-                </Button>
-              )}
-            </PDFDownloadLink>
           )}
           
           {/* Event Gallery - Shows all images from requirements */}
@@ -1013,15 +1013,6 @@ export default function EventDetails() {
                     </div>
                     <Badge variant="outline" data-testid="payment-status">{event.paymentStatus}</Badge>
                   </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <BadgeIndianRupee className="h-4 w-4" />
-                    <span>Linked Expenses (Total)</span>
-                  </div>
-                  <p className="font-medium">
-                    ₹{totalReceived.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-                  </p>
-                </div>
                 </div>
               </AccordionContent>
             </AccordionItem>

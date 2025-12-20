@@ -174,7 +174,7 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
       const expenseData = {
         type: 'Credit',
         category: 'Event',
-        from_account: event.clientName || 'Client Payment',
+        from_account: 'Client Payment',
         to_account: 'DDC Fund',
         description: `Payment from ${formData.eventName || event.eventName}`,
         amount: amount,

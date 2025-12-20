@@ -99,7 +99,7 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split("T")[0]);
   const [isCreatingExpense, setIsCreatingExpense] = useState(false);
   const [showPendingConfirmDialog, setShowPendingConfirmDialog] = useState(false);
-  const [previousPaymentStatus, setPreviousPaymentStatus] = useState<string | undefined>(plan?.paymentStatus);
+  const [previousPaymentStatus, setPreviousPaymentStatus] = useState<string | undefined>(plan?.paymentStatus ?? undefined);
   // Track if form is in a valid state for expense operations
   const isPlanLoaded = plan !== undefined && plan?.id !== undefined;
   
@@ -427,10 +427,10 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
           category: "Event",
           from_account: "DDC Fund",
           to_account: null,
-          description: `Payment to ${recipientName} for ${event?.eventName || "Event"} - ${currentStatus}`,
+          description: `DDC Spent for ${event?.eventName || " an Event"}`,
           amount: amount,
           date: expenseDate,
-          status: "Completed",
+          status: "Paid",
           fulfillmentPlanId: plan.id,
           contributor: [],
           contribution: [],

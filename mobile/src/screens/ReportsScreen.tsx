@@ -353,7 +353,7 @@ export default function ReportsScreen() {
                     setShowLeftMonthDropdown(!showLeftMonthDropdown);
                   }}
                 >
-                  <Text style={[styles.miniDropdownText, { color: colors.text }]}>{MONTHS[leftMonth]}</Text>
+                  <Text style={[styles.miniDropdownText, { color: colors.text }]}>{MONTHS[leftMonth].slice(0, 3)}</Text>
                   <Ionicons name={showLeftMonthDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
                 {showLeftMonthDropdown && (
@@ -376,7 +376,7 @@ export default function ReportsScreen() {
                             { color: colors.text },
                             leftMonth === index && { color: colors.primary, fontWeight: '600' }
                           ]}>
-                            {month}
+                            {month.slice(0, 3)}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -438,7 +438,7 @@ export default function ReportsScreen() {
                     setShowRightMonthDropdown(!showRightMonthDropdown);
                   }}
                 >
-                  <Text style={[styles.miniDropdownText, { color: colors.text }]}>{MONTHS[rightMonth]}</Text>
+                  <Text style={[styles.miniDropdownText, { color: colors.text }]}>{MONTHS[rightMonth].slice(0, 3)}</Text>
                   <Ionicons name={showRightMonthDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
                 {showRightMonthDropdown && (
@@ -461,7 +461,7 @@ export default function ReportsScreen() {
                             { color: colors.text },
                             rightMonth === index && { color: colors.primary, fontWeight: '600' }
                           ]}>
-                            {month}
+                            {month.slice(0, 3)}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -515,7 +515,7 @@ export default function ReportsScreen() {
         {/* Comparison Data */}
         <View style={styles.comparisonGrid}>
           <View style={styles.comparisonColumn}>
-            <Text style={[styles.comparisonHeader, { color: colors.text }]}>{MONTHS[leftMonth]} {leftYear}</Text>
+            <Text style={[styles.comparisonHeader, { color: colors.text }]}>{MONTHS[leftMonth].slice(0, 3)} {leftYear}</Text>
             <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
               <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Events</Text>
               <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{leftEventStats.total}</Text>
@@ -534,7 +534,7 @@ export default function ReportsScreen() {
             </View>
           </View>
           <View style={styles.comparisonColumn}>
-            <Text style={[styles.comparisonHeader, { color: colors.text }]}>{MONTHS[rightMonth]} {rightYear}</Text>
+            <Text style={[styles.comparisonHeader, { color: colors.text }]}>{MONTHS[rightMonth].slice(0, 3)} {rightYear}</Text>
             <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
               <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Events</Text>
               <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{rightEventStats.total}</Text>
@@ -579,9 +579,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    position: 'relative',
-    zIndex: 100,
-    elevation: 100,
   },
   filterRow: {
     flexDirection: 'row',
@@ -590,7 +587,6 @@ const styles = StyleSheet.create({
   dropdownWrapper: {
     flex: 1,
     zIndex: 100,
-    elevation: 100,
   },
   dropdownButton: {
     flexDirection: 'row',
@@ -733,15 +729,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginBottom: 16,
-    position: 'relative',
-    zIndex: 50,
-    elevation: 50,
   },
   periodSection: {
     flex: 1,
-    position: 'relative',
-    zIndex: 50,
-    elevation: 50,
   },
   periodLabel: {
     fontSize: 12,
@@ -756,7 +746,6 @@ const styles = StyleSheet.create({
   miniDropdownWrapper: {
     flex: 1,
     zIndex: 100,
-    elevation: 100,
   },
   miniDropdownButton: {
     flexDirection: 'row',
