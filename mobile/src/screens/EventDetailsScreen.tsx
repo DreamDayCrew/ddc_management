@@ -100,6 +100,34 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     queryKey: ['configuration'],
     queryFn: () => api.getConfiguration(),
   });
+
+  // Fetch linked expense for event
+  const { data: eventLinkedExpense } = useQuery({
+    queryKey: ['/api/expenses/by-event', eventId],
+    queryFn: async () => {
+      const res = await fetch(`${envConfig.API_URL}/api/expenses/by-event/${eventId}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!eventId,
+  });
+
+  // Fetch all expenses to check plan linkages
+  const { data: allExpenses = [] } = useQuery({
+    queryKey: ['/api/expenses'],
+    queryFn: () => api.getExpenses(),
+  });
+
+  // Create a set of plan IDs that have linked expenses
+  const plansWithLinkedExpenses = useMemo(() => {
+    const planIds = new Set<string>();
+    allExpenses.forEach((expense: any) => {
+      if (expense.fulfillmentPlanId) {
+        planIds.add(expense.fulfillmentPlanId);
+      }
+    });
+    return planIds;
+  }, [allExpenses]);
   
   // Log data loading status
   console.log('📊 Data loading status:', {
@@ -512,7 +540,12 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       {/* Event Header */}
       <View style={[styles.header, { backgroundColor: colors.card, shadowColor: isDark ? '#000' : '#000' }]}>
         {/* Row 1: Event Name */}
-        <Text style={[styles.eventName, { color: colors.text }]}>{event.eventName}</Text>
+        <View style={styles.eventNameRow}>
+          <Text style={[styles.eventName, { color: colors.text }]}>{event.eventName}</Text>
+          {eventLinkedExpense && (
+            <Ionicons name="checkmark-circle" size={20} color="#22c55e" style={styles.linkedCheckmark} />
+          )}
+        </View>
         
         {/* Row 2: Service + Status */}
         <View style={styles.serviceStatusRow}>
@@ -780,6 +813,9 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                                 color={colors.textSecondary} 
                               />
                               <Text style={[styles.planName, { color: colors.text }]}>{planDetails}</Text>
+                              {plansWithLinkedExpenses.has(plan.id) && (
+                                <Ionicons name="checkmark-circle" size={14} color="#22c55e" />
+                              )}
                               <Text style={[styles.planPayment, { color: colors.primary }]}>₹{parseFloat(plan.payment || '0').toLocaleString()}</Text>
                               {isEventCompleted && (
                                 <TouchableOpacity
@@ -1088,10 +1124,18 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
   },
+  eventNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
   eventName: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 8,
+  },
+  linkedCheckmark: {
+    marginLeft: 4,
   },
   eventService: {
     fontSize: 16,
