@@ -579,6 +579,9 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
+    position: 'relative',
+    zIndex: 100,
+    elevation: 100,
   },
   filterRow: {
     flexDirection: 'row',
@@ -587,6 +590,7 @@ const styles = StyleSheet.create({
   dropdownWrapper: {
     flex: 1,
     zIndex: 100,
+    elevation: 100,
   },
   dropdownButton: {
     flexDirection: 'row',
@@ -729,9 +733,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginBottom: 16,
+    position: 'relative',
+    zIndex: 50,
+    elevation: 50,
   },
   periodSection: {
     flex: 1,
+    position: 'relative',
+    zIndex: 50,
+    elevation: 50,
   },
   periodLabel: {
     fontSize: 12,
@@ -746,6 +756,7 @@ const styles = StyleSheet.create({
   miniDropdownWrapper: {
     flex: 1,
     zIndex: 100,
+    elevation: 100,
   },
   miniDropdownButton: {
     flexDirection: 'row',
