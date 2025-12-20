@@ -94,10 +94,14 @@ export default function ExpensesScreen() {
   };
 
   // Filter and search expenses
+  // When date filters are applied, use allExpenses (not the 1-month subset)
+  // Otherwise, use the default 1-month expenses
   const filteredExpenses = useMemo(() => {
-    if (!expenses) return [];
+    // If date filter is applied, search from all expenses
+    const sourceExpenses = (filters.fromDate || filters.toDate) ? allExpenses : expenses;
+    if (!sourceExpenses) return [];
 
-    return expenses.filter((expense) => {
+    return sourceExpenses.filter((expense) => {
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -173,7 +177,7 @@ export default function ExpensesScreen() {
 
       return true;
     });
-  }, [expenses, searchQuery, filters]);
+  }, [allExpenses, expenses, searchQuery, filters]);
 
   // Clear filters function
   const clearFilters = () => {
