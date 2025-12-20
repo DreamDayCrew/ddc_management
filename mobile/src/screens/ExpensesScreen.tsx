@@ -195,11 +195,19 @@ export default function ExpensesScreen() {
   // Check if any filters are active
   const hasActiveFilters = searchQuery || filters.fromDate || filters.toDate || filters.fromAccount || filters.toAccount || filters.category || filters.type;
 
-  // Date picker handlers
+  // Helper to format date as YYYY-MM-DD in local timezone (not UTC)
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Date picker handlers - use local date formatting to avoid timezone issues
   const onFromDateChange = (event: any, selectedDate?: Date) => {
     setShowFromDatePicker(false);
     if (selectedDate) {
-      const dateString = selectedDate.toISOString().split('T')[0];
+      const dateString = formatLocalDate(selectedDate);
       setFilters(prev => ({ ...prev, fromDate: dateString }));
     }
   };
@@ -207,7 +215,7 @@ export default function ExpensesScreen() {
   const onToDateChange = (event: any, selectedDate?: Date) => {
     setShowToDatePicker(false);
     if (selectedDate) {
-      const dateString = selectedDate.toISOString().split('T')[0];
+      const dateString = formatLocalDate(selectedDate);
       setFilters(prev => ({ ...prev, toDate: dateString }));
     }
   };
