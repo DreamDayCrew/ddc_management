@@ -545,7 +545,7 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
         <View style={styles.eventNameRow}>
           <Text style={[styles.eventName, { color: colors.text }]}>{event.eventName}</Text>
           {eventLinkedExpense && eventLinkedExpense.id && (
-            <Ionicons name="checkmark-circle" size={22} color="#22c55e" />
+            <Ionicons name="checkmark-circle" size={22} color="#22c55e" style={{ flexShrink: 0 }} />
           )}
         </View>
         
@@ -816,7 +816,7 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                               />
                               <Text style={[styles.planName, { color: colors.text }]}>{planDetails}</Text>
                               {plansWithLinkedExpenses.has(plan.id) && (
-                                <Ionicons name="checkmark-circle" size={14} color="#22c55e" />
+                                <Ionicons name="checkmark-circle" size={14} color="#22c55e" style={{ flexShrink: 0 }} />
                               )}
                               <Text style={[styles.planPayment, { color: colors.primary }]}>₹{parseFloat(plan.payment || '0').toLocaleString()}</Text>
                               {isEventCompleted && (
@@ -1135,6 +1135,8 @@ const styles = StyleSheet.create({
   eventName: {
     fontSize: 24,
     fontWeight: 'bold',
+    flex: 1,
+    flexShrink: 1,
   },
   eventService: {
     fontSize: 16,

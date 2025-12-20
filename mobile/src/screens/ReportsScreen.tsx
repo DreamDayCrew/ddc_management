@@ -158,8 +158,16 @@ export default function ReportsScreen() {
     );
   }
 
+  const isAnyDropdownOpen = showMonthDropdown || showYearDropdown || 
+    showLeftMonthDropdown || showLeftYearDropdown || 
+    showRightMonthDropdown || showRightYearDropdown;
+
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+    <ScrollView 
+      style={[styles.container, { backgroundColor: colors.background }]}
+      scrollEnabled={!isAnyDropdownOpen}
+      nestedScrollEnabled={true}
+    >
       {/* Month/Year Filter */}
       <View style={[styles.filterSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.filterRow}>
@@ -177,8 +185,18 @@ export default function ReportsScreen() {
               <Ionicons name={showMonthDropdown ? "chevron-up" : "chevron-down"} size={18} color={colors.textSecondary} />
             </TouchableOpacity>
             {showMonthDropdown && (
-              <View style={[styles.dropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
+              <View 
+                style={[styles.dropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onStartShouldSetResponder={() => true}
+                onMoveShouldSetResponder={() => true}
+              >
+                <ScrollView 
+                  style={styles.dropdownScroll} 
+                  nestedScrollEnabled 
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={true}
+                  scrollEnabled={true}
+                >
                   {MONTHS.map((month, index) => (
                     <TouchableOpacity
                       key={index}
@@ -222,8 +240,17 @@ export default function ReportsScreen() {
               <Ionicons name={showYearDropdown ? "chevron-up" : "chevron-down"} size={18} color={colors.textSecondary} />
             </TouchableOpacity>
             {showYearDropdown && (
-              <View style={[styles.dropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
+              <View 
+                style={[styles.dropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onStartShouldSetResponder={() => true}
+                onMoveShouldSetResponder={() => true}
+              >
+                <ScrollView 
+                  style={styles.dropdownScroll} 
+                  nestedScrollEnabled 
+                  keyboardShouldPersistTaps="handled"
+                  scrollEnabled={true}
+                >
                   {availableYears.map((year) => (
                     <TouchableOpacity
                       key={year}
@@ -357,8 +384,18 @@ export default function ReportsScreen() {
                   <Ionicons name={showLeftMonthDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
                 {showLeftMonthDropdown && (
-                  <View style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <ScrollView style={styles.miniDropdownScroll} nestedScrollEnabled>
+                  <View 
+                    style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onStartShouldSetResponder={() => true}
+                    onMoveShouldSetResponder={() => true}
+                  >
+                    <ScrollView 
+                      style={styles.miniDropdownScroll} 
+                      nestedScrollEnabled 
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={true}
+                      scrollEnabled={true}
+                    >
                       {MONTHS.map((month, index) => (
                         <TouchableOpacity
                           key={index}
@@ -396,8 +433,17 @@ export default function ReportsScreen() {
                   <Ionicons name={showLeftYearDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
                 {showLeftYearDropdown && (
-                  <View style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <ScrollView style={styles.miniDropdownScroll} nestedScrollEnabled>
+                  <View 
+                    style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onStartShouldSetResponder={() => true}
+                    onMoveShouldSetResponder={() => true}
+                  >
+                    <ScrollView 
+                      style={styles.miniDropdownScroll} 
+                      nestedScrollEnabled 
+                      keyboardShouldPersistTaps="handled"
+                      scrollEnabled={true}
+                    >
                       {availableYears.map((year) => (
                         <TouchableOpacity
                           key={year}
@@ -442,8 +488,18 @@ export default function ReportsScreen() {
                   <Ionicons name={showRightMonthDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
                 {showRightMonthDropdown && (
-                  <View style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <ScrollView style={styles.miniDropdownScroll} nestedScrollEnabled>
+                  <View 
+                    style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onStartShouldSetResponder={() => true}
+                    onMoveShouldSetResponder={() => true}
+                  >
+                    <ScrollView 
+                      style={styles.miniDropdownScroll} 
+                      nestedScrollEnabled 
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={true}
+                      scrollEnabled={true}
+                    >
                       {MONTHS.map((month, index) => (
                         <TouchableOpacity
                           key={index}
@@ -481,8 +537,17 @@ export default function ReportsScreen() {
                   <Ionicons name={showRightYearDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
                 {showRightYearDropdown && (
-                  <View style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <ScrollView style={styles.miniDropdownScroll} nestedScrollEnabled>
+                  <View 
+                    style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onStartShouldSetResponder={() => true}
+                    onMoveShouldSetResponder={() => true}
+                  >
+                    <ScrollView 
+                      style={styles.miniDropdownScroll} 
+                      nestedScrollEnabled 
+                      keyboardShouldPersistTaps="handled"
+                      scrollEnabled={true}
+                    >
                       {availableYears.map((year) => (
                         <TouchableOpacity
                           key={year}
@@ -618,6 +683,7 @@ const styles = StyleSheet.create({
   },
   dropdownScroll: {
     maxHeight: 200,
+    flexGrow: 0,
   },
   dropdownItem: {
     flexDirection: 'row',
@@ -777,6 +843,7 @@ const styles = StyleSheet.create({
   },
   miniDropdownScroll: {
     maxHeight: 150,
+    flexGrow: 0,
   },
   miniDropdownItem: {
     paddingHorizontal: 10,
