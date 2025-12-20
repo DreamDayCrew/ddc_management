@@ -141,17 +141,19 @@ export default function Reports() {
 
   const getFinancialStats = (month: number, year: number) => {
     const filteredExpenses = filterByMonthYear(expenses, month, year, "date");
+    // Credit (Income): When to_account = "DDC Fund" (money coming IN)
     const income = filteredExpenses
-      .filter((e) => e.type === "Credit")
+      .filter((e) => e.to_account === "DDC Fund")
       .reduce((sum, e) => sum + Number(e.amount), 0);
+    // Debit (Expenses): When from_account = "DDC Fund" (money going OUT)
     const eventExpenses = filteredExpenses
-      .filter((e) => e.type === "Debit" && e.category === "Event")
+      .filter((e) => e.from_account === "DDC Fund" && e.category === "Event")
       .reduce((sum, e) => sum + Number(e.amount), 0);
     const assetExpenses = filteredExpenses
-      .filter((e) => e.type === "Debit" && e.category === "Asset")
+      .filter((e) => e.from_account === "DDC Fund" && e.category === "Asset")
       .reduce((sum, e) => sum + Number(e.amount), 0);
     const officeExpenses = filteredExpenses
-      .filter((e) => e.type === "Debit" && e.category === "Office")
+      .filter((e) => e.from_account === "DDC Fund" && e.category === "Office")
       .reduce((sum, e) => sum + Number(e.amount), 0);
     const totalExpenses = eventExpenses + assetExpenses + officeExpenses;
     return { income, eventExpenses, assetExpenses, officeExpenses, totalExpenses };
