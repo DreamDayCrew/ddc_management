@@ -125,7 +125,6 @@ export const expensesWithBalance = pgTable("expenses_with_balance", {
   closing_balance: decimal("closing_balance", { precision: 10, scale: 2 }),
   eventId: varchar("event_id"),
   fulfillmentPlanId: varchar("fulfillment_plan_id"),
-  assetId: varchar("asset_id"),
 });
 
 // Account Balance Schema

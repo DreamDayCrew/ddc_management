@@ -245,7 +245,8 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(expensesWithBalance.date), desc(expensesWithBalance.created_at), desc(expensesWithBalance.id));
       
       console.log(`[DB] Successfully fetched ${result ? result.length : 0} expenses with closing balance`);
-      return result;
+      // Map results to include assetId (which is not in the view but expected by Expense type)
+      return result.map(row => ({ ...row, assetId: null }));
     } catch (error) {
       console.error('[DB] Error fetching expenses from view, returning empty array:', error);
       return [];
