@@ -511,54 +511,54 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     >
       {/* Event Header */}
       <View style={[styles.header, { backgroundColor: colors.card, shadowColor: isDark ? '#000' : '#000' }]}>
-        <View style={styles.headerTop}>
-          <View style={styles.headerContent}>
-            <Text style={[styles.eventName, { color: colors.text }]}>{event.eventName}</Text>
-            <Text style={[styles.eventService, { color: colors.primary }]}>{event.providedService}</Text>
-          </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={[styles.iconButton, { backgroundColor: colors.surface }]}
-              onPress={handleDownloadQuote}
-              data-testid="button-download-quote"
-            >
-              <Ionicons name="document-text-outline" size={22} color={colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.iconButton, { backgroundColor: colors.surface }]}
-              onPress={handleDownloadInvoice}
-              data-testid="button-download-invoice"
-            >
-              <Ionicons name="download-outline" size={22} color={colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.iconButton, { backgroundColor: colors.surface }]}
-              onPress={handleEditEvent}
-              data-testid="button-edit-event"
-            >
-              <Ionicons name="create-outline" size={22} color={colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.iconButton, { backgroundColor: colors.surface }]}
-              onPress={() => setGalleryModalVisible(true)}
-              data-testid="button-event-gallery"
-            >
-              <Ionicons name="images-outline" size={22} color={colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.iconButton, { backgroundColor: colors.surface }]}
-              onPress={handleDeleteEvent}
-              data-testid="button-delete-event"
-            >
-              <Ionicons name="trash-outline" size={22} color={colors.error} />
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* Row 1: Event Name */}
+        <Text style={[styles.eventName, { color: colors.text }]}>{event.eventName}</Text>
         
-        <View style={styles.statusRow}>
+        {/* Row 2: Service + Status */}
+        <View style={styles.serviceStatusRow}>
+          <Text style={[styles.eventService, { color: colors.primary }]}>{event.providedService}</Text>
           <View style={[styles.statusBadge, getStatusColor(event.eventStatus)]}>
             <Text style={[styles.statusText, { color: '#000000' }]}>{event.eventStatus}</Text>
           </View>
+        </View>
+        
+        {/* Row 3: Action Buttons */}
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[styles.iconButton, { backgroundColor: colors.surface }]}
+            onPress={handleDownloadQuote}
+            data-testid="button-download-quote"
+          >
+            <Ionicons name="document-text-outline" size={22} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.iconButton, { backgroundColor: colors.surface }]}
+            onPress={handleDownloadInvoice}
+            data-testid="button-download-invoice"
+          >
+            <Ionicons name="download-outline" size={22} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.iconButton, { backgroundColor: colors.surface }]}
+            onPress={handleEditEvent}
+            data-testid="button-edit-event"
+          >
+            <Ionicons name="create-outline" size={22} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.iconButton, { backgroundColor: colors.surface }]}
+            onPress={() => setGalleryModalVisible(true)}
+            data-testid="button-event-gallery"
+          >
+            <Ionicons name="images-outline" size={22} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.iconButton, { backgroundColor: colors.surface }]}
+            onPress={handleDeleteEvent}
+            data-testid="button-delete-event"
+          >
+            <Ionicons name="trash-outline" size={22} color={colors.error} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -1073,17 +1073,15 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  headerTop: {
+  serviceStatusRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    gap: 12,
     marginBottom: 12,
-  },
-  headerContent: {
-    flex: 1,
   },
   headerActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   iconButton: {
@@ -1097,11 +1095,6 @@ const styles = StyleSheet.create({
   },
   eventService: {
     fontSize: 16,
-    marginBottom: 12,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   statusBadge: {
     paddingHorizontal: 12,
