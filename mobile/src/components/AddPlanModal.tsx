@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import ConfirmDialog from './ConfirmDialog';
@@ -107,6 +108,22 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
   const [isCreatingExpense, setIsCreatingExpense] = useState(false);
   const [showPendingConfirmDialog, setShowPendingConfirmDialog] = useState(false);
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showLinkedExpenseDialog, setShowLinkedExpenseDialog] = useState(false);
+  
+  // Query for linked expense
+  const { data: linkedExpense, refetch: refetchLinkedExpense } = useQuery({
+    queryKey: ['/api/expenses/by-plan', plan?.id],
+    queryFn: async () => {
+      if (!plan?.id) return null;
+      const res = await fetch(`${envConfig.API_URL}/api/expenses/by-plan/${plan.id}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!plan?.id && visible,
+  });
+  
+  const linkedExpenseId = linkedExpense?.id || null;
 
   useEffect(() => {
     if (plan && visible) {
@@ -1080,7 +1097,30 @@ useEffect(() => {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.text }]}>Payment Status</Text>
+                  <View style={styles.labelRow}>
+                    <Text style={[styles.label, { color: colors.text }]}>Payment Status</Text>
+                    {plan && (formData.paymentStatus === 'Paid' || formData.paymentStatus === 'Partial' || formData.paymentStatus === 'Completed') && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (linkedExpenseId) {
+                            setShowLinkedExpenseDialog(true);
+                          } else {
+                            // Open record payment dialog
+                            const existingDate = linkedExpense?.date ? new Date(linkedExpense.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+                            setExpenseDate(existingDate);
+                            setPartialExpenseAmount(formData.payment);
+                            setPendingPaymentStatus(formData.paymentStatus);
+                            setShowPartialExpenseDialog(true);
+                          }
+                        }}
+                        disabled={isCreatingExpense}
+                      >
+                        <Text style={[styles.expenseLink, { color: colors.primary }]}>
+                          {isCreatingExpense ? 'Linking...' : linkedExpenseId ? 'View Linked Expense' : 'Link Expense'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                   <View style={styles.dropdownContainer}>
                     <TouchableOpacity
                       style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -1655,17 +1695,31 @@ useEffect(() => {
             {/* Date Input */}
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.text }]}>Payment Date</Text>
-              <TextInput
-                style={[styles.input, { 
-                  backgroundColor: colors.card, 
-                  borderColor: colors.border, 
-                  color: colors.text 
+              <TouchableOpacity
+                style={[styles.datePickerButton, { 
+                  backgroundColor: colors.surface, 
+                  borderColor: colors.border 
                 }]}
-                value={expenseDate}
-                onChangeText={setExpenseDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.textSecondary}
-              />
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
+                <Text style={[styles.datePickerText, { color: colors.text }]}>
+                  {new Date(expenseDate).toLocaleDateString()}
+                </Text>
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={new Date(expenseDate)}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(Platform.OS === 'ios');
+                    if (selectedDate) {
+                      setExpenseDate(selectedDate.toISOString().split('T')[0]);
+                    }
+                  }}
+                />
+              )}
             </View>
             
             {/* Amount Input - only for Partial */}
@@ -1725,6 +1779,79 @@ useEffect(() => {
                     Confirm
                   </Text>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Linked Expense Dialog */}
+      <Modal
+        visible={showLinkedExpenseDialog}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowLinkedExpenseDialog(false)}
+      >
+        <View style={styles.dialogOverlay}>
+          <View style={[styles.dialogContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.dialogTitle, { color: colors.text }]}>Linked Expense</Text>
+            
+            {linkedExpense && (
+              <>
+                <View style={[styles.expenseDetailRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.expenseDetailLabel, { color: colors.textSecondary }]}>Description:</Text>
+                  <Text style={[styles.expenseDetailValue, { color: colors.text }]}>{linkedExpense.description}</Text>
+                </View>
+                <View style={[styles.expenseDetailRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.expenseDetailLabel, { color: colors.textSecondary }]}>Amount:</Text>
+                  <Text style={[styles.expenseDetailValue, { color: colors.text }]}>₹{parseFloat(linkedExpense.amount || '0').toLocaleString('en-IN')}</Text>
+                </View>
+                <View style={[styles.expenseDetailRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.expenseDetailLabel, { color: colors.textSecondary }]}>Date:</Text>
+                  <Text style={[styles.expenseDetailValue, { color: colors.text }]}>{new Date(linkedExpense.date).toLocaleDateString()}</Text>
+                </View>
+                <View style={[styles.expenseDetailRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.expenseDetailLabel, { color: colors.textSecondary }]}>From Account:</Text>
+                  <Text style={[styles.expenseDetailValue, { color: colors.text }]}>{linkedExpense.from_account}</Text>
+                </View>
+                {linkedExpense.to_account && (
+                  <View style={[styles.expenseDetailRow, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.expenseDetailLabel, { color: colors.textSecondary }]}>To Account:</Text>
+                    <Text style={[styles.expenseDetailValue, { color: colors.text }]}>{linkedExpense.to_account}</Text>
+                  </View>
+                )}
+              </>
+            )}
+            
+            <View style={[styles.dialogButtons, { marginTop: 16 }]}>
+              <TouchableOpacity
+                style={[styles.dialogButton, styles.dialogButtonCancel, { borderColor: colors.border }]}
+                onPress={() => setShowLinkedExpenseDialog(false)}
+              >
+                <Text style={[styles.dialogButtonText, { color: colors.text }]}>Close</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.dialogButton, { backgroundColor: colors.error }]}
+                onPress={async () => {
+                  if (linkedExpenseId) {
+                    try {
+                      await api.deleteExpense(linkedExpenseId);
+                      await api.updatePlan(plan.id, { paymentStatus: 'Pending' });
+                      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+                      queryClient.invalidateQueries({ queryKey: ['/api/expenses/by-plan', plan.id] });
+                      queryClient.invalidateQueries({ queryKey: ['plans'] });
+                      setFormData(prev => ({ ...prev, paymentStatus: 'Pending' }));
+                      setShowLinkedExpenseDialog(false);
+                      Alert.alert('Success', 'Expense deleted and payment status reset to Pending');
+                    } catch (error: any) {
+                      Alert.alert('Error', 'Failed to delete expense: ' + (error.message || 'Unknown error'));
+                    }
+                  }
+                }}
+              >
+                <Ionicons name="trash-outline" size={16} color="#ffffff" />
+                <Text style={[styles.dialogButtonText, { color: '#ffffff', marginLeft: 4 }]}>Delete</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1998,5 +2125,39 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginTop: 4,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  expenseLink: {
+    fontSize: 12,
+    textDecorationLine: 'underline',
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+  },
+  datePickerText: {
+    fontSize: 16,
+  },
+  expenseDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+  },
+  expenseDetailLabel: {
+    fontSize: 14,
+  },
+  expenseDetailValue: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

@@ -12,8 +12,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useConfiguration } from '../hooks/useApi';
 import envConfig from '../config/environment';
@@ -47,6 +48,22 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
   const [isCreatingExpense, setIsCreatingExpense] = useState(false);
   const [showPendingConfirmDialog, setShowPendingConfirmDialog] = useState(false);
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showExpenseDatePicker, setShowExpenseDatePicker] = useState(false);
+  const [showLinkedExpenseDialog, setShowLinkedExpenseDialog] = useState(false);
+  
+  // Query for linked expense
+  const { data: linkedExpense, refetch: refetchLinkedExpense } = useQuery({
+    queryKey: ['/api/expenses/by-event', event?.id],
+    queryFn: async () => {
+      if (!event?.id) return null;
+      const res = await fetch(`${envConfig.API_URL}/api/expenses/by-event/${event.id}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!event?.id && visible,
+  });
+  
+  const linkedExpenseId = linkedExpense?.id || null;
   
   const [formData, setFormData] = useState({
     eventName: '',
@@ -617,7 +634,30 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
 
               {/* Payment Status Dropdown */}
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Payment Status</Text>
+                <View style={styles.labelRow}>
+                  <Text style={[styles.label, { color: colors.text, marginBottom: 0 }]}>Payment Status</Text>
+                  {event && (formData.paymentStatus === 'Paid' || formData.paymentStatus === 'Partial' || formData.paymentStatus === 'Completed') && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (linkedExpenseId) {
+                          setShowLinkedExpenseDialog(true);
+                        } else {
+                          // Open record payment dialog
+                          const existingDate = linkedExpense?.date ? new Date(linkedExpense.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+                          setExpenseDate(existingDate);
+                          setPartialExpenseAmount('');
+                          setPendingPaymentStatus(formData.paymentStatus);
+                          setShowPartialExpenseDialog(true);
+                        }
+                      }}
+                      disabled={isCreatingExpense}
+                    >
+                      <Text style={[styles.expenseLink, { color: colors.primary }]}>
+                        {isCreatingExpense ? 'Linking...' : linkedExpenseId ? 'View Linked Expense' : 'Link Expense'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
                 <View style={styles.dropdownContainer}>
                   <TouchableOpacity 
                     style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -898,13 +938,31 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
               
               {/* Date Input */}
               <Text style={[styles.label, { color: colors.text, marginTop: 12 }]}>Payment Date</Text>
-              <TextInput
-                style={[styles.dialogInput, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
-                value={expenseDate}
-                onChangeText={setExpenseDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.textSecondary}
-              />
+              <TouchableOpacity
+                style={[styles.datePickerButton, { 
+                  backgroundColor: colors.surface, 
+                  borderColor: colors.border 
+                }]}
+                onPress={() => setShowExpenseDatePicker(true)}
+              >
+                <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
+                <Text style={[styles.datePickerText, { color: colors.text }]}>
+                  {new Date(expenseDate).toLocaleDateString()}
+                </Text>
+              </TouchableOpacity>
+              {showExpenseDatePicker && (
+                <DateTimePicker
+                  value={new Date(expenseDate)}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, selectedDate) => {
+                    setShowExpenseDatePicker(Platform.OS === 'ios');
+                    if (selectedDate) {
+                      setExpenseDate(selectedDate.toISOString().split('T')[0]);
+                    }
+                  }}
+                />
+              )}
               
               {/* Amount Input - only for Partial */}
               {pendingPaymentStatus === 'Partial' && (
@@ -958,6 +1016,86 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
                 ) : (
                   <Text style={styles.dialogConfirmButtonText}>Confirm</Text>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Linked Expense Dialog */}
+      <Modal
+        visible={showLinkedExpenseDialog}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowLinkedExpenseDialog(false)}
+      >
+        <View style={styles.dialogOverlay}>
+          <View style={[styles.dialogContainer, { backgroundColor: colors.card }]}>
+            <View style={[styles.dialogHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.dialogTitle, { color: colors.text }]}>Linked Expense</Text>
+              <TouchableOpacity onPress={() => setShowLinkedExpenseDialog(false)} style={styles.dialogCloseButton}>
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.dialogContent}>
+              {linkedExpense && (
+                <>
+                  <View style={[styles.expenseDetailRow, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.expenseDetailLabel, { color: colors.textSecondary }]}>Description:</Text>
+                    <Text style={[styles.expenseDetailValue, { color: colors.text }]}>{linkedExpense.description}</Text>
+                  </View>
+                  <View style={[styles.expenseDetailRow, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.expenseDetailLabel, { color: colors.textSecondary }]}>Amount:</Text>
+                    <Text style={[styles.expenseDetailValue, { color: colors.text }]}>₹{parseFloat(linkedExpense.amount || '0').toLocaleString('en-IN')}</Text>
+                  </View>
+                  <View style={[styles.expenseDetailRow, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.expenseDetailLabel, { color: colors.textSecondary }]}>Date:</Text>
+                    <Text style={[styles.expenseDetailValue, { color: colors.text }]}>{new Date(linkedExpense.date).toLocaleDateString()}</Text>
+                  </View>
+                  <View style={[styles.expenseDetailRow, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.expenseDetailLabel, { color: colors.textSecondary }]}>From Account:</Text>
+                    <Text style={[styles.expenseDetailValue, { color: colors.text }]}>{linkedExpense.from_account}</Text>
+                  </View>
+                  {linkedExpense.to_account && (
+                    <View style={[styles.expenseDetailRow, { borderBottomColor: colors.border }]}>
+                      <Text style={[styles.expenseDetailLabel, { color: colors.textSecondary }]}>To Account:</Text>
+                      <Text style={[styles.expenseDetailValue, { color: colors.text }]}>{linkedExpense.to_account}</Text>
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
+            
+            <View style={styles.dialogActions}>
+              <TouchableOpacity
+                style={[styles.dialogCancelButton, { backgroundColor: isDark ? '#374151' : '#f3f4f6', borderColor: colors.border }]}
+                onPress={() => setShowLinkedExpenseDialog(false)}
+              >
+                <Text style={[styles.dialogCancelButtonText, { color: colors.textSecondary }]}>Close</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.dialogConfirmButton, { backgroundColor: colors.error }]}
+                onPress={async () => {
+                  if (linkedExpenseId) {
+                    try {
+                      await api.deleteExpense(linkedExpenseId);
+                      await api.updateEvent(event.id, { paymentStatus: 'Pending' } as any);
+                      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+                      queryClient.invalidateQueries({ queryKey: ['/api/expenses/by-event', event.id] });
+                      queryClient.invalidateQueries({ queryKey: ['/api/events', event.id] });
+                      setFormData({ ...formData, paymentStatus: 'Pending' });
+                      setShowLinkedExpenseDialog(false);
+                      Alert.alert('Success', 'Expense deleted and payment status reset to Pending');
+                    } catch (error: any) {
+                      Alert.alert('Error', 'Failed to delete expense: ' + (error.message || 'Unknown error'));
+                    }
+                  }
+                }}
+              >
+                <Ionicons name="trash-outline" size={16} color="#ffffff" />
+                <Text style={[styles.dialogConfirmButtonText, { marginLeft: 4 }]}>Delete</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1222,5 +1360,44 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  expenseLink: {
+    fontSize: 13,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    gap: 8,
+    minHeight: 48,
+  },
+  datePickerText: {
+    fontSize: 15,
+  },
+  expenseDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  expenseDetailLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  expenseDetailValue: {
+    fontSize: 14,
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: 12,
   },
 });
