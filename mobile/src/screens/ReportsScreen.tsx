@@ -353,7 +353,7 @@ export default function ReportsScreen() {
                     setShowLeftMonthDropdown(!showLeftMonthDropdown);
                   }}
                 >
-                  <Text style={[styles.miniDropdownText, { color: colors.text }]}>{MONTHS[leftMonth].slice(0, 3)}</Text>
+                  <Text style={[styles.miniDropdownText, { color: colors.text }]}>{MONTHS[leftMonth]}</Text>
                   <Ionicons name={showLeftMonthDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
                 {showLeftMonthDropdown && (
@@ -376,7 +376,7 @@ export default function ReportsScreen() {
                             { color: colors.text },
                             leftMonth === index && { color: colors.primary, fontWeight: '600' }
                           ]}>
-                            {month.slice(0, 3)}
+                            {month}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -438,7 +438,7 @@ export default function ReportsScreen() {
                     setShowRightMonthDropdown(!showRightMonthDropdown);
                   }}
                 >
-                  <Text style={[styles.miniDropdownText, { color: colors.text }]}>{MONTHS[rightMonth].slice(0, 3)}</Text>
+                  <Text style={[styles.miniDropdownText, { color: colors.text }]}>{MONTHS[rightMonth]}</Text>
                   <Ionicons name={showRightMonthDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
                 {showRightMonthDropdown && (
@@ -461,7 +461,7 @@ export default function ReportsScreen() {
                             { color: colors.text },
                             rightMonth === index && { color: colors.primary, fontWeight: '600' }
                           ]}>
-                            {month.slice(0, 3)}
+                            {month}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -515,7 +515,7 @@ export default function ReportsScreen() {
         {/* Comparison Data */}
         <View style={styles.comparisonGrid}>
           <View style={styles.comparisonColumn}>
-            <Text style={[styles.comparisonHeader, { color: colors.text }]}>{MONTHS[leftMonth].slice(0, 3)} {leftYear}</Text>
+            <Text style={[styles.comparisonHeader, { color: colors.text }]}>{MONTHS[leftMonth]} {leftYear}</Text>
             <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
               <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Events</Text>
               <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{leftEventStats.total}</Text>
@@ -534,7 +534,7 @@ export default function ReportsScreen() {
             </View>
           </View>
           <View style={styles.comparisonColumn}>
-            <Text style={[styles.comparisonHeader, { color: colors.text }]}>{MONTHS[rightMonth].slice(0, 3)} {rightYear}</Text>
+            <Text style={[styles.comparisonHeader, { color: colors.text }]}>{MONTHS[rightMonth]} {rightYear}</Text>
             <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
               <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Events</Text>
               <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{rightEventStats.total}</Text>

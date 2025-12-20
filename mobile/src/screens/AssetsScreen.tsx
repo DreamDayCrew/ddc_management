@@ -176,6 +176,8 @@ export default function AssetsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/*
+      Summary Section
       <View style={[styles.summaryContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={[styles.summaryCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Assets</Text>
@@ -187,7 +189,7 @@ export default function AssetsScreen() {
             ₹{totalValue.toLocaleString()}
           </Text>
         </View>
-      </View>
+      </View> */}
 
       {/* Search and Filter Section */}
       <View style={[styles.searchFilterContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>

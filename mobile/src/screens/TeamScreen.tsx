@@ -111,11 +111,7 @@ export default function TeamScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Team Members</Text>
-        <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>{team?.length || 0} members</Text>
-      </View>
-
+    
       <FlatList
         data={team?.sort((a, b) => b.id.localeCompare(a.id)) || []}
         renderItem={renderTeamMember}
