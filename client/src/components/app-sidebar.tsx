@@ -9,6 +9,7 @@ import {
   FileText,
   Settings,
   BookOpen,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -70,6 +71,12 @@ const menuItems = [
     url: "/catalog",
     icon: BookOpen,
     testId: "nav-catalog",
+  },
+  {
+    title: "Reports",
+    url: "/reports",
+    icon: BarChart3,
+    testId: "nav-reports",
   },
   {
     title: "Configuration",
