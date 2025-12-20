@@ -122,8 +122,10 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
   const plansWithLinkedExpenses = useMemo(() => {
     const planIds = new Set<string>();
     allExpenses.forEach((expense: any) => {
-      if (expense.fulfillmentPlanId) {
-        planIds.add(expense.fulfillmentPlanId);
+      // Check both camelCase and snake_case as API might return either
+      const planId = expense.fulfillmentPlanId || expense.fulfillment_plan_id;
+      if (planId) {
+        planIds.add(planId);
       }
     });
     return planIds;
@@ -539,11 +541,11 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     >
       {/* Event Header */}
       <View style={[styles.header, { backgroundColor: colors.card, shadowColor: isDark ? '#000' : '#000' }]}>
-        {/* Row 1: Event Name */}
+        {/* Row 1: Event Name with linked expense indicator */}
         <View style={styles.eventNameRow}>
           <Text style={[styles.eventName, { color: colors.text }]}>{event.eventName}</Text>
-          {eventLinkedExpense && (
-            <Ionicons name="checkmark-circle" size={20} color="#22c55e" style={styles.linkedCheckmark} />
+          {eventLinkedExpense && eventLinkedExpense.id && (
+            <Ionicons name="checkmark-circle" size={22} color="#22c55e" />
           )}
         </View>
         
@@ -1133,9 +1135,6 @@ const styles = StyleSheet.create({
   eventName: {
     fontSize: 24,
     fontWeight: 'bold',
-  },
-  linkedCheckmark: {
-    marginLeft: 4,
   },
   eventService: {
     fontSize: 16,
