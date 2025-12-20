@@ -19,6 +19,7 @@ export default function VendorsScreen() {
   const [searchName, setSearchName] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [vendorToDelete, setVendorToDelete] = useState<Vendor | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
@@ -188,96 +189,124 @@ export default function VendorsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Filter Section */}
-      <View style={[styles.filterSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.filterHeader}>
-          <Text style={[styles.filterTitle, { color: colors.text }]}>Filters</Text>
-          {activeFiltersCount > 0 && (
-            <TouchableOpacity onPress={clearFilters} style={styles.clearButton}>
-              <Text style={styles.clearButtonText}>Clear ({activeFiltersCount})</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        
-        <View style={[styles.searchContainer, { backgroundColor: colors.surface }]}>
-          <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Search by vendor name..."
-            value={searchName}
-            onChangeText={setSearchName}
-            placeholderTextColor={colors.textSecondary}
-          />
-          {searchName && (
-            <TouchableOpacity onPress={() => setSearchName('')} style={styles.clearSearchButton}>
-              <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          )}
+      {/* Search and Filter Section */}
+      <View style={[styles.searchFilterContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchInputContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              placeholder="Search by vendor name..."
+              value={searchName}
+              onChangeText={setSearchName}
+              placeholderTextColor={colors.textSecondary}
+            />
+            {searchName && (
+              <TouchableOpacity onPress={() => setSearchName('')}>
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
-        {/* Category Filter */}
-        <View style={styles.categoryContainer}>
-          <TouchableOpacity 
-            style={[styles.categoryDropdown, { backgroundColor: colors.surface }]}
-            onPress={() => setShowCategoryDropdown(!showCategoryDropdown)}
-          >
-            <Ionicons name="pricetag" size={20} color={colors.textSecondary} style={styles.categoryIcon} />
-            <Text style={[styles.categoryText, { color: colors.text }]}>
-              {selectedCategory || 'All Categories'}
-            </Text>
-            <Ionicons 
-              name={showCategoryDropdown ? "chevron-up" : "chevron-down"} 
-              size={20} 
-              color={colors.textSecondary} 
-            />
-          </TouchableOpacity>
-          
-          {showCategoryDropdown && (
-            <View style={[styles.dropdownList, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <ScrollView 
-                nestedScrollEnabled={true}
-                showsVerticalScrollIndicator={true}
-                indicatorStyle={isDark ? "white" : "black"}
-                style={styles.dropdownScroll}
-              >
-                <TouchableOpacity 
-                  style={[styles.dropdownItem, !selectedCategory && [styles.selectedDropdownItem, { backgroundColor: isDark ? '#4a5568' : '#fef2f2' }], { backgroundColor: colors.card }]}
-                  onPress={() => {
-                    setSelectedCategory('');
-                    setShowCategoryDropdown(false);
-                  }}
+        {/* Filter Toggle Button */}
+        <TouchableOpacity
+          style={[styles.filterButton, { backgroundColor: colors.surface }]}
+          onPress={() => setFiltersExpanded(!filtersExpanded)}
+          activeOpacity={0.8}
+        >
+          <Ionicons 
+            name={filtersExpanded ? "filter" : "filter-outline"} 
+            size={20} 
+            color={activeFiltersCount > 0 ? colors.primary : colors.textSecondary} 
+          />
+          {activeFiltersCount > 0 && (
+            <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.filterBadgeText}>
+                {activeFiltersCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Expandable Filter Options */}
+      {filtersExpanded && (
+        <View style={[styles.filtersContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.filterHeader}>
+            <Text style={[styles.filterTitle, { color: colors.text }]}>Filters</Text>
+            {activeFiltersCount > 0 && (
+              <TouchableOpacity onPress={clearFilters} style={[styles.clearButton, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.clearButtonText, { color: '#fff' }]}>Clear ({activeFiltersCount})</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Category Filter */}
+          <View style={styles.categoryContainer}>
+            <TouchableOpacity 
+              style={[styles.categoryDropdown, { backgroundColor: colors.background, borderColor: colors.border }]}
+              onPress={() => setShowCategoryDropdown(!showCategoryDropdown)}
+            >
+              <Ionicons name="pricetag" size={20} color={colors.textSecondary} style={styles.categoryIcon} />
+              <Text style={[styles.categoryText, { color: colors.text }]}>
+                {selectedCategory || 'All Categories'}
+              </Text>
+              <Ionicons 
+                name={showCategoryDropdown ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color={colors.textSecondary} 
+              />
+            </TouchableOpacity>
+            
+            {showCategoryDropdown && (
+              <View style={[styles.dropdownList, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <ScrollView 
+                  nestedScrollEnabled={true}
+                  showsVerticalScrollIndicator={true}
+                  indicatorStyle={isDark ? "white" : "black"}
+                  style={styles.dropdownScroll}
                 >
-                  <Ionicons name="list" size={18} color={!selectedCategory ? (isDark ? '#4a5568' : BRAND_MAROON) : colors.textSecondary} style={styles.dropdownItemIcon} />
-                  <Text style={[styles.dropdownItemText, { color: colors.text }, !selectedCategory && { fontWeight: '600', color: isDark ? '#4a5568' : BRAND_MAROON }]}>
-                    All Categories
-                  </Text>
-                  {!selectedCategory && (
-                    <Ionicons name="checkmark" size={16} color={isDark ? '#4a5568' : BRAND_MAROON} />
-                  )}
-                </TouchableOpacity>
-                {config?.vendorCategories?.map((category: string) => (
                   <TouchableOpacity 
-                    key={category}
-                    style={[styles.dropdownItem, selectedCategory === category && [styles.selectedDropdownItem, { backgroundColor: isDark ? '#4a5568' : '#fef2f2' }], { backgroundColor: colors.card }]}
+                    style={[styles.dropdownItem, !selectedCategory && [styles.selectedDropdownItem, { backgroundColor: colors.surface }], { backgroundColor: colors.card }]}
                     onPress={() => {
-                      setSelectedCategory(category);
+                      setSelectedCategory('');
                       setShowCategoryDropdown(false);
                     }}
                   >
-                    <Ionicons name="pricetag" size={18} color={selectedCategory === category ? (isDark ? '#4a5568' : BRAND_MAROON) : colors.textSecondary} style={styles.dropdownItemIcon} />
-                    <Text style={[styles.dropdownItemText, { color: colors.text }, selectedCategory === category && { fontWeight: '600', color: isDark ? '#4a5568' : BRAND_MAROON }]}>
-                      {category}
+                    <Ionicons name="list" size={18} color={!selectedCategory ? colors.primary : colors.textSecondary} style={styles.dropdownItemIcon} />
+                    <Text style={[styles.dropdownItemText, { color: colors.text }, !selectedCategory && { fontWeight: '600', color: colors.primary }]}>
+                      All Categories
                     </Text>
-                    {selectedCategory === category && (
-                      <Ionicons name="checkmark" size={16} color={isDark ? '#4a5568' : BRAND_MAROON} />
+                    {!selectedCategory && (
+                      <Ionicons name="checkmark" size={16} color={colors.primary} />
                     )}
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
+                  {config?.vendorCategories?.map((category: string) => (
+                    <TouchableOpacity 
+                      key={category}
+                      style={[styles.dropdownItem, selectedCategory === category && [styles.selectedDropdownItem, { backgroundColor: colors.surface }], { backgroundColor: colors.card }]}
+                      onPress={() => {
+                        setSelectedCategory(category);
+                        setShowCategoryDropdown(false);
+                      }}
+                    >
+                      <Ionicons name="pricetag" size={18} color={selectedCategory === category ? colors.primary : colors.textSecondary} style={styles.dropdownItemIcon} />
+                      <Text style={[styles.dropdownItemText, { color: colors.text }, selectedCategory === category && { fontWeight: '600', color: colors.primary }]}>
+                        {category}
+                      </Text>
+                      {selectedCategory === category && (
+                        <Ionicons name="checkmark" size={16} color={colors.primary} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Dropdown Overlay - positioned outside filter section */}
       {showCategoryDropdown && (
@@ -370,19 +399,64 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
   },
-  filterSection: {
-    padding: 16,
-    marginBottom: 8,
-    borderRadius: 12,
+  searchFilterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
     marginHorizontal: 16,
     marginTop: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  searchContainer: {
+    flex: 1,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+  },
+  filterButton: {
+    position: 'relative',
+    padding: 12,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  filtersContainer: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
     zIndex: 9999,
-    borderWidth: 1,
   },
   filterHeader: {
     flexDirection: 'row',
@@ -391,26 +465,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   filterTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
   },
   clearButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#ef4444',
     borderRadius: 16,
   },
   clearButtonText: {
-    color: '#ffffff',
     fontSize: 12,
     fontWeight: '600',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 12,
   },
   searchIcon: {
     marginRight: 8,

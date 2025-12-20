@@ -113,15 +113,27 @@ export default function ExpensesScreen() {
       }
 
       // Date filters - use transaction date
+      // If only fromDate is given, filter from that date to today
+      // If only toDate is given without fromDate, skip the date filter (show validation in UI) but continue with other filters
       if (filters.fromDate) {
         const expenseDate = new Date(expense.date);
         const fromDate = new Date(filters.fromDate);
         if (expenseDate < fromDate) {
           return false;
         }
+        
+        // If only fromDate is provided (no toDate), filter up to today
+        if (!filters.toDate) {
+          const today = new Date();
+          today.setHours(23, 59, 59, 999);
+          if (expenseDate > today) {
+            return false;
+          }
+        }
       }
 
-      if (filters.toDate) {
+      // Only apply toDate filter when fromDate is also provided
+      if (filters.toDate && filters.fromDate) {
         const expenseDate = new Date(expense.date);
         const toDate = new Date(filters.toDate);
         toDate.setHours(23, 59, 59, 999); // Include the entire end date
@@ -129,6 +141,8 @@ export default function ExpensesScreen() {
           return false;
         }
       }
+      // Note: If only toDate is provided without fromDate, we skip the date filter entirely
+      // and show a validation message in the UI
 
       // Account filters
       if (filters.fromAccount) {
@@ -355,7 +369,11 @@ export default function ExpensesScreen() {
             <View style={styles.filterGroup}>
               <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>To Date</Text>
               <TouchableOpacity
-                style={[styles.datePickerButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                style={[
+                  styles.datePickerButton, 
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  (filters.toDate && !filters.fromDate) && { borderColor: WARNING_ORANGE }
+                ]}
                 onPress={() => setShowToDatePicker(true)}
                 activeOpacity={0.8}
               >
@@ -376,6 +394,9 @@ export default function ExpensesScreen() {
                   </TouchableOpacity>
                 )}
               </TouchableOpacity>
+              {filters.toDate && !filters.fromDate && (
+                <Text style={styles.dateValidationText}>Please select From Date</Text>
+              )}
             </View>
 
             {/* Account Filters */}
@@ -1070,5 +1091,11 @@ const styles = StyleSheet.create({
   },
   clearDateButton: {
     padding: 4,
+  },
+  dateValidationText: {
+    color: '#fdcb6e',
+    fontSize: 11,
+    marginTop: 4,
+    fontWeight: '500',
   },
 });
