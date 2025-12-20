@@ -35,6 +35,13 @@ const resourcesMenu: MenuItem[] = [
     icon: 'business',
     screen: 'Vendors',
     description: 'Manage vendor relationships'
+  },
+  {
+    id: 'catalog',
+    title: 'Service Catalog',
+    icon: 'book',
+    screen: 'Catalog',
+    description: 'View and manage service packages'
   }
 ];
 

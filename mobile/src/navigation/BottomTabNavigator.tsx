@@ -4,7 +4,7 @@ import { useTheme } from "../contexts";
 import DashboardScreen from "../screens/DashboardScreen";
 import EventsStackNavigator from "./EventsStackNavigator";
 import ExpensesScreen from "../screens/ExpensesScreen";
-import CatalogScreen from "../screens/CatalogScreen";
+import ReportsScreen from "../screens/ReportsScreen";
 import MoreStackNavigator from "./MoreStackNavigator";
 
 const Tab = createBottomTabNavigator();
@@ -27,8 +27,8 @@ export default function BottomTabNavigator() {
             iconName = focused ? "calendar" : "calendar-outline";
           } else if (route.name === "Expenses") {
             iconName = focused ? "wallet" : "wallet-outline";
-          } else if (route.name === "Catalog") {
-            iconName = focused ? "book" : "book-outline";
+          } else if (route.name === "Reports") {
+            iconName = focused ? "bar-chart" : "bar-chart-outline";
           } else if (route.name === "More") {
             iconName = focused ? "menu" : "menu-outline";
           }
@@ -80,9 +80,9 @@ export default function BottomTabNavigator() {
         options={{ headerTitle: "Expenses" }}
       />
       <Tab.Screen
-        name="Catalog"
-        component={CatalogScreen}
-        options={{ headerTitle: "Service Catalog" }}
+        name="Reports"
+        component={ReportsScreen}
+        options={{ headerTitle: "Reports" }}
       />
       <Tab.Screen
         name="More"
