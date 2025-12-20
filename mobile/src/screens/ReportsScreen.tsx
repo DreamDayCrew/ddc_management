@@ -1,11 +1,8 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, useMemo } from 'react';
 import { useEvents, useExpenses, useAssets } from '../hooks/useApi';
 import { useTheme } from '../contexts';
-import { Picker } from '@react-native-picker/picker';
-
-const { width } = Dimensions.get('window');
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -44,6 +41,14 @@ export default function ReportsScreen() {
   const [leftYear, setLeftYear] = useState<number>(lastMonthYear);
   const [rightMonth, setRightMonth] = useState<number>(currentMonth);
   const [rightYear, setRightYear] = useState<number>(currentYear);
+
+  // Dropdown visibility states
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  const [showYearDropdown, setShowYearDropdown] = useState(false);
+  const [showLeftMonthDropdown, setShowLeftMonthDropdown] = useState(false);
+  const [showLeftYearDropdown, setShowLeftYearDropdown] = useState(false);
+  const [showRightMonthDropdown, setShowRightMonthDropdown] = useState(false);
+  const [showRightYearDropdown, setShowRightYearDropdown] = useState(false);
 
   const { data: events = [], isLoading: eventsLoading } = useEvents();
   const { data: expenses = [], isLoading: expensesLoading } = useExpenses();
@@ -135,6 +140,15 @@ export default function ReportsScreen() {
   const rightFinancialStats = getFinancialStats(rightMonth, rightYear);
   const rightAssetStats = getAssetStats(rightMonth, rightYear);
 
+  const closeAllDropdowns = () => {
+    setShowMonthDropdown(false);
+    setShowYearDropdown(false);
+    setShowLeftMonthDropdown(false);
+    setShowLeftYearDropdown(false);
+    setShowRightMonthDropdown(false);
+    setShowRightYearDropdown(false);
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
@@ -147,30 +161,97 @@ export default function ReportsScreen() {
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Month/Year Filter */}
-      <View style={[styles.filterRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={selectedMonth}
-            onValueChange={(value) => setSelectedMonth(value)}
-            style={[styles.picker, { color: colors.text }]}
-            dropdownIconColor={colors.text}
-          >
-            {MONTHS.map((month, index) => (
-              <Picker.Item key={index} label={month} value={index} />
-            ))}
-          </Picker>
-        </View>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={selectedYear}
-            onValueChange={(value) => setSelectedYear(value)}
-            style={[styles.picker, { color: colors.text }]}
-            dropdownIconColor={colors.text}
-          >
-            {availableYears.map((year) => (
-              <Picker.Item key={year} label={year.toString()} value={year} />
-            ))}
-          </Picker>
+      <View style={[styles.filterSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={styles.filterRow}>
+          {/* Month Dropdown */}
+          <View style={styles.dropdownWrapper}>
+            <TouchableOpacity
+              style={[styles.dropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+              onPress={() => {
+                closeAllDropdowns();
+                setShowMonthDropdown(!showMonthDropdown);
+              }}
+            >
+              <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+              <Text style={[styles.dropdownText, { color: colors.text }]}>{MONTHS[selectedMonth]}</Text>
+              <Ionicons name={showMonthDropdown ? "chevron-up" : "chevron-down"} size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+            {showMonthDropdown && (
+              <View style={[styles.dropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
+                  {MONTHS.map((month, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.dropdownItem,
+                        selectedMonth === index && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                      ]}
+                      onPress={() => {
+                        setSelectedMonth(index);
+                        setShowMonthDropdown(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.dropdownItemText,
+                        { color: colors.text },
+                        selectedMonth === index && { color: colors.primary, fontWeight: '600' }
+                      ]}>
+                        {month}
+                      </Text>
+                      {selectedMonth === index && (
+                        <Ionicons name="checkmark" size={18} color={colors.primary} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+
+          {/* Year Dropdown */}
+          <View style={styles.dropdownWrapper}>
+            <TouchableOpacity
+              style={[styles.dropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+              onPress={() => {
+                closeAllDropdowns();
+                setShowYearDropdown(!showYearDropdown);
+              }}
+            >
+              <Ionicons name="time-outline" size={18} color={colors.textSecondary} />
+              <Text style={[styles.dropdownText, { color: colors.text }]}>{selectedYear}</Text>
+              <Ionicons name={showYearDropdown ? "chevron-up" : "chevron-down"} size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+            {showYearDropdown && (
+              <View style={[styles.dropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
+                  {availableYears.map((year) => (
+                    <TouchableOpacity
+                      key={year}
+                      style={[
+                        styles.dropdownItem,
+                        selectedYear === year && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                      ]}
+                      onPress={() => {
+                        setSelectedYear(year);
+                        setShowYearDropdown(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.dropdownItemText,
+                        { color: colors.text },
+                        selectedYear === year && { color: colors.primary, fontWeight: '600' }
+                      ]}>
+                        {year}
+                      </Text>
+                      {selectedYear === year && (
+                        <Ionicons name="checkmark" size={18} color={colors.primary} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
         </View>
       </View>
 
@@ -258,63 +339,174 @@ export default function ReportsScreen() {
           <Text style={[styles.cardTitle, { color: colors.text }]}>Period Comparison</Text>
         </View>
         
-        {/* Left Period Selector */}
+        {/* Period Selectors */}
         <View style={styles.comparisonPickers}>
+          {/* Period 1 */}
           <View style={styles.periodSection}>
             <Text style={[styles.periodLabel, { color: colors.textSecondary }]}>Period 1</Text>
             <View style={styles.periodPickerRow}>
-              <View style={styles.miniPickerContainer}>
-                <Picker
-                  selectedValue={leftMonth}
-                  onValueChange={(value) => setLeftMonth(value)}
-                  style={[styles.miniPicker, { color: colors.text }]}
-                  dropdownIconColor={colors.text}
+              <View style={styles.miniDropdownWrapper}>
+                <TouchableOpacity
+                  style={[styles.miniDropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                  onPress={() => {
+                    closeAllDropdowns();
+                    setShowLeftMonthDropdown(!showLeftMonthDropdown);
+                  }}
                 >
-                  {MONTHS.map((month, index) => (
-                    <Picker.Item key={index} label={month.slice(0, 3)} value={index} />
-                  ))}
-                </Picker>
+                  <Text style={[styles.miniDropdownText, { color: colors.text }]}>{MONTHS[leftMonth].slice(0, 3)}</Text>
+                  <Ionicons name={showLeftMonthDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
+                </TouchableOpacity>
+                {showLeftMonthDropdown && (
+                  <View style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <ScrollView style={styles.miniDropdownScroll} nestedScrollEnabled>
+                      {MONTHS.map((month, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          style={[
+                            styles.miniDropdownItem,
+                            leftMonth === index && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                          ]}
+                          onPress={() => {
+                            setLeftMonth(index);
+                            setShowLeftMonthDropdown(false);
+                          }}
+                        >
+                          <Text style={[
+                            styles.miniDropdownItemText,
+                            { color: colors.text },
+                            leftMonth === index && { color: colors.primary, fontWeight: '600' }
+                          ]}>
+                            {month.slice(0, 3)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
               </View>
-              <View style={styles.miniPickerContainer}>
-                <Picker
-                  selectedValue={leftYear}
-                  onValueChange={(value) => setLeftYear(value)}
-                  style={[styles.miniPicker, { color: colors.text }]}
-                  dropdownIconColor={colors.text}
+              <View style={styles.miniDropdownWrapper}>
+                <TouchableOpacity
+                  style={[styles.miniDropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                  onPress={() => {
+                    closeAllDropdowns();
+                    setShowLeftYearDropdown(!showLeftYearDropdown);
+                  }}
                 >
-                  {availableYears.map((year) => (
-                    <Picker.Item key={year} label={year.toString()} value={year} />
-                  ))}
-                </Picker>
+                  <Text style={[styles.miniDropdownText, { color: colors.text }]}>{leftYear}</Text>
+                  <Ionicons name={showLeftYearDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
+                </TouchableOpacity>
+                {showLeftYearDropdown && (
+                  <View style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <ScrollView style={styles.miniDropdownScroll} nestedScrollEnabled>
+                      {availableYears.map((year) => (
+                        <TouchableOpacity
+                          key={year}
+                          style={[
+                            styles.miniDropdownItem,
+                            leftYear === year && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                          ]}
+                          onPress={() => {
+                            setLeftYear(year);
+                            setShowLeftYearDropdown(false);
+                          }}
+                        >
+                          <Text style={[
+                            styles.miniDropdownItemText,
+                            { color: colors.text },
+                            leftYear === year && { color: colors.primary, fontWeight: '600' }
+                          ]}>
+                            {year}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
               </View>
             </View>
           </View>
+
+          {/* Period 2 */}
           <View style={styles.periodSection}>
             <Text style={[styles.periodLabel, { color: colors.textSecondary }]}>Period 2</Text>
             <View style={styles.periodPickerRow}>
-              <View style={styles.miniPickerContainer}>
-                <Picker
-                  selectedValue={rightMonth}
-                  onValueChange={(value) => setRightMonth(value)}
-                  style={[styles.miniPicker, { color: colors.text }]}
-                  dropdownIconColor={colors.text}
+              <View style={styles.miniDropdownWrapper}>
+                <TouchableOpacity
+                  style={[styles.miniDropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                  onPress={() => {
+                    closeAllDropdowns();
+                    setShowRightMonthDropdown(!showRightMonthDropdown);
+                  }}
                 >
-                  {MONTHS.map((month, index) => (
-                    <Picker.Item key={index} label={month.slice(0, 3)} value={index} />
-                  ))}
-                </Picker>
+                  <Text style={[styles.miniDropdownText, { color: colors.text }]}>{MONTHS[rightMonth].slice(0, 3)}</Text>
+                  <Ionicons name={showRightMonthDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
+                </TouchableOpacity>
+                {showRightMonthDropdown && (
+                  <View style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <ScrollView style={styles.miniDropdownScroll} nestedScrollEnabled>
+                      {MONTHS.map((month, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          style={[
+                            styles.miniDropdownItem,
+                            rightMonth === index && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                          ]}
+                          onPress={() => {
+                            setRightMonth(index);
+                            setShowRightMonthDropdown(false);
+                          }}
+                        >
+                          <Text style={[
+                            styles.miniDropdownItemText,
+                            { color: colors.text },
+                            rightMonth === index && { color: colors.primary, fontWeight: '600' }
+                          ]}>
+                            {month.slice(0, 3)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
               </View>
-              <View style={styles.miniPickerContainer}>
-                <Picker
-                  selectedValue={rightYear}
-                  onValueChange={(value) => setRightYear(value)}
-                  style={[styles.miniPicker, { color: colors.text }]}
-                  dropdownIconColor={colors.text}
+              <View style={styles.miniDropdownWrapper}>
+                <TouchableOpacity
+                  style={[styles.miniDropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                  onPress={() => {
+                    closeAllDropdowns();
+                    setShowRightYearDropdown(!showRightYearDropdown);
+                  }}
                 >
-                  {availableYears.map((year) => (
-                    <Picker.Item key={year} label={year.toString()} value={year} />
-                  ))}
-                </Picker>
+                  <Text style={[styles.miniDropdownText, { color: colors.text }]}>{rightYear}</Text>
+                  <Ionicons name={showRightYearDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
+                </TouchableOpacity>
+                {showRightYearDropdown && (
+                  <View style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <ScrollView style={styles.miniDropdownScroll} nestedScrollEnabled>
+                      {availableYears.map((year) => (
+                        <TouchableOpacity
+                          key={year}
+                          style={[
+                            styles.miniDropdownItem,
+                            rightYear === year && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                          ]}
+                          onPress={() => {
+                            setRightYear(year);
+                            setShowRightYearDropdown(false);
+                          }}
+                        >
+                          <Text style={[
+                            styles.miniDropdownItemText,
+                            { color: colors.text },
+                            rightYear === year && { color: colors.primary, fontWeight: '600' }
+                          ]}>
+                            {year}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -381,19 +573,65 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 14,
   },
-  filterRow: {
-    flexDirection: 'row',
+  filterSection: {
     margin: 16,
     marginBottom: 8,
+    padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    overflow: 'hidden',
   },
-  pickerContainer: {
+  filterRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  dropdownWrapper: {
     flex: 1,
+    zIndex: 100,
   },
-  picker: {
-    height: 50,
+  dropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 8,
+  },
+  dropdownText: {
+    flex: 1,
+    fontSize: 14,
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  dropdownScroll: {
+    maxHeight: 200,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  selectedDropdownItem: {
+    borderRadius: 4,
+    marginHorizontal: 4,
+  },
+  dropdownItemText: {
+    fontSize: 14,
   },
   card: {
     margin: 16,
@@ -498,21 +736,55 @@ const styles = StyleSheet.create({
   periodLabel: {
     fontSize: 12,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 8,
     textAlign: 'center',
   },
   periodPickerRow: {
     flexDirection: 'row',
+    gap: 6,
+  },
+  miniDropdownWrapper: {
+    flex: 1,
+    zIndex: 100,
+  },
+  miniDropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
     gap: 4,
   },
-  miniPickerContainer: {
-    flex: 1,
-    borderRadius: 6,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(128,128,128,0.1)',
+  miniDropdownText: {
+    fontSize: 13,
   },
-  miniPicker: {
-    height: 40,
+  miniDropdownMenu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  miniDropdownScroll: {
+    maxHeight: 150,
+  },
+  miniDropdownItem: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  miniDropdownItemText: {
+    fontSize: 13,
+    textAlign: 'center',
   },
   comparisonGrid: {
     flexDirection: 'row',
