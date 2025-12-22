@@ -185,11 +185,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/assets/:id", async (req, res) => {
-    const deleted = await storage.deleteAsset(req.params.id);
-    if (!deleted) {
-      return res.status(404).json({ error: "Asset not found" });
+    try {
+      const deleted = await storage.deleteAsset(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Asset not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Failed to delete asset" });
     }
-    res.json({ success: true });
   });
 
   // Vendor routes
@@ -229,11 +233,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/vendors/:id", async (req, res) => {
-    const deleted = await storage.deleteVendor(req.params.id);
-    if (!deleted) {
-      return res.status(404).json({ error: "Vendor not found" });
+    try {
+      const deleted = await storage.deleteVendor(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Vendor not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Failed to delete vendor" });
     }
-    res.status(204).send();
   });
 
   // Team Member routes

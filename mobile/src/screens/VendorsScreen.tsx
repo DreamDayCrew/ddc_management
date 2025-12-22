@@ -29,8 +29,31 @@ export default function VendorsScreen() {
       queryClient.invalidateQueries({ queryKey: ['/api/vendor'] });
       Alert.alert('Success', 'Vendor deleted successfully');
     },
-    onError: (error: Error) => {
-      Alert.alert('Error', `Failed to delete vendor: ${error.message}`);
+    onError: (error: any) => {
+      const respData = error?.response?.data ?? {};
+      const msg: string = respData.error || respData.message || error?.message || '';
+      const planName: string | undefined =
+        respData.planName ||
+        respData.plan?.name ||
+        respData.plan_name ||
+        respData.plan?.planName;
+
+      const isPlanConstraint =
+        typeof msg === 'string' &&
+        (msg.includes('fulfillment_plans') ||
+          msg.includes('plan') ||
+          msg.includes('constraint'));
+
+      if (isPlanConstraint) {
+        const planText = planName ? ` (${planName})` : '';
+        Alert.alert(
+          'Cannot Delete Vendor',
+          `Vendor is linked with a Plan${planText}. Delete or unlink the vendor from the plan to delete this vendor.`
+        );
+        return;
+      }
+
+      Alert.alert('Error', `Failed to delete vendor: ${msg || 'Unknown error'}`);
     },
   });
 

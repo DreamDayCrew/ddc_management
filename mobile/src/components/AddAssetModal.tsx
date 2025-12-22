@@ -41,7 +41,7 @@ export default function AddAssetModal({ visible, onClose, asset, onCreated }: Ad
     category: '',
     quantity: '1',
     purchasedAmount: '',
-    status: 'Available',
+    status: 'Active',
   });
 
   // Sync form data when asset prop changes
@@ -94,7 +94,7 @@ export default function AddAssetModal({ visible, onClose, asset, onCreated }: Ad
       category: '',
       quantity: '1',
       purchasedAmount: '',
-      status: 'Available',
+      status : 'Active',
     });
     setPurchaseDate(new Date());
     setShowCategoryDropdown(false);

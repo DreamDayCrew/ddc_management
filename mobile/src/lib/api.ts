@@ -43,17 +43,22 @@ class ApiClient {
       (error: AxiosError) => {
         console.error(`❌ API Error: ${error.response?.status} ${error.config?.url}`);
         console.error('❌ Error details:', error.message);
-        
+
+        const serverData = error.response?.data as any | undefined;
         const apiError: ApiError = {
-          message: error.message || 'An unexpected error occurred',
+          // Prefer backend-provided message / error if available
+          message:
+            serverData?.message ||
+            serverData?.error ||
+            error.message ||
+            'An unexpected error occurred',
           code: error.code,
         };
-        
-        if (error.response?.data) {
-          apiError.message = (error.response.data as any).message || apiError.message;
-          console.error('❌ Server error response:', error.response.data);
+
+        if (serverData) {
+          console.error('❌ Server error response:', serverData);
         }
-        
+
         return Promise.reject(apiError);
       }
     );
@@ -190,16 +195,21 @@ export const api = {
       console.log('[api] Delete asset response:', response);
       return response;
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const errorResponse = (error as any)?.response?.data;
-      
+      const errAny = error as any;
+      const errorMessage =
+        errAny?.message ||
+        errAny?.response?.data?.error ||
+        errAny?.response?.data?.message ||
+        (error instanceof Error ? error.message : 'Unknown error');
+
       console.error('[api] Error deleting asset:', {
         id,
         error: errorMessage,
-        response: errorResponse
+        response: errAny?.response?.data
       });
-      
-      throw error;
+
+      // Normalize to a proper Error with the message from backend so UI can show it cleanly
+      throw new Error(errorMessage);
     }
   },
   

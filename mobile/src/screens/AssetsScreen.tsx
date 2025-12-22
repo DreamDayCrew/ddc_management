@@ -80,8 +80,32 @@ export default function AssetsScreen() {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
       Alert.alert('Success', 'Asset deleted successfully');
     },
-    onError: (error: Error) => {
-      Alert.alert('Error', `Failed to delete asset: ${error.message}`);
+    onError: (error: any) => {
+      // Handle the specific constraint error when an asset is linked to a plan
+      const respData = error?.response?.data ?? {};
+      const msg: string = respData.error || respData.message || error?.message || '';
+      const planName: string | undefined =
+        respData.planName ||
+        respData.plan?.name ||
+        respData.plan_name ||
+        respData.plan?.planName;
+
+      const isPlanConstraint =
+        typeof msg === 'string' &&
+        (msg.includes('fulfillment_plans') ||
+          msg.includes('plan') ||
+          msg.includes('constraint'));
+
+      if (isPlanConstraint) {
+        const planText = planName ? ` (${planName})` : '';
+        Alert.alert(
+          'Cannot Delete Asset',
+          `Asset is linked with a Plan${planText}. Delete or unlink the asset from the plan to delete this asset.`
+        );
+        return;
+      }
+
+      Alert.alert('Error', `Failed to delete asset: ${msg || 'Unknown error'}`);
     },
   });
 

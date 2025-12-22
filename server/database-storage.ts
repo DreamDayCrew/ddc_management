@@ -162,6 +162,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAsset(id: string): Promise<boolean> {
+    // Check for linked fulfillment plans to avoid constraint violations
+    const linkedPlans = await db
+      .select({
+        id: fulfillmentPlans.id,
+        planType: fulfillmentPlans.planType,
+        assetName: fulfillmentPlans.assetName,
+      })
+      .from(fulfillmentPlans)
+      .where(eq(fulfillmentPlans.assetId, id));
+
+    if (linkedPlans.length > 0) {
+      const planDisplay = linkedPlans[0]?.assetName || linkedPlans[0]?.id;
+      throw new Error(
+        `Asset is linked with a fulfillment plan${planDisplay ? ` (${planDisplay})` : ''}`
+      );
+    }
+
     const result = await db.delete(assets).where(eq(assets.id, id)).returning();
     return result.length > 0;
   }
@@ -196,6 +213,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteVendor(id: string): Promise<boolean> {
+    // Check for linked fulfillment plans to avoid constraint violations
+    const linkedPlans = await db
+      .select({
+        id: fulfillmentPlans.id,
+        planType: fulfillmentPlans.planType,
+        planName: fulfillmentPlans.vendorCategory,
+      })
+      .from(fulfillmentPlans)
+      .where(eq(fulfillmentPlans.vendorId, id));
+
+    if (linkedPlans.length > 0) {
+      const planDisplay = linkedPlans[0]?.planName || linkedPlans[0]?.id;
+      throw new Error(
+        `Vendor is linked with a fulfillment plan${planDisplay ? ` (${planDisplay})` : ''}`
+      );
+    }
+
     const result = await db.delete(vendors).where(eq(vendors.id, id)).returning();
     return result.length > 0;
   }

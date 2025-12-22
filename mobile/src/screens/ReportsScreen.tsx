@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Modal, Pressable } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, useMemo } from 'react';
 import { useEvents, useExpenses, useAssets } from '../hooks/useApi';
@@ -158,14 +158,9 @@ export default function ReportsScreen() {
     );
   }
 
-  const isAnyDropdownOpen = showMonthDropdown || showYearDropdown || 
-    showLeftMonthDropdown || showLeftYearDropdown || 
-    showRightMonthDropdown || showRightYearDropdown;
-
   return (
     <ScrollView 
       style={[styles.container, { backgroundColor: colors.background }]}
-      scrollEnabled={!isAnyDropdownOpen}
       nestedScrollEnabled={true}
     >
       {/* Month/Year Filter */}
@@ -184,46 +179,54 @@ export default function ReportsScreen() {
               <Text style={[styles.dropdownText, { color: colors.text }]}>{MONTHS[selectedMonth]}</Text>
               <Ionicons name={showMonthDropdown ? "chevron-up" : "chevron-down"} size={18} color={colors.textSecondary} />
             </TouchableOpacity>
-            {showMonthDropdown && (
-              <View 
-                style={[styles.dropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onStartShouldSetResponder={() => true}
-                onMoveShouldSetResponder={() => true}
+            <Modal
+              visible={showMonthDropdown}
+              transparent={true}
+              animationType="fade"
+              onRequestClose={() => setShowMonthDropdown(false)}
+            >
+              <Pressable 
+                style={styles.modalBackdrop}
+                onPress={() => setShowMonthDropdown(false)}
               >
-                <ScrollView 
-                  style={styles.dropdownScroll} 
-                  nestedScrollEnabled 
-                  keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator={true}
-                  scrollEnabled={true}
+                <View 
+                  style={[styles.dropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onStartShouldSetResponder={() => true}
                 >
-                  {MONTHS.map((month, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={[
-                        styles.dropdownItem,
-                        selectedMonth === index && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
-                      ]}
-                      onPress={() => {
-                        setSelectedMonth(index);
-                        setShowMonthDropdown(false);
-                      }}
-                    >
-                      <Text style={[
-                        styles.dropdownItemText,
-                        { color: colors.text },
-                        selectedMonth === index && { color: colors.primary, fontWeight: '600' }
-                      ]}>
-                        {month}
-                      </Text>
-                      {selectedMonth === index && (
-                        <Ionicons name="checkmark" size={18} color={colors.primary} />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
+                  <ScrollView 
+                    style={styles.dropdownScroll} 
+                    nestedScrollEnabled={true}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={true}
+                  >
+                    {MONTHS.map((month, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={[
+                          styles.dropdownItem,
+                          selectedMonth === index && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                        ]}
+                        onPress={() => {
+                          setSelectedMonth(index);
+                          setShowMonthDropdown(false);
+                        }}
+                      >
+                        <Text style={[
+                          styles.dropdownItemText,
+                          { color: colors.text },
+                          selectedMonth === index && { color: colors.primary, fontWeight: '600' }
+                        ]}>
+                          {month}
+                        </Text>
+                        {selectedMonth === index && (
+                          <Ionicons name="checkmark" size={18} color={colors.primary} />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </Pressable>
+            </Modal>
           </View>
 
           {/* Year Dropdown */}
@@ -239,45 +242,54 @@ export default function ReportsScreen() {
               <Text style={[styles.dropdownText, { color: colors.text }]}>{selectedYear}</Text>
               <Ionicons name={showYearDropdown ? "chevron-up" : "chevron-down"} size={18} color={colors.textSecondary} />
             </TouchableOpacity>
-            {showYearDropdown && (
-              <View 
-                style={[styles.dropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onStartShouldSetResponder={() => true}
-                onMoveShouldSetResponder={() => true}
+            <Modal
+              visible={showYearDropdown}
+              transparent={true}
+              animationType="fade"
+              onRequestClose={() => setShowYearDropdown(false)}
+            >
+              <Pressable 
+                style={styles.modalBackdrop}
+                onPress={() => setShowYearDropdown(false)}
               >
-                <ScrollView 
-                  style={styles.dropdownScroll} 
-                  nestedScrollEnabled 
-                  keyboardShouldPersistTaps="handled"
-                  scrollEnabled={true}
+                <View 
+                  style={[styles.dropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onStartShouldSetResponder={() => true}
                 >
-                  {availableYears.map((year) => (
-                    <TouchableOpacity
-                      key={year}
-                      style={[
-                        styles.dropdownItem,
-                        selectedYear === year && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
-                      ]}
-                      onPress={() => {
-                        setSelectedYear(year);
-                        setShowYearDropdown(false);
-                      }}
-                    >
-                      <Text style={[
-                        styles.dropdownItemText,
-                        { color: colors.text },
-                        selectedYear === year && { color: colors.primary, fontWeight: '600' }
-                      ]}>
-                        {year}
-                      </Text>
-                      {selectedYear === year && (
-                        <Ionicons name="checkmark" size={18} color={colors.primary} />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
+                  <ScrollView 
+                    style={styles.dropdownScroll} 
+                    nestedScrollEnabled={true}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={true}
+                  >
+                    {availableYears.map((year) => (
+                      <TouchableOpacity
+                        key={year}
+                        style={[
+                          styles.dropdownItem,
+                          selectedYear === year && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                        ]}
+                        onPress={() => {
+                          setSelectedYear(year);
+                          setShowYearDropdown(false);
+                        }}
+                      >
+                        <Text style={[
+                          styles.dropdownItemText,
+                          { color: colors.text },
+                          selectedYear === year && { color: colors.primary, fontWeight: '600' }
+                        ]}>
+                          {year}
+                        </Text>
+                        {selectedYear === year && (
+                          <Ionicons name="checkmark" size={18} color={colors.primary} />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </Pressable>
+            </Modal>
           </View>
         </View>
       </View>
@@ -383,43 +395,51 @@ export default function ReportsScreen() {
                   <Text style={[styles.miniDropdownText, { color: colors.text }]}>{MONTHS[leftMonth].slice(0, 3)}</Text>
                   <Ionicons name={showLeftMonthDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
-                {showLeftMonthDropdown && (
-                  <View 
-                    style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onStartShouldSetResponder={() => true}
-                    onMoveShouldSetResponder={() => true}
+                <Modal
+                  visible={showLeftMonthDropdown}
+                  transparent={true}
+                  animationType="fade"
+                  onRequestClose={() => setShowLeftMonthDropdown(false)}
+                >
+                  <Pressable 
+                    style={styles.modalBackdrop}
+                    onPress={() => setShowLeftMonthDropdown(false)}
                   >
-                    <ScrollView 
-                      style={styles.miniDropdownScroll} 
-                      nestedScrollEnabled 
-                      keyboardShouldPersistTaps="handled"
-                      showsVerticalScrollIndicator={true}
-                      scrollEnabled={true}
+                    <View 
+                      style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onStartShouldSetResponder={() => true}
                     >
-                      {MONTHS.map((month, index) => (
-                        <TouchableOpacity
-                          key={index}
-                          style={[
-                            styles.miniDropdownItem,
-                            leftMonth === index && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
-                          ]}
-                          onPress={() => {
-                            setLeftMonth(index);
-                            setShowLeftMonthDropdown(false);
-                          }}
-                        >
-                          <Text style={[
-                            styles.miniDropdownItemText,
-                            { color: colors.text },
-                            leftMonth === index && { color: colors.primary, fontWeight: '600' }
-                          ]}>
-                            {month.slice(0, 3)}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
+                      <ScrollView 
+                        style={styles.miniDropdownScroll} 
+                        nestedScrollEnabled={true}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={true}
+                      >
+                        {MONTHS.map((month, index) => (
+                          <TouchableOpacity
+                            key={index}
+                            style={[
+                              styles.miniDropdownItem,
+                              leftMonth === index && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                            ]}
+                            onPress={() => {
+                              setLeftMonth(index);
+                              setShowLeftMonthDropdown(false);
+                            }}
+                          >
+                            <Text style={[
+                              styles.miniDropdownItemText,
+                              { color: colors.text },
+                              leftMonth === index && { color: colors.primary, fontWeight: '600' }
+                            ]}>
+                              {month.slice(0, 3)}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </Pressable>
+                </Modal>
               </View>
               <View style={styles.miniDropdownWrapper}>
                 <TouchableOpacity
@@ -432,42 +452,51 @@ export default function ReportsScreen() {
                   <Text style={[styles.miniDropdownText, { color: colors.text }]}>{leftYear}</Text>
                   <Ionicons name={showLeftYearDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
-                {showLeftYearDropdown && (
-                  <View 
-                    style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onStartShouldSetResponder={() => true}
-                    onMoveShouldSetResponder={() => true}
+                <Modal
+                  visible={showLeftYearDropdown}
+                  transparent={true}
+                  animationType="fade"
+                  onRequestClose={() => setShowLeftYearDropdown(false)}
+                >
+                  <Pressable 
+                    style={styles.modalBackdrop}
+                    onPress={() => setShowLeftYearDropdown(false)}
                   >
-                    <ScrollView 
-                      style={styles.miniDropdownScroll} 
-                      nestedScrollEnabled 
-                      keyboardShouldPersistTaps="handled"
-                      scrollEnabled={true}
+                    <View 
+                      style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onStartShouldSetResponder={() => true}
                     >
-                      {availableYears.map((year) => (
-                        <TouchableOpacity
-                          key={year}
-                          style={[
-                            styles.miniDropdownItem,
-                            leftYear === year && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
-                          ]}
-                          onPress={() => {
-                            setLeftYear(year);
-                            setShowLeftYearDropdown(false);
-                          }}
-                        >
-                          <Text style={[
-                            styles.miniDropdownItemText,
-                            { color: colors.text },
-                            leftYear === year && { color: colors.primary, fontWeight: '600' }
-                          ]}>
-                            {year}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
+                      <ScrollView 
+                        style={styles.miniDropdownScroll} 
+                        nestedScrollEnabled={true}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={true}
+                      >
+                        {availableYears.map((year) => (
+                          <TouchableOpacity
+                            key={year}
+                            style={[
+                              styles.miniDropdownItem,
+                              leftYear === year && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                            ]}
+                            onPress={() => {
+                              setLeftYear(year);
+                              setShowLeftYearDropdown(false);
+                            }}
+                          >
+                            <Text style={[
+                              styles.miniDropdownItemText,
+                              { color: colors.text },
+                              leftYear === year && { color: colors.primary, fontWeight: '600' }
+                            ]}>
+                              {year}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </Pressable>
+                </Modal>
               </View>
             </View>
           </View>
@@ -487,43 +516,51 @@ export default function ReportsScreen() {
                   <Text style={[styles.miniDropdownText, { color: colors.text }]}>{MONTHS[rightMonth].slice(0, 3)}</Text>
                   <Ionicons name={showRightMonthDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
-                {showRightMonthDropdown && (
-                  <View 
-                    style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onStartShouldSetResponder={() => true}
-                    onMoveShouldSetResponder={() => true}
+                <Modal
+                  visible={showRightMonthDropdown}
+                  transparent={true}
+                  animationType="fade"
+                  onRequestClose={() => setShowRightMonthDropdown(false)}
+                >
+                  <Pressable 
+                    style={styles.modalBackdrop}
+                    onPress={() => setShowRightMonthDropdown(false)}
                   >
-                    <ScrollView 
-                      style={styles.miniDropdownScroll} 
-                      nestedScrollEnabled 
-                      keyboardShouldPersistTaps="handled"
-                      showsVerticalScrollIndicator={true}
-                      scrollEnabled={true}
+                    <View 
+                      style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onStartShouldSetResponder={() => true}
                     >
-                      {MONTHS.map((month, index) => (
-                        <TouchableOpacity
-                          key={index}
-                          style={[
-                            styles.miniDropdownItem,
-                            rightMonth === index && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
-                          ]}
-                          onPress={() => {
-                            setRightMonth(index);
-                            setShowRightMonthDropdown(false);
-                          }}
-                        >
-                          <Text style={[
-                            styles.miniDropdownItemText,
-                            { color: colors.text },
-                            rightMonth === index && { color: colors.primary, fontWeight: '600' }
-                          ]}>
-                            {month.slice(0, 3)}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
+                      <ScrollView 
+                        style={styles.miniDropdownScroll} 
+                        nestedScrollEnabled={true}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={true}
+                      >
+                        {MONTHS.map((month, index) => (
+                          <TouchableOpacity
+                            key={index}
+                            style={[
+                              styles.miniDropdownItem,
+                              rightMonth === index && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                            ]}
+                            onPress={() => {
+                              setRightMonth(index);
+                              setShowRightMonthDropdown(false);
+                            }}
+                          >
+                            <Text style={[
+                              styles.miniDropdownItemText,
+                              { color: colors.text },
+                              rightMonth === index && { color: colors.primary, fontWeight: '600' }
+                            ]}>
+                              {month.slice(0, 3)}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </Pressable>
+                </Modal>
               </View>
               <View style={styles.miniDropdownWrapper}>
                 <TouchableOpacity
@@ -536,42 +573,51 @@ export default function ReportsScreen() {
                   <Text style={[styles.miniDropdownText, { color: colors.text }]}>{rightYear}</Text>
                   <Ionicons name={showRightYearDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
-                {showRightYearDropdown && (
-                  <View 
-                    style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onStartShouldSetResponder={() => true}
-                    onMoveShouldSetResponder={() => true}
+                <Modal
+                  visible={showRightYearDropdown}
+                  transparent={true}
+                  animationType="fade"
+                  onRequestClose={() => setShowRightYearDropdown(false)}
+                >
+                  <Pressable 
+                    style={styles.modalBackdrop}
+                    onPress={() => setShowRightYearDropdown(false)}
                   >
-                    <ScrollView 
-                      style={styles.miniDropdownScroll} 
-                      nestedScrollEnabled 
-                      keyboardShouldPersistTaps="handled"
-                      scrollEnabled={true}
+                    <View 
+                      style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onStartShouldSetResponder={() => true}
                     >
-                      {availableYears.map((year) => (
-                        <TouchableOpacity
-                          key={year}
-                          style={[
-                            styles.miniDropdownItem,
-                            rightYear === year && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
-                          ]}
-                          onPress={() => {
-                            setRightYear(year);
-                            setShowRightYearDropdown(false);
-                          }}
-                        >
-                          <Text style={[
-                            styles.miniDropdownItemText,
-                            { color: colors.text },
-                            rightYear === year && { color: colors.primary, fontWeight: '600' }
-                          ]}>
-                            {year}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
+                      <ScrollView 
+                        style={styles.miniDropdownScroll} 
+                        nestedScrollEnabled={true}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={true}
+                      >
+                        {availableYears.map((year) => (
+                          <TouchableOpacity
+                            key={year}
+                            style={[
+                              styles.miniDropdownItem,
+                              rightYear === year && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                            ]}
+                            onPress={() => {
+                              setRightYear(year);
+                              setShowRightYearDropdown(false);
+                            }}
+                          >
+                            <Text style={[
+                              styles.miniDropdownItemText,
+                              { color: colors.text },
+                              rightYear === year && { color: colors.primary, fontWeight: '600' }
+                            ]}>
+                              {year}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </Pressable>
+                </Modal>
               </View>
             </View>
           </View>
@@ -666,20 +712,23 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
   },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'flex-start',
+    paddingTop: 80,
+    alignItems: 'center',
+  },
   dropdownMenu: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    marginTop: 4,
+    width: '80%',
+    maxWidth: 300,
     borderRadius: 8,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 5,
-    zIndex: 1000,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 10,
   },
   dropdownScroll: {
     maxHeight: 200,
@@ -827,19 +876,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   miniDropdownMenu: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    marginTop: 4,
+    width: 120,
     borderRadius: 6,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 5,
-    zIndex: 1000,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 10,
   },
   miniDropdownScroll: {
     maxHeight: 150,
