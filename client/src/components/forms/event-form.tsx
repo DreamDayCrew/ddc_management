@@ -391,25 +391,58 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
 
   // Handle partial expense dialog confirmation
   const handlePartialExpenseConfirm = async () => {
-    if (partialExpenseAmount && isEditing && event?.id) {
-      const success = await createOrUpdateExpense(partialExpenseAmount);
-      if (success) {
-        // Auto-update status to Paid if partial amount equals invoice amount
-        const maxAmount = parseFloat(form.getValues("finalizedQuote") || invoiceAmount?.toString() || "0");
-        const enteredAmount = parseFloat(partialExpenseAmount);
-        if (form.getValues("paymentStatus") === "Partial" && enteredAmount >= maxAmount) {
-          form.setValue("paymentStatus", "Paid");
-          setPreviousPaymentStatus("Paid");
-          toast({
-            title: "Status Updated",
-            description: "Payment status changed to Paid as full amount is received",
-          });
-        }
-        setShowPartialExpenseDialog(false);
-        setPartialExpenseAmount("");
-      }
-      // If failed, dialog stays open for retry
+    const currentPaymentStatus = form.getValues("paymentStatus");
+    const fullPaymentAmount = form.getValues("finalizedQuote") || invoiceAmount?.toString() || "0";
+    
+    // For "Paid" status, use the full payment amount (fallback if partialExpenseAmount not set)
+    const amountToUse = currentPaymentStatus === "Paid" 
+      ? fullPaymentAmount 
+      : partialExpenseAmount;
+    
+    if (!amountToUse) {
+      toast({
+        title: "Error",
+        description: "No amount specified for the expense",
+        variant: "destructive",
+      });
+      return;
     }
+    
+    const numericAmount = parseFloat(amountToUse);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid amount greater than 0",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!isEditing || !event?.id) {
+      toast({
+        title: "Error",
+        description: "Cannot link expense: event must be saved first",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const success = await createOrUpdateExpense(amountToUse);
+    if (success) {
+      // Auto-update status to Paid if partial amount equals invoice amount
+      const maxAmount = parseFloat(fullPaymentAmount);
+      if (currentPaymentStatus === "Partial" && numericAmount >= maxAmount) {
+        form.setValue("paymentStatus", "Paid");
+        setPreviousPaymentStatus("Paid");
+        toast({
+          title: "Status Updated",
+          description: "Payment status changed to Paid as full amount is received",
+        });
+      }
+      setShowPartialExpenseDialog(false);
+      setPartialExpenseAmount("");
+    }
+    // If failed, dialog stays open for retry
   };
 
   const handlePartialExpenseCancel = () => {
@@ -963,7 +996,12 @@ export function EventForm({ event, invoiceAmount , onSuccess }: EventFormProps) 
           </Button>
           <Button 
             onClick={handlePartialExpenseConfirm} 
-            disabled={!partialExpenseAmount || parseFloat(partialExpenseAmount) <= 0 || isCreatingExpense}
+            disabled={
+              isCreatingExpense || 
+              (form.getValues("paymentStatus") === "Partial" 
+                ? (!partialExpenseAmount || parseFloat(partialExpenseAmount) <= 0)
+                : parseFloat(form.getValues("finalizedQuote") || invoiceAmount?.toString() || "0") <= 0)
+            }
             data-testid="button-save-expense"
           >
             {isCreatingExpense ? "Saving..." : linkedExpenseId ? "Update Expense" : "Create Expense"}
