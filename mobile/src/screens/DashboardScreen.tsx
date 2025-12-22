@@ -99,6 +99,12 @@ export default function DashboardScreen() {
   const safeExpenses = expenses || [];
   const safeAssets = assets || [];
   const safeTeam = team || [];
+  
+  // Calculate total asset worth (sum of all purchasedAmount values)
+  const totalAssetWorth = safeAssets.reduce((sum, asset) => {
+    const amount = parseFloat(asset.purchasedAmount as any) || 0;
+    return sum + (isNaN(amount) ? 0 : amount);
+  }, 0) || 0;
 
   // Calculate financial metrics using expense data
   let totalIncome = 0;
@@ -323,6 +329,9 @@ export default function DashboardScreen() {
             </View>
             <Text style={[styles.resourceNumber, { color: colors.text }]}>{safeAssets.length}</Text>
             <Text style={[styles.resourceLabel, { color: colors.textSecondary }]}>Assets</Text>
+            <Text style={[styles.resourceWorth, { color: colors.textSecondary }]}>
+              Worth: {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(totalAssetWorth)}
+            </Text>
             <View style={[styles.resourcePulse, { backgroundColor: colors.primary }]} />
           </TouchableOpacity>
 
@@ -867,6 +876,11 @@ const styles = StyleSheet.create({
     color: NEUTRAL_GRAY,
     fontWeight: '600',
     letterSpacing: 0.3,
+  },
+  resourceWorth: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 4,
   },
   
   // Carousel Styles

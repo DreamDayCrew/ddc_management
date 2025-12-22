@@ -51,8 +51,12 @@ export default function Dashboard() {
     return isAfter(eventDate, today) && isBefore(eventDate, next30Days);
   }).slice(0, 3);
 
-  // Calculate active assets
+  // Calculate active assets and total asset worth
   const activeAssets = assets.filter(a => a.status === "Active").length;
+  const totalAssetWorth = assets.reduce((sum, asset) => {
+    const amount = parseFloat(asset.purchasedAmount as any) || 0;
+    return sum + (isNaN(amount) ? 0 : amount);
+  }, 0) || 0;
 
   // Calculate total revenue (sum of finalized quotes from completed events this month)
   const thisMonthStart = startOfMonth(today);
@@ -147,7 +151,7 @@ export default function Dashboard() {
           title="Active Assets"
           value={activeAssets}
           icon={Package}
-          description="Available for use"
+          description={`Worth: ₹${totalAssetWorth.toLocaleString('en-IN')}`}
         />
         <StatCard
           title="Team Members"

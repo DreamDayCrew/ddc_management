@@ -42,11 +42,34 @@ export default function Vendors() {
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      const rawMsg = error.message || '';
+      // Try to extract JSON error message from response
+      let errorText = rawMsg;
+      try {
+        const jsonMatch = rawMsg.match(/\{.*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          errorText = parsed.error || parsed.message || rawMsg;
+        }
+      } catch { /* ignore parse errors */ }
+      
+      const isLinkedToPlan = errorText.toLowerCase().includes('fulfillment') || 
+                             errorText.toLowerCase().includes('plan') ||
+                             errorText.toLowerCase().includes('linked');
+      
+      if (isLinkedToPlan) {
+        toast({
+          title: "Cannot Delete Vendor",
+          description: "This vendor is linked to a fulfillment plan. Please delete or unlink the vendor from the plan first.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: errorText,
+          variant: "destructive",
+        });
+      }
     },
   });
 

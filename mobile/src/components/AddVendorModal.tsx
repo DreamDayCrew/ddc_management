@@ -109,8 +109,21 @@ export default function AddVendorModal({ visible, vendor, onClose, onCreated }: 
       resetForm();
       Alert.alert('Success', 'Vendor deleted successfully');
     },
-    onError: (error: Error) => {
-      Alert.alert('Error', `Failed to delete vendor: ${error.message}`);
+    onError: (error: any) => {
+      const respData = error?.response?.data ?? {};
+      const msg: string = respData.error || respData.message || error?.message || '';
+      const isLinkedToPlan = msg.toLowerCase().includes('fulfillment') || 
+                             msg.toLowerCase().includes('plan') ||
+                             msg.toLowerCase().includes('linked');
+      
+      if (isLinkedToPlan) {
+        Alert.alert(
+          'Cannot Delete Vendor',
+          'This vendor is linked to a fulfillment plan. Please delete or unlink the vendor from the plan first.'
+        );
+      } else {
+        Alert.alert('Error', `Failed to delete vendor: ${msg || 'Unknown error'}`);
+      }
     },
   });
 
