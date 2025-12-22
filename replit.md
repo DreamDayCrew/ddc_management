@@ -31,6 +31,19 @@ Expenses use a forward-reference pattern where expenses point to events/plans (n
 - **Storage methods**: `getExpenseByEventId()` and `getExpenseByPlanId()` in both MemStorage and DatabaseStorage
 - **Type inference**: Expense type (Credit/Debit) is implicit based on which foreign key is populated
 
+#### Expense Linking in Add Plan Mode
+
+Expense linking works in both Add and Edit modes for fulfillment plans:
+- **Add Mode**: Uses `pendingExpenseData` state to store expense amount/date until plan is saved. After plan creation, the expense is automatically created and linked via the `createMutation.onSuccess` handler.
+- **Edit Mode**: Creates/updates expenses directly in the database using the plan's ID.
+- **UI Behavior**: Button shows "Prepare Expense" in Add mode, "Link Expense" in Edit mode, and "View Linked Expense" when expense exists.
+- **Validation Rules**:
+  - Pending status: No expenses should be linked (total = 0)
+  - Partial status: Linked expense must be greater than 0 but less than plan amount
+  - Paid status: Linked expense amount must equal the plan payment amount
+- **Validation Display**: Inline amber-colored warnings appear below the payment status selector when there's a mismatch
+- **Duplicate Prevention**: Server-side check in POST /api/expenses returns 409 Conflict if expense already exists for the plan/event. Frontend handles 409 gracefully.
+
 ### Mobile Application Architecture
 
 The mobile application is built with React Native and Expo, sharing TypeScript types with the web application. It integrates with the Express backend via an Axios-based API client and uses TanStack Query for data fetching and caching. The app supports configuration-driven dropdowns and native date pickers. It features a dashboard with swipeable carousel, KPI cards (Total Income, Total Expense, Account Balance, Pending Repayment), and full CRUD functionality across all main screens (Events, Expenses, Assets, Team).

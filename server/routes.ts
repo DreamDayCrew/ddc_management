@@ -371,8 +371,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('Validating expense data...');
       const validatedData = insertExpenseSchema.parse(req.body);
-      console.log('Validation successful, creating expense...');
+      console.log('Validation successful, checking for duplicates...');
       
+      // Server-side duplicate check for fulfillment plan expenses
+      if (validatedData.fulfillmentPlanId) {
+        const existingExpense = await storage.getExpenseByPlanId(validatedData.fulfillmentPlanId);
+        if (existingExpense) {
+          console.log(`[API] Duplicate expense detected for plan ${validatedData.fulfillmentPlanId}`);
+          return res.status(409).json({ 
+            error: 'Expense already exists for this plan',
+            existingExpenseId: existingExpense.id
+          });
+        }
+      }
+      
+      // Server-side duplicate check for event expenses
+      if (validatedData.eventId) {
+        const existingExpense = await storage.getExpenseByEventId(validatedData.eventId);
+        if (existingExpense) {
+          console.log(`[API] Duplicate expense detected for event ${validatedData.eventId}`);
+          return res.status(409).json({ 
+            error: 'Expense already exists for this event',
+            existingExpenseId: existingExpense.id
+          });
+        }
+      }
+      
+      console.log('No duplicates found, creating expense...');
       const expense = await storage.createExpense(validatedData);
       console.log(`[API] Successfully created expense ${expense.id}`);
       
