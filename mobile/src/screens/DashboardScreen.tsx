@@ -328,10 +328,7 @@ export default function DashboardScreen() {
               <Ionicons name="cube-outline" size={28} color={colors.primary} />
             </View>
             <Text style={[styles.resourceNumber, { color: colors.text }]}>{safeAssets.length}</Text>
-            <Text style={[styles.resourceLabel, { color: colors.textSecondary }]}>Assets</Text>
-            <Text style={[styles.resourceWorth, { color: colors.textSecondary }]}>
-              Worth: {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(totalAssetWorth)}
-            </Text>
+            <Text style={[styles.resourceLabel, { color: colors.textSecondary }]}>Assets Worth: {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(totalAssetWorth)}</Text>
             <View style={[styles.resourcePulse, { backgroundColor: colors.primary }]} />
           </TouchableOpacity>
 
