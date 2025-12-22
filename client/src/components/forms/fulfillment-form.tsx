@@ -558,9 +558,24 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
 
   // Handle partial expense dialog confirmation
   const handlePartialExpenseConfirm = async () => {
-    if (!partialExpenseAmount) return;
+    const currentPaymentStatus = form.getValues("paymentStatus");
+    const fullPaymentAmount = form.getValues("payment") as string || "0";
     
-    const numericAmount = parseFloat(partialExpenseAmount);
+    // For "Paid" status, use the full payment amount (fallback if partialExpenseAmount not set)
+    const amountToUse = currentPaymentStatus === "Paid" 
+      ? fullPaymentAmount 
+      : partialExpenseAmount;
+    
+    if (!amountToUse) {
+      toast({
+        title: "Error",
+        description: "No amount specified for the expense",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const numericAmount = parseFloat(amountToUse);
     if (isNaN(numericAmount) || numericAmount <= 0) {
       toast({
         title: "Error",
@@ -570,7 +585,7 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
       return;
     }
     
-    const maxAmount = parseFloat(form.getValues("payment") as string || "0");
+    const maxAmount = parseFloat(fullPaymentAmount);
     if (numericAmount > maxAmount) {
       toast({
         title: "Error",
@@ -582,7 +597,7 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
     
     if (isEditing && plan?.id) {
       // Edit mode - actually create/update expense in database
-      const success = await createOrUpdateExpense(partialExpenseAmount);
+      const success = await createOrUpdateExpense(amountToUse);
       if (success) {
         // Auto-update status to Paid if partial amount equals payment amount
         if (form.getValues("paymentStatus") === "Partial" && numericAmount >= maxAmount) {
@@ -600,7 +615,7 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
     } else {
       // Add mode - store pending expense data to be created after plan is saved
       setPendingExpenseData({
-        amount: partialExpenseAmount,
+        amount: amountToUse,
         date: expenseDate,
       });
       
@@ -1570,7 +1585,12 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
             </Button>
             <Button 
               onClick={handlePartialExpenseConfirm} 
-              disabled={!partialExpenseAmount || parseFloat(partialExpenseAmount) <= 0 || isCreatingExpense}
+              disabled={
+                isCreatingExpense || 
+                (form.getValues("paymentStatus") === "Partial" 
+                  ? (!partialExpenseAmount || parseFloat(partialExpenseAmount) <= 0)
+                  : parseFloat(form.getValues("payment") as string || "0") <= 0)
+              }
               data-testid="button-save-expense"
             >
               {isCreatingExpense ? "Saving..." : linkedExpenseId ? "Update Expense" : "Create Expense"}
