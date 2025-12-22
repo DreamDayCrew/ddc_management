@@ -155,7 +155,10 @@ export default function AssetsScreen() {
         </View>
       </View>
       
-      <Text style={[styles.category, { color: colors.textSecondary }]}>📦 {item.category}</Text>
+      <View style={styles.categoryRow}>
+        <Ionicons name="pricetag-outline" size={14} color={colors.textSecondary} />
+        <Text style={[styles.category, { color: colors.textSecondary }]}> {item.category}</Text>
+      </View>
       <Text style={[styles.quantity, { color: colors.textSecondary }]}>Quantity: {item.quantity}</Text>
       
       {item.purchasedAmount && (
@@ -592,10 +595,14 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '500',
   },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   category: {
     fontSize: 14,
     color: '#2563eb',
-    marginBottom: 4,
     fontWeight: '500',
   },
   quantity: {
