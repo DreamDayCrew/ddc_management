@@ -347,12 +347,28 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
   };
 
   const handlePartialExpenseConfirm = () => {
-    if (!pendingPaymentStatus || !partialExpenseAmount || !event?.id) {
+    // Use pendingPaymentStatus or fallback to current form status
+    const effectiveStatus = pendingPaymentStatus || formData.paymentStatus;
+    
+    if (!effectiveStatus || !event?.id) {
+      Alert.alert('Error', 'Please select a payment status');
       return;
     }
 
-    const amount = parseFloat(partialExpenseAmount);
     const maxAmount = parseFloat(event.finalizedQuote || '0');
+    
+    // For "Paid" status, use full amount if partialExpenseAmount is empty
+    let effectiveAmount = partialExpenseAmount;
+    if (effectiveStatus === 'Paid' && (!partialExpenseAmount || partialExpenseAmount.trim() === '')) {
+      effectiveAmount = event.finalizedQuote || '0';
+    }
+    
+    if (!effectiveAmount || effectiveAmount.trim() === '') {
+      Alert.alert('Error', 'Please enter a payment amount');
+      return;
+    }
+
+    const amount = parseFloat(effectiveAmount);
     
     if (isNaN(amount) || amount <= 0) {
       Alert.alert('Error', 'Please enter a valid amount greater than 0');
@@ -365,9 +381,9 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
     }
 
     // Auto-upgrade to Paid if amount equals full amount
-    const finalStatus = pendingPaymentStatus === 'Partial' && amount >= maxAmount ? 'Paid' : pendingPaymentStatus;
+    const finalStatus = effectiveStatus === 'Partial' && amount >= maxAmount ? 'Paid' : effectiveStatus;
     
-    createExpenseForEvent(partialExpenseAmount, finalStatus, expenseDate);
+    createExpenseForEvent(effectiveAmount, finalStatus, expenseDate);
     setShowPartialExpenseDialog(false);
     setPendingPaymentStatus(null);
   };
