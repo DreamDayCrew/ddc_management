@@ -4,7 +4,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
-import { useEvents } from '../hooks/useApi';
+import { useEvents, useExpenses } from '../hooks/useApi';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type { Event } from '../types';
@@ -32,6 +32,18 @@ export default function EventsScreen({ navigation }: Props) {
   const { colors, isDark } = useTheme();
   const last3MonthsRange = useMemo(getLast3MonthsRange, []);
   const { data: events, isLoading, error, refetch } = useEvents(last3MonthsRange);
+  const { data: expenses } = useExpenses();
+  
+  // Create a Set of eventIds that have linked expenses (for showing checkmarks)
+  const eventsWithLinkedExpenses = useMemo(() => {
+    if (!expenses) return new Set<number>();
+    return new Set(
+      expenses
+        .filter(exp => exp.eventId != null)
+        .map(exp => exp.eventId as number)
+    );
+  }, [expenses]);
+  
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -195,8 +207,15 @@ export default function EventsScreen({ navigation }: Props) {
           )}
         </View>
         <View style={styles.statusWrapper}>
-          <View style={[styles.statusBadge, getStatusColor(item.eventStatus)]}>
-            <Text style={styles.statusText}>{item.eventStatus}</Text>
+          <View style={styles.statusRow}>
+            <View style={[styles.statusBadge, getStatusColor(item.eventStatus)]}>
+              <Text style={styles.statusText}>{item.eventStatus}</Text>
+            </View>
+            {eventsWithLinkedExpenses.has(item.id) && (
+              <View style={[styles.linkedExpenseIndicator, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.1)' }]}>
+                <Ionicons name="checkmark-circle" size={16} color={isDark ? '#4ade80' : '#22c55e'} />
+              </View>
+            )}
           </View>
           <View style={styles.actionButtons}>
             <TouchableOpacity 
@@ -564,6 +583,15 @@ const styles = StyleSheet.create({
   },
   statusWrapper: {
     alignItems: 'flex-end',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  linkedExpenseIndicator: {
+    padding: 4,
+    borderRadius: 12,
   },
   serviceBadge: {
     alignSelf: 'flex-start',
