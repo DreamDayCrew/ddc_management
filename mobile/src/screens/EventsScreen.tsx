@@ -36,11 +36,11 @@ export default function EventsScreen({ navigation }: Props) {
   
   // Create a Set of eventIds that have linked expenses (for showing checkmarks)
   const eventsWithLinkedExpenses = useMemo(() => {
-    if (!expenses) return new Set<number>();
+    if (!expenses) return new Set<string>();
     return new Set(
       expenses
         .filter(exp => exp.eventId != null)
-        .map(exp => exp.eventId as number)
+        .map(exp => String(exp.eventId))
     );
   }, [expenses]);
   
