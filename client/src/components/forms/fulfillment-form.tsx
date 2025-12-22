@@ -1398,26 +1398,82 @@ export function FulfillmentForm({ plan, requirementId, eventId, onSuccess }: Ful
             )}
 
             {((assetType === "Inventory" && assetPurchaseStatus === "New") || assetType === "Temporary") && (
-              <FormField
-                control={form.control}
-                name="payment"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Payment Amount</FormLabel>
-                    <FormControl>
-                      <Input 
-                        {...field} 
-                        value={field.value || ""} 
-                        type="number" 
-                        step="0.01" 
-                        placeholder="Enter payment amount" 
-                        data-testid="input-payment-amount" 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+              <>
+                <FormField
+                  control={form.control}
+                  name="payment"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment Amount</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          value={field.value || ""} 
+                          type="number" 
+                          step="0.01" 
+                          placeholder="Enter payment amount" 
+                          data-testid="input-payment-amount" 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {showPaymentStatus && (
+                  <FormField
+                    control={form.control}
+                    name="paymentStatus"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center gap-2">
+                          <FormLabel>Payment Status</FormLabel>
+                          {(field.value === "Paid" || field.value === "Partial") && (
+                            <button
+                              type="button"
+                              className="text-xs text-primary hover:underline disabled:opacity-50"
+                              onClick={handleLinkExpense}
+                              disabled={isCreatingExpense || (isEditing && !isPlanLoaded)}
+                              data-testid="button-link-expense-asset"
+                            >
+                              {isCreatingExpense ? "Linking..." : 
+                               isEditing ? (linkedExpenseId ? "View Linked Expense" : "Link Expense") :
+                               (pendingExpenseData ? "Edit Pending Expense" : "Prepare Expense")}
+                            </button>
+                          )}
+                        </div>
+                        <Select 
+                          onValueChange={(value) => handlePaymentStatusChange(value)} 
+                          value={field.value || "Pending"}
+                          disabled={isCreatingExpense}
+                        >
+                          <FormControl>
+                            <SelectTrigger data-testid="select-payment-status-asset">
+                              <SelectValue placeholder="Select payment status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {config?.paymentStatuses?.map((status) => (
+                              <SelectItem key={status} value={status}>
+                                {status}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {validationWarning && (
+                          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">{validationWarning}</p>
+                        )}
+                        {!isEditing && pendingExpenseData && (
+                          <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                            Expense of ₹{parseFloat(pendingExpenseData.amount).toLocaleString("en-IN")} will be created on save
+                          </p>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
-              />
+              </>
             )}
           </>
         )}

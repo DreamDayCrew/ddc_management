@@ -375,7 +375,8 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
       return;
     }
     
-    if (amount > maxAmount) {
+    // Only enforce max amount check if a quote has been set
+    if (maxAmount > 0 && amount > maxAmount) {
       Alert.alert('Error', `Amount cannot exceed the total quote (₹${maxAmount.toLocaleString('en-IN')})`);
       return;
     }
