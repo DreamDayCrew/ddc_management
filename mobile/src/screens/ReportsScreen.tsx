@@ -109,7 +109,7 @@ export default function ReportsScreen() {
     const filtered = filterByMonthYear(events, month, year, "eventDate");
     const completed = filtered.filter((e: any) => e.eventStatus === "Completed").length;
     const inProgress = filtered.filter((e: any) => e.eventStatus === "In Progress").length;
-    const missed = filtered.filter((e: any) => e.eventStatus === "Inquiry").length;
+    const missed = filtered.filter((e: any) => e.eventStatus === "Inquired").length;
     return { completed, inProgress, missed, total: filtered.length };
   };
 
@@ -170,7 +170,7 @@ export default function ReportsScreen() {
       data: [
         { label: 'Completed', value: stats.completed },
         { label: 'In Progress', value: stats.inProgress },
-        { label: 'Inquiry', value: stats.missed },
+        { label: 'Inquired', value: stats.missed },
         { label: 'Total Events', value: stats.total },
       ]
     });
@@ -189,6 +189,63 @@ export default function ReportsScreen() {
       ]
     });
   };
+  const getActionRequiredStats = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const reports: any[] = [];
+    let totalRiskAmount = 0;
+
+    events.forEach((event: any) => {
+      const eventDateObj = new Date(event.event_date);
+      eventDateObj.setHours(0, 0, 0, 0);
+
+      // Only process events that have already happened
+      if (eventDateObj >= today) return;
+
+      // 1. Calculate actual amount paid from Expenses table
+      const actualPaid = expenses
+        .filter((exp: any) => exp.eventId === event.id)
+        .reduce((sum: number, exp: any) => sum + Number(exp.amount), 0);
+
+      const finalizedQuote = Number(event.finalizedQuote || 0);
+      const isFullyPaid = actualPaid >= finalizedQuote && finalizedQuote > 0;
+      const isPartialPaid = actualPaid > 0 && actualPaid < finalizedQuote;
+      const balanceDue = finalizedQuote - actualPaid;
+
+      let reason = "";
+      // Case 1: Event Completed but payment is not full
+      if (event.eventStatus === "Completed" && !isFullyPaid) {
+        reason = "Payment Pending (Event Completed)";
+      } 
+      // Case 2: In Progress/Completed and payment is partial
+      else if (["Completed", "In Progress"].includes(event.eventStatus) && isPartialPaid) {
+        reason = "Balance Due (Partial Payment)";
+      }
+      // Case 3: Payment Fully Paid but Status is still "In Progress"
+      else if (event.eventStatus === "In Progress" && isFullyPaid) {
+        reason = "Update Status to Completed (Fully Paid)";
+      }
+      console.log("Evaluating Event:", event.eventName, "Status:", event.eventStatus, "Finalized Quote:", finalizedQuote, "Actual Paid:", actualPaid, "Reason:", reason);
+
+      if (reason) {
+        totalRiskAmount += balanceDue;
+        reports.push({
+          id: event.id,
+          clientName: event.clientName || "Unknown Client",
+          eventName: event.eventName,
+          date: event.eventDate,
+          status: event.eventStatus,
+          paid: actualPaid,
+          total: finalizedQuote,
+          due: balanceDue,
+          reason: reason
+        });
+      }
+    });
+
+    return { reports, totalRiskAmount };
+  }, [events, expenses]);
 
   const handleShowIncomeReport = (monthIndex: number, year: number, stats: any) => {
     const monthName = MONTHS[monthIndex]?.slice(0, 3) || '';
@@ -201,6 +258,68 @@ export default function ReportsScreen() {
         { label: 'Total Income', value: formatCurrency(stats.totalIncome) },
       ]
     });
+  };
+  const [isScanning, setIsScanning] = useState(false);
+  type HealthData = {
+    reports: { label: string; value: string }[];
+    totalRiskAmount: number;
+  } | null;
+  
+  const [healthData, setHealthData] = useState<HealthData>(null);
+
+  const runHealthScan = () => {
+    setIsScanning(true);
+    
+    // Simulated delay for diagnostic feel
+    setTimeout(() => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const reports: any[] = [];
+      let totalRiskAmount = 0;
+
+      events.forEach((event: any) => {
+        const eventDateObj = new Date(event.eventDate);
+        eventDateObj.setHours(0, 0, 0, 0);
+
+        // 1. Match your original Date Check: Only process past events
+        if (eventDateObj >= today) return;
+
+        // 2. Calculate actual amount paid (Matching your exact older filter)
+        const actualPaid = expenses
+          .filter((exp: any) => exp.eventId === event.id)
+          .reduce((sum: number, exp: any) => sum + Number(exp.amount), 0);
+
+        const finalizedQuote = Number(event.finalizedQuote || 0);
+        const isFullyPaid = actualPaid >= finalizedQuote && finalizedQuote > 0;
+        const isPartialPaid = actualPaid > 0 && actualPaid < finalizedQuote;
+        const balanceDue = finalizedQuote - actualPaid;
+        console.log("Scanning Event:", event.eventName, "Status:", event.eventStatus, "Finalized Quote:", finalizedQuote, "Actual Paid:", actualPaid, "Balance Due:", balanceDue, "isFullyPaid:", isFullyPaid, "isPartialPaid:", isPartialPaid);
+
+        let reason = "";
+        
+        if (["Completed", "In Progress"].includes(event.eventStatus) && !isFullyPaid && !isPartialPaid) {
+          reason = "Event " + event.eventStatus + " - Payment not received";
+        } 
+        else if (["Completed", "In Progress"].includes(event.eventStatus) && !isFullyPaid && isPartialPaid) {
+          reason = "Event " + event.eventStatus + " - Payment partially received (Quote: " + formatCurrency(finalizedQuote) + ") Due";
+        } 
+        else if ("Inquired" === event.eventStatus && (isFullyPaid || isPartialPaid)) {
+          reason = "Update event status to In Progress since DDC received payment (Quote: " + formatCurrency(finalizedQuote) + ") Due";
+        }
+
+        if (reason) {
+          totalRiskAmount += balanceDue;
+          reports.push({
+            label: `${event.clientName || "Client"} - ${event.eventName}`,
+            value: balanceDue > 0 ? `${reason}: ${formatCurrency(balanceDue)}` : reason
+          });
+        }
+      });
+
+      setHealthData({ reports, totalRiskAmount });
+      setIsScanning(false);
+    }, 1200);
   };
 
   if (isLoading) {
@@ -218,6 +337,80 @@ export default function ReportsScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         nestedScrollEnabled={true}
       >
+        {/* Updated Events Overview with Real Logic */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
+              <Text style={[styles.cardTitle, { color: colors.text }]}>Business Health Scan</Text>
+              
+              {/* Refresh icon is the primary trigger */}
+              {!isScanning && (
+                <TouchableOpacity 
+                  onPress={runHealthScan} 
+                  style={styles.rescanIcon}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="refresh" size={18} color={colors.primary} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {isScanning ? (
+              /* 1. SCANNING STATE */
+              <View style={styles.scanningState}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.scanningText, { color: colors.textSecondary }]}>
+                  Auditing event logs...
+                </Text>
+              </View>
+            ) : healthData ? (
+              /* 2. RESULT STATE: Only shows AFTER a scan has completed */
+              <TouchableOpacity 
+                onPress={() => setReportModal({ 
+                  visible: true, 
+                  title: "Audit Findings", 
+                  data: healthData.reports 
+                })}
+                style={[
+                  styles.attentionBar, 
+                  { 
+                    backgroundColor: isDark ? 'rgba(255, 165, 0, 0.05)' : '#fffbeb', 
+                    borderColor: healthData.reports.length > 0 ? '#f59e0b' : '#10b981',
+                    borderStyle: 'solid' 
+                  }
+                ]}
+              >
+                <View style={styles.periodSection}>
+                  <View style={styles.attentionContent}>
+                    <Ionicons 
+                      name={healthData.reports.length > 0 ? "warning" : "checkmark-circle"} 
+                      size={18} 
+                      color={healthData.reports.length > 0 ? "#f59e0b" : "#10b981"} 
+                    />
+                    <Text style={[styles.attentionText, { color: colors.text }]}>
+                      {healthData.reports.length > 0 
+                        ? `${healthData.reports.length} events need your attention` 
+                        : 'System Healthy'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.riskAmount, { color: healthData.reports.length > 0 ? '#d97706' : '#10b981' }]}>
+                    {healthData.reports.length > 0 
+                      ? formatCurrency(healthData.totalRiskAmount) 
+                      : "Secure"}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            ) : (
+              /* 3. PRE-SCAN STATE: Subtle placeholder or instruction */
+              <View style={{ padding: 10, alignItems: 'center' }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 13, fontStyle: 'italic' }}>
+                  Click the refresh icon to begin audit
+                </Text>
+              </View>
+            )}
+          </View>
+
         {/* Month/Year Filter */}
         <View style={[styles.filterSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.filterRow}>
@@ -1090,5 +1283,62 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  attentionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8, // Space between icon and text
+    marginBottom: 2,
+  },
+  riskAmount: {
+    fontSize: 16,
+    fontWeight: '800', // Extra bold to highlight the financial impact
+    letterSpacing: -0.5,
+  },
+  // Adding these related styles for a complete look
+  attentionBar: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed', // Differentiates the "warning" area from standard cards
+  },
+  attentionText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  scanPrompt: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    gap: 4,
+  },
+  scanLink: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  scanningState: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 30,
+    gap: 12,
+  },
+  scanningText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  rescanIcon: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    padding: 4,
   },
 });

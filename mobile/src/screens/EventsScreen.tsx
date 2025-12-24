@@ -558,7 +558,7 @@ function getStatusColor(status: string) {
       return { backgroundColor: '#d1fae5', borderColor: '#10b981' };
     case 'In Progress':
       return { backgroundColor: '#fef3c7', borderColor: '#f59e0b' };
-    case 'Draft':
+    case 'Inquiry':
       return { backgroundColor: '#e5e7eb', borderColor: '#6b7280' };
     default:
       return { backgroundColor: '#dbeafe', borderColor: '#2563eb' };
