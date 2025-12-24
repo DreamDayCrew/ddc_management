@@ -43,6 +43,23 @@ export default function EventsScreen({ navigation }: Props) {
         .map(exp => String(exp.eventId))
     );
   }, [expenses]);
+
+  const getExpenseIndicator = (paymentStatus: 'Paid' | 'Partial' | string) => {
+    switch (paymentStatus) {
+      case 'Paid':
+        return {
+          icon: 'checkmark-done-circle-sharp',
+          color: '#16a34a',
+        };
+      case 'Partial':
+        return {
+          icon: 'checkmark-circle',
+          color: '#eab308',
+        };
+      default:
+        return null;
+    }
+  };
   
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -195,7 +212,9 @@ export default function EventsScreen({ navigation }: Props) {
     setSelectedEvent(null);
   };
 
+
   const renderEventItem = ({ item }: { item: Event }) => (
+
     <TouchableOpacity style={[styles.eventCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => handleViewDetails(item)}>
       <View style={styles.eventHeader}>
         <View style={styles.eventInfo}>
@@ -211,11 +230,25 @@ export default function EventsScreen({ navigation }: Props) {
             <View style={[styles.statusBadge, getStatusColor(item.eventStatus)]}>
               <Text style={styles.statusText}>{item.eventStatus}</Text>
             </View>
-            {eventsWithLinkedExpenses.has(item.id) && (
-              <View style={[styles.linkedExpenseIndicator, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.1)' }]}>
-                <Ionicons name="checkmark-circle" size={16} color={isDark ? '#4ade80' : '#22c55e'} />
-              </View>
-            )}
+
+            {eventsWithLinkedExpenses.has(item.id) && (() => {
+              const indicator = getExpenseIndicator(item.paymentStatus); 
+              
+              if (!indicator) return null;
+
+              return (
+                <View style={[
+                  styles.linkedExpenseIndicator, 
+                  { backgroundColor: isDark ? `${indicator.color}26` : `${indicator.color}15` }
+                ]}>
+                  <Ionicons 
+                    name={indicator.icon as any} 
+                    size={16} 
+                    color={indicator.color} 
+                  />
+                </View>
+              );
+            })()}
           </View>
           <View style={styles.actionButtons}>
             <TouchableOpacity 

@@ -955,7 +955,8 @@ export function ExpenseForm({ expense, onSuccess, eventId }: ExpenseFormProps) {
               render={({ field }) => {
                 const teamMembersWithFund = [
                   ...(teamMembers || []),
-                  { id: 'ddc-fund', name: 'DDC Fund' }
+                  { id: 'ddc-fund', name: 'DDC Fund' },
+                  { id: 'client-payment', name: 'Client Payment' },
                 ];
                 
                 const isCustomValue = field.value && !teamMembersWithFund.some(member => member.name === field.value);

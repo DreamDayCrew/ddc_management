@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Modal, Pressable, Alert, Platform } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, useMemo } from 'react';
 import { useEvents, useExpenses, useAssets } from '../hooks/useApi';
@@ -8,7 +8,11 @@ const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
 ];
-
+type ReportModalState = {
+  visible: boolean;
+  title: string;
+  data: { label: string; value: number | string }[];
+};
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -56,6 +60,12 @@ export default function ReportsScreen() {
 
   const isLoading = eventsLoading || expensesLoading || assetsLoading;
 
+  const [reportModal, setReportModal] = useState<ReportModalState>({
+    visible: false,
+    title: '',
+    data: []
+  });
+  
   const availableYears = useMemo(() => {
     const yearSet = new Set<number>();
     yearSet.add(currentYear);
@@ -106,7 +116,10 @@ export default function ReportsScreen() {
   const getFinancialStats = (month: number, year: number) => {
     const filteredExpenses = filterByMonthYear(expenses, month, year, "date");
     const income = filteredExpenses
-      .filter((e: any) => e.to_account === "DDC Fund")
+      .filter((e: any) => e.to_account === "DDC Fund" && e.from_account !== "Client Payment")
+      .reduce((sum: number, e: any) => sum + Number(e.amount), 0);
+    const incomeFromEvent = filteredExpenses
+      .filter((e: any) => e.to_account === "DDC Fund" && e.from_account === "Client Payment")
       .reduce((sum: number, e: any) => sum + Number(e.amount), 0);
     const eventExpenses = filteredExpenses
       .filter((e: any) => e.from_account === "DDC Fund" && e.category === "Event")
@@ -118,7 +131,8 @@ export default function ReportsScreen() {
       .filter((e: any) => e.from_account === "DDC Fund" && e.category === "Office")
       .reduce((sum: number, e: any) => sum + Number(e.amount), 0);
     const totalExpenses = eventExpenses + assetExpenses + officeExpenses;
-    return { income, eventExpenses, assetExpenses, officeExpenses, totalExpenses };
+    const totalIncome = income + incomeFromEvent;
+    return { income, incomeFromEvent, eventExpenses, assetExpenses, officeExpenses, totalExpenses, totalIncome };
   };
 
   const getAssetStats = (month: number, year: number) => {
@@ -148,6 +162,46 @@ export default function ReportsScreen() {
     setShowRightMonthDropdown(false);
     setShowRightYearDropdown(false);
   };
+  const handleShowEventReport = (monthIndex: number, year: number, stats: any) => {
+    const monthName = MONTHS[monthIndex]?.slice(0, 3) || '';
+    setReportModal({
+      visible: true,
+      title: `Event Report: ${monthName} ${year}`,
+      data: [
+        { label: 'Completed', value: stats.completed },
+        { label: 'In Progress', value: stats.inProgress },
+        { label: 'Inquiry', value: stats.missed },
+        { label: 'Total Events', value: stats.total },
+      ]
+    });
+  };
+
+  const handleShowExpenseReport = (monthIndex: number, year: number, stats: any) => {
+    const monthName = MONTHS[monthIndex]?.slice(0, 3) || '';
+    setReportModal({
+      visible: true,
+      title: `Expense Report: ${monthName} ${year}`,
+      data: [
+        { label: 'Event Expense', value: formatCurrency(stats.eventExpenses) },
+        { label: 'Asset Expense', value: formatCurrency(stats.assetExpenses) },
+        { label: 'Office Expense', value: formatCurrency(stats.officeExpenses) },
+        { label: 'Total', value: formatCurrency(stats.totalExpenses) },
+      ]
+    });
+  };
+
+  const handleShowIncomeReport = (monthIndex: number, year: number, stats: any) => {
+    const monthName = MONTHS[monthIndex]?.slice(0, 3) || '';
+    setReportModal({
+      visible: true,
+      title: `Income Report: ${monthName} ${year}`,
+      data: [
+        { label: 'Investment Income', value: formatCurrency(stats.income) },
+        { label: 'Event Income', value: formatCurrency(stats.incomeFromEvent) },
+        { label: 'Total Income', value: formatCurrency(stats.totalIncome) },
+      ]
+    });
+  };
 
   if (isLoading) {
     return (
@@ -159,521 +213,582 @@ export default function ReportsScreen() {
   }
 
   return (
-    <ScrollView 
-      style={[styles.container, { backgroundColor: colors.background }]}
-      nestedScrollEnabled={true}
-    >
-      {/* Month/Year Filter */}
-      <View style={[styles.filterSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.filterRow}>
-          {/* Month Dropdown */}
-          <View style={styles.dropdownWrapper}>
-            <TouchableOpacity
-              style={[styles.dropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
-              onPress={() => {
-                closeAllDropdowns();
-                setShowMonthDropdown(!showMonthDropdown);
-              }}
-            >
-              <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
-              <Text style={[styles.dropdownText, { color: colors.text }]}>{MONTHS[selectedMonth]}</Text>
-              <Ionicons name={showMonthDropdown ? "chevron-up" : "chevron-down"} size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
-            <Modal
-              visible={showMonthDropdown}
-              transparent={true}
-              animationType="fade"
-              onRequestClose={() => setShowMonthDropdown(false)}
-            >
-              <Pressable 
-                style={styles.modalBackdrop}
-                onPress={() => setShowMonthDropdown(false)}
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView 
+        style={[styles.container, { backgroundColor: colors.background }]}
+        nestedScrollEnabled={true}
+      >
+        {/* Month/Year Filter */}
+        <View style={[styles.filterSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.filterRow}>
+            {/* Month Dropdown */}
+            <View style={styles.dropdownWrapper}>
+              <TouchableOpacity
+                style={[styles.dropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => {
+                  closeAllDropdowns();
+                  setShowMonthDropdown(!showMonthDropdown);
+                }}
               >
-                <View 
-                  style={[styles.dropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
-                  onStartShouldSetResponder={() => true}
-                >
-                  <ScrollView 
-                    style={styles.dropdownScroll} 
-                    nestedScrollEnabled={true}
-                    keyboardShouldPersistTaps="handled"
-                    showsVerticalScrollIndicator={true}
-                  >
-                    {MONTHS.map((month, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={[
-                          styles.dropdownItem,
-                          selectedMonth === index && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
-                        ]}
-                        onPress={() => {
-                          setSelectedMonth(index);
-                          setShowMonthDropdown(false);
-                        }}
-                      >
-                        <Text style={[
-                          styles.dropdownItemText,
-                          { color: colors.text },
-                          selectedMonth === index && { color: colors.primary, fontWeight: '600' }
-                        ]}>
-                          {month}
-                        </Text>
-                        {selectedMonth === index && (
-                          <Ionicons name="checkmark" size={18} color={colors.primary} />
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              </Pressable>
-            </Modal>
-          </View>
-
-          {/* Year Dropdown */}
-          <View style={styles.dropdownWrapper}>
-            <TouchableOpacity
-              style={[styles.dropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
-              onPress={() => {
-                closeAllDropdowns();
-                setShowYearDropdown(!showYearDropdown);
-              }}
-            >
-              <Ionicons name="time-outline" size={18} color={colors.textSecondary} />
-              <Text style={[styles.dropdownText, { color: colors.text }]}>{selectedYear}</Text>
-              <Ionicons name={showYearDropdown ? "chevron-up" : "chevron-down"} size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
-            <Modal
-              visible={showYearDropdown}
-              transparent={true}
-              animationType="fade"
-              onRequestClose={() => setShowYearDropdown(false)}
-            >
-              <Pressable 
-                style={styles.modalBackdrop}
-                onPress={() => setShowYearDropdown(false)}
+                <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+                <Text style={[styles.dropdownText, { color: colors.text }]}>{MONTHS[selectedMonth]}</Text>
+                <Ionicons name={showMonthDropdown ? "chevron-up" : "chevron-down"} size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+              <Modal
+                visible={showMonthDropdown}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowMonthDropdown(false)}
               >
-                <View 
-                  style={[styles.dropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
-                  onStartShouldSetResponder={() => true}
+                <Pressable 
+                  style={styles.modalBackdrop}
+                  onPress={() => setShowMonthDropdown(false)}
                 >
-                  <ScrollView 
-                    style={styles.dropdownScroll} 
-                    nestedScrollEnabled={true}
-                    keyboardShouldPersistTaps="handled"
-                    showsVerticalScrollIndicator={true}
+                  <View 
+                    style={[styles.dropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onStartShouldSetResponder={() => true}
                   >
-                    {availableYears.map((year) => (
-                      <TouchableOpacity
-                        key={year}
-                        style={[
-                          styles.dropdownItem,
-                          selectedYear === year && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
-                        ]}
-                        onPress={() => {
-                          setSelectedYear(year);
-                          setShowYearDropdown(false);
-                        }}
+                    <ScrollView 
+                      style={styles.dropdownScroll} 
+                      nestedScrollEnabled={true}
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={true}
+                    >
+                      {MONTHS.map((month, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          style={[
+                            styles.dropdownItem,
+                            selectedMonth === index && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                          ]}
+                          onPress={() => {
+                            setSelectedMonth(index);
+                            setShowMonthDropdown(false);
+                          }}
+                        >
+                          <Text style={[
+                            styles.dropdownItemText,
+                            { color: colors.text },
+                            selectedMonth === index && { color: colors.primary, fontWeight: '600' }
+                          ]}>
+                            {month}
+                          </Text>
+                          {selectedMonth === index && (
+                            <Ionicons name="checkmark" size={18} color={colors.primary} />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                </Pressable>
+              </Modal>
+            </View>
+
+            {/* Year Dropdown */}
+            <View style={styles.dropdownWrapper}>
+              <TouchableOpacity
+                style={[styles.dropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => {
+                  closeAllDropdowns();
+                  setShowYearDropdown(!showYearDropdown);
+                }}
+              >
+                <Ionicons name="time-outline" size={18} color={colors.textSecondary} />
+                <Text style={[styles.dropdownText, { color: colors.text }]}>{selectedYear}</Text>
+                <Ionicons name={showYearDropdown ? "chevron-up" : "chevron-down"} size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+              <Modal
+                visible={showYearDropdown}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowYearDropdown(false)}
+              >
+                <Pressable 
+                  style={styles.modalBackdrop}
+                  onPress={() => setShowYearDropdown(false)}
+                >
+                  <View 
+                    style={[styles.dropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onStartShouldSetResponder={() => true}
+                  >
+                    <ScrollView 
+                      style={styles.dropdownScroll} 
+                      nestedScrollEnabled={true}
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={true}
+                    >
+                      {availableYears.map((year) => (
+                        <TouchableOpacity
+                          key={year}
+                          style={[
+                            styles.dropdownItem,
+                            selectedYear === year && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                          ]}
+                          onPress={() => {
+                            setSelectedYear(year);
+                            setShowYearDropdown(false);
+                          }}
+                        >
+                          <Text style={[
+                            styles.dropdownItemText,
+                            { color: colors.text },
+                            selectedYear === year && { color: colors.primary, fontWeight: '600' }
+                          ]}>
+                            {year}
+                          </Text>
+                          {selectedYear === year && (
+                            <Ionicons name="checkmark" size={18} color={colors.primary} />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                </Pressable>
+              </Modal>
+            </View>
+          </View>
+        </View>
+
+        {/* Events Overview */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="calendar" size={20} color={colors.primary} />
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Events Overview</Text>
+          </View>
+          <View style={styles.statsRow}>
+            <View style={[styles.statBox, { backgroundColor: isDark ? 'rgba(0,184,148,0.1)' : '#e6fff5' }]}>
+              <Ionicons name="checkmark-circle" size={24} color="#00b894" />
+              <Text style={[styles.statNumber, { color: colors.text }]}>{eventStats.completed}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Completed</Text>
+            </View>
+            <View style={[styles.statBox, { backgroundColor: isDark ? 'rgba(0,123,255,0.1)' : '#e7f3ff' }]}>
+              <Ionicons name="time" size={24} color="#007bff" />
+              <Text style={[styles.statNumber, { color: colors.text }]}>{eventStats.inProgress}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>In Progress</Text>
+            </View>
+            <View style={[styles.statBox, { backgroundColor: isDark ? 'rgba(255,193,7,0.1)' : '#fff8e6' }]}>
+              <Ionicons name="alert-circle" size={24} color="#ffc107" />
+              <Text style={[styles.statNumber, { color: colors.text }]}>{eventStats.missed}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Inquiry</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Financial Summary */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.cardHeader}>
+            <MaterialCommunityIcons name="currency-inr" size={20} color={colors.primary} />
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Financial Summary</Text>
+          </View>
+          <View style={styles.financialRow}>
+            <View style={[styles.financialBox, { backgroundColor: isDark ? 'rgba(0,184,148,0.1)' : '#e6fff5' }]}>
+              <Ionicons name="trending-up" size={20} color="#00b894" />
+              <Text style={[styles.financialAmount, { color: '#00b894' }]}>{formatCurrency(financialStats.income)}</Text>
+              <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Total Income</Text>
+            </View>
+            <View style={[styles.financialBox, { backgroundColor: isDark ? 'rgba(225,112,85,0.1)' : '#ffebe6' }]}>
+              <Ionicons name="trending-down" size={20} color="#e17055" />
+              <Text style={[styles.financialAmount, { color: '#e17055' }]}>{formatCurrency(financialStats.totalExpenses)}</Text>
+              <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Total Expenses</Text>
+            </View>
+          </View>
+          <View style={styles.breakdownSection}>
+            <View style={styles.breakdownRow}>
+              <Text style={[styles.breakdownLabel, { color: colors.text }]}>Event Expenses</Text>
+              <Text style={[styles.breakdownValue, { color: colors.text }]}>{formatCurrency(financialStats.eventExpenses)}</Text>
+            </View>
+            <View style={styles.breakdownRow}>
+              <Text style={[styles.breakdownLabel, { color: colors.text }]}>Asset Expenses</Text>
+              <Text style={[styles.breakdownValue, { color: colors.text }]}>{formatCurrency(financialStats.assetExpenses)}</Text>
+            </View>
+            <View style={styles.breakdownRow}>
+              <Text style={[styles.breakdownLabel, { color: colors.text }]}>Office Expenses</Text>
+              <Text style={[styles.breakdownValue, { color: colors.text }]}>{formatCurrency(financialStats.officeExpenses)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Asset Investments */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="cube" size={20} color={colors.primary} />
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Asset Investments</Text>
+          </View>
+          <View style={styles.assetRow}>
+            <View style={styles.assetStat}>
+              <Text style={[styles.assetNumber, { color: colors.primary }]}>{assetStats.count}</Text>
+              <Text style={[styles.assetLabel, { color: colors.textSecondary }]}>Assets Purchased</Text>
+            </View>
+            <View style={styles.assetStat}>
+              <Text style={[styles.assetNumber, { color: colors.primary }]}>{formatCurrency(assetStats.totalInvestment)}</Text>
+              <Text style={[styles.assetLabel, { color: colors.textSecondary }]}>Total Investment</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Period Comparison */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="swap-horizontal" size={20} color={colors.primary} />
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Period Comparison</Text>
+          </View>
+          
+          {/* Period Selectors */}
+          <View style={styles.comparisonPickers}>
+            {/* Period 1 */}
+            <View style={styles.periodSection}>
+              <Text style={[styles.periodLabel, { color: colors.textSecondary }]}>Period 1</Text>
+              <View style={styles.periodPickerRow}>
+                <View style={styles.miniDropdownWrapper}>
+                  <TouchableOpacity
+                    style={[styles.miniDropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                    onPress={() => {
+                      closeAllDropdowns();
+                      setShowLeftMonthDropdown(!showLeftMonthDropdown);
+                    }}
+                  >
+                    <Text style={[styles.miniDropdownText, { color: colors.text }]}>{MONTHS[leftMonth].slice(0, 3)}</Text>
+                    <Ionicons name={showLeftMonthDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                  <Modal
+                    visible={showLeftMonthDropdown}
+                    transparent={true}
+                    animationType="fade"
+                    onRequestClose={() => setShowLeftMonthDropdown(false)}
+                  >
+                    <Pressable 
+                      style={styles.modalBackdrop}
+                      onPress={() => setShowLeftMonthDropdown(false)}
+                    >
+                      <View 
+                        style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                        onStartShouldSetResponder={() => true}
                       >
-                        <Text style={[
-                          styles.dropdownItemText,
-                          { color: colors.text },
-                          selectedYear === year && { color: colors.primary, fontWeight: '600' }
-                        ]}>
-                          {year}
-                        </Text>
-                        {selectedYear === year && (
-                          <Ionicons name="checkmark" size={18} color={colors.primary} />
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+                        <ScrollView 
+                          style={styles.miniDropdownScroll} 
+                          nestedScrollEnabled={true}
+                          keyboardShouldPersistTaps="handled"
+                          showsVerticalScrollIndicator={true}
+                        >
+                          {MONTHS.map((month, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={[
+                                styles.miniDropdownItem,
+                                leftMonth === index && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                              ]}
+                              onPress={() => {
+                                setLeftMonth(index);
+                                setShowLeftMonthDropdown(false);
+                              }}
+                            >
+                              <Text style={[
+                                styles.miniDropdownItemText,
+                                { color: colors.text },
+                                leftMonth === index && { color: colors.primary, fontWeight: '600' }
+                              ]}>
+                                {month.slice(0, 3)}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    </Pressable>
+                  </Modal>
                 </View>
-              </Pressable>
-            </Modal>
-          </View>
-        </View>
-      </View>
-
-      {/* Events Overview */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.cardHeader}>
-          <Ionicons name="calendar" size={20} color={colors.primary} />
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Events Overview</Text>
-        </View>
-        <View style={styles.statsRow}>
-          <View style={[styles.statBox, { backgroundColor: isDark ? 'rgba(0,184,148,0.1)' : '#e6fff5' }]}>
-            <Ionicons name="checkmark-circle" size={24} color="#00b894" />
-            <Text style={[styles.statNumber, { color: colors.text }]}>{eventStats.completed}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Completed</Text>
-          </View>
-          <View style={[styles.statBox, { backgroundColor: isDark ? 'rgba(0,123,255,0.1)' : '#e7f3ff' }]}>
-            <Ionicons name="time" size={24} color="#007bff" />
-            <Text style={[styles.statNumber, { color: colors.text }]}>{eventStats.inProgress}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>In Progress</Text>
-          </View>
-          <View style={[styles.statBox, { backgroundColor: isDark ? 'rgba(255,193,7,0.1)' : '#fff8e6' }]}>
-            <Ionicons name="alert-circle" size={24} color="#ffc107" />
-            <Text style={[styles.statNumber, { color: colors.text }]}>{eventStats.missed}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Inquiry</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Financial Summary */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.cardHeader}>
-          <MaterialCommunityIcons name="currency-inr" size={20} color={colors.primary} />
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Financial Summary</Text>
-        </View>
-        <View style={styles.financialRow}>
-          <View style={[styles.financialBox, { backgroundColor: isDark ? 'rgba(0,184,148,0.1)' : '#e6fff5' }]}>
-            <Ionicons name="trending-up" size={20} color="#00b894" />
-            <Text style={[styles.financialAmount, { color: '#00b894' }]}>{formatCurrency(financialStats.income)}</Text>
-            <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Total Income</Text>
-          </View>
-          <View style={[styles.financialBox, { backgroundColor: isDark ? 'rgba(225,112,85,0.1)' : '#ffebe6' }]}>
-            <Ionicons name="trending-down" size={20} color="#e17055" />
-            <Text style={[styles.financialAmount, { color: '#e17055' }]}>{formatCurrency(financialStats.totalExpenses)}</Text>
-            <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Total Expenses</Text>
-          </View>
-        </View>
-        <View style={styles.breakdownSection}>
-          <View style={styles.breakdownRow}>
-            <Text style={[styles.breakdownLabel, { color: colors.text }]}>Event Expenses</Text>
-            <Text style={[styles.breakdownValue, { color: colors.text }]}>{formatCurrency(financialStats.eventExpenses)}</Text>
-          </View>
-          <View style={styles.breakdownRow}>
-            <Text style={[styles.breakdownLabel, { color: colors.text }]}>Asset Expenses</Text>
-            <Text style={[styles.breakdownValue, { color: colors.text }]}>{formatCurrency(financialStats.assetExpenses)}</Text>
-          </View>
-          <View style={styles.breakdownRow}>
-            <Text style={[styles.breakdownLabel, { color: colors.text }]}>Office Expenses</Text>
-            <Text style={[styles.breakdownValue, { color: colors.text }]}>{formatCurrency(financialStats.officeExpenses)}</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Asset Investments */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.cardHeader}>
-          <Ionicons name="cube" size={20} color={colors.primary} />
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Asset Investments</Text>
-        </View>
-        <View style={styles.assetRow}>
-          <View style={styles.assetStat}>
-            <Text style={[styles.assetNumber, { color: colors.primary }]}>{assetStats.count}</Text>
-            <Text style={[styles.assetLabel, { color: colors.textSecondary }]}>Assets Purchased</Text>
-          </View>
-          <View style={styles.assetStat}>
-            <Text style={[styles.assetNumber, { color: colors.primary }]}>{formatCurrency(assetStats.totalInvestment)}</Text>
-            <Text style={[styles.assetLabel, { color: colors.textSecondary }]}>Total Investment</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Period Comparison */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.cardHeader}>
-          <Ionicons name="swap-horizontal" size={20} color={colors.primary} />
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Period Comparison</Text>
-        </View>
-        
-        {/* Period Selectors */}
-        <View style={styles.comparisonPickers}>
-          {/* Period 1 */}
-          <View style={styles.periodSection}>
-            <Text style={[styles.periodLabel, { color: colors.textSecondary }]}>Period 1</Text>
-            <View style={styles.periodPickerRow}>
-              <View style={styles.miniDropdownWrapper}>
-                <TouchableOpacity
-                  style={[styles.miniDropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
-                  onPress={() => {
-                    closeAllDropdowns();
-                    setShowLeftMonthDropdown(!showLeftMonthDropdown);
-                  }}
-                >
-                  <Text style={[styles.miniDropdownText, { color: colors.text }]}>{MONTHS[leftMonth].slice(0, 3)}</Text>
-                  <Ionicons name={showLeftMonthDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
-                </TouchableOpacity>
-                <Modal
-                  visible={showLeftMonthDropdown}
-                  transparent={true}
-                  animationType="fade"
-                  onRequestClose={() => setShowLeftMonthDropdown(false)}
-                >
-                  <Pressable 
-                    style={styles.modalBackdrop}
-                    onPress={() => setShowLeftMonthDropdown(false)}
+                <View style={styles.miniDropdownWrapper}>
+                  <TouchableOpacity
+                    style={[styles.miniDropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                    onPress={() => {
+                      closeAllDropdowns();
+                      setShowLeftYearDropdown(!showLeftYearDropdown);
+                    }}
                   >
-                    <View 
-                      style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
-                      onStartShouldSetResponder={() => true}
+                    <Text style={[styles.miniDropdownText, { color: colors.text }]}>{leftYear}</Text>
+                    <Ionicons name={showLeftYearDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                  <Modal
+                    visible={showLeftYearDropdown}
+                    transparent={true}
+                    animationType="fade"
+                    onRequestClose={() => setShowLeftYearDropdown(false)}
+                  >
+                    <Pressable 
+                      style={styles.modalBackdrop}
+                      onPress={() => setShowLeftYearDropdown(false)}
                     >
-                      <ScrollView 
-                        style={styles.miniDropdownScroll} 
-                        nestedScrollEnabled={true}
-                        keyboardShouldPersistTaps="handled"
-                        showsVerticalScrollIndicator={true}
+                      <View 
+                        style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                        onStartShouldSetResponder={() => true}
                       >
-                        {MONTHS.map((month, index) => (
-                          <TouchableOpacity
-                            key={index}
-                            style={[
-                              styles.miniDropdownItem,
-                              leftMonth === index && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
-                            ]}
-                            onPress={() => {
-                              setLeftMonth(index);
-                              setShowLeftMonthDropdown(false);
-                            }}
-                          >
-                            <Text style={[
-                              styles.miniDropdownItemText,
-                              { color: colors.text },
-                              leftMonth === index && { color: colors.primary, fontWeight: '600' }
-                            ]}>
-                              {month.slice(0, 3)}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  </Pressable>
-                </Modal>
+                        <ScrollView 
+                          style={styles.miniDropdownScroll} 
+                          nestedScrollEnabled={true}
+                          keyboardShouldPersistTaps="handled"
+                          showsVerticalScrollIndicator={true}
+                        >
+                          {availableYears.map((year) => (
+                            <TouchableOpacity
+                              key={year}
+                              style={[
+                                styles.miniDropdownItem,
+                                leftYear === year && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                              ]}
+                              onPress={() => {
+                                setLeftYear(year);
+                                setShowLeftYearDropdown(false);
+                              }}
+                            >
+                              <Text style={[
+                                styles.miniDropdownItemText,
+                                { color: colors.text },
+                                leftYear === year && { color: colors.primary, fontWeight: '600' }
+                              ]}>
+                                {year}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    </Pressable>
+                  </Modal>
+                </View>
               </View>
-              <View style={styles.miniDropdownWrapper}>
-                <TouchableOpacity
-                  style={[styles.miniDropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
-                  onPress={() => {
-                    closeAllDropdowns();
-                    setShowLeftYearDropdown(!showLeftYearDropdown);
-                  }}
-                >
-                  <Text style={[styles.miniDropdownText, { color: colors.text }]}>{leftYear}</Text>
-                  <Ionicons name={showLeftYearDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
-                </TouchableOpacity>
-                <Modal
-                  visible={showLeftYearDropdown}
-                  transparent={true}
-                  animationType="fade"
-                  onRequestClose={() => setShowLeftYearDropdown(false)}
-                >
-                  <Pressable 
-                    style={styles.modalBackdrop}
-                    onPress={() => setShowLeftYearDropdown(false)}
+            </View>
+
+            {/* Period 2 */}
+            <View style={styles.periodSection}>
+              <Text style={[styles.periodLabel, { color: colors.textSecondary }]}>Period 2</Text>
+              <View style={styles.periodPickerRow}>
+                <View style={styles.miniDropdownWrapper}>
+                  <TouchableOpacity
+                    style={[styles.miniDropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                    onPress={() => {
+                      closeAllDropdowns();
+                      setShowRightMonthDropdown(!showRightMonthDropdown);
+                    }}
                   >
-                    <View 
-                      style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
-                      onStartShouldSetResponder={() => true}
+                    <Text style={[styles.miniDropdownText, { color: colors.text }]}>{MONTHS[rightMonth].slice(0, 3)}</Text>
+                    <Ionicons name={showRightMonthDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                  <Modal
+                    visible={showRightMonthDropdown}
+                    transparent={true}
+                    animationType="fade"
+                    onRequestClose={() => setShowRightMonthDropdown(false)}
+                  >
+                    <Pressable 
+                      style={styles.modalBackdrop}
+                      onPress={() => setShowRightMonthDropdown(false)}
                     >
-                      <ScrollView 
-                        style={styles.miniDropdownScroll} 
-                        nestedScrollEnabled={true}
-                        keyboardShouldPersistTaps="handled"
-                        showsVerticalScrollIndicator={true}
+                      <View 
+                        style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                        onStartShouldSetResponder={() => true}
                       >
-                        {availableYears.map((year) => (
-                          <TouchableOpacity
-                            key={year}
-                            style={[
-                              styles.miniDropdownItem,
-                              leftYear === year && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
-                            ]}
-                            onPress={() => {
-                              setLeftYear(year);
-                              setShowLeftYearDropdown(false);
-                            }}
-                          >
-                            <Text style={[
-                              styles.miniDropdownItemText,
-                              { color: colors.text },
-                              leftYear === year && { color: colors.primary, fontWeight: '600' }
-                            ]}>
-                              {year}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  </Pressable>
-                </Modal>
+                        <ScrollView 
+                          style={styles.miniDropdownScroll} 
+                          nestedScrollEnabled={true}
+                          keyboardShouldPersistTaps="handled"
+                          showsVerticalScrollIndicator={true}
+                        >
+                          {MONTHS.map((month, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={[
+                                styles.miniDropdownItem,
+                                rightMonth === index && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                              ]}
+                              onPress={() => {
+                                setRightMonth(index);
+                                setShowRightMonthDropdown(false);
+                              }}
+                            >
+                              <Text style={[
+                                styles.miniDropdownItemText,
+                                { color: colors.text },
+                                rightMonth === index && { color: colors.primary, fontWeight: '600' }
+                              ]}>
+                                {month.slice(0, 3)}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    </Pressable>
+                  </Modal>
+                </View>
+                <View style={styles.miniDropdownWrapper}>
+                  <TouchableOpacity
+                    style={[styles.miniDropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                    onPress={() => {
+                      closeAllDropdowns();
+                      setShowRightYearDropdown(!showRightYearDropdown);
+                    }}
+                  >
+                    <Text style={[styles.miniDropdownText, { color: colors.text }]}>{rightYear}</Text>
+                    <Ionicons name={showRightYearDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                  <Modal
+                    visible={showRightYearDropdown}
+                    transparent={true}
+                    animationType="fade"
+                    onRequestClose={() => setShowRightYearDropdown(false)}
+                  >
+                    <Pressable 
+                      style={styles.modalBackdrop}
+                      onPress={() => setShowRightYearDropdown(false)}
+                    >
+                      <View 
+                        style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
+                        onStartShouldSetResponder={() => true}
+                      >
+                        <ScrollView 
+                          style={styles.miniDropdownScroll} 
+                          nestedScrollEnabled={true}
+                          keyboardShouldPersistTaps="handled"
+                          showsVerticalScrollIndicator={true}
+                        >
+                          {availableYears.map((year) => (
+                            <TouchableOpacity
+                              key={year}
+                              style={[
+                                styles.miniDropdownItem,
+                                rightYear === year && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                              ]}
+                              onPress={() => {
+                                setRightYear(year);
+                                setShowRightYearDropdown(false);
+                              }}
+                            >
+                              <Text style={[
+                                styles.miniDropdownItemText,
+                                { color: colors.text },
+                                rightYear === year && { color: colors.primary, fontWeight: '600' }
+                              ]}>
+                                {year}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    </Pressable>
+                  </Modal>
+                </View>
               </View>
             </View>
           </View>
 
-          {/* Period 2 */}
-          <View style={styles.periodSection}>
-            <Text style={[styles.periodLabel, { color: colors.textSecondary }]}>Period 2</Text>
-            <View style={styles.periodPickerRow}>
-              <View style={styles.miniDropdownWrapper}>
-                <TouchableOpacity
-                  style={[styles.miniDropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
-                  onPress={() => {
-                    closeAllDropdowns();
-                    setShowRightMonthDropdown(!showRightMonthDropdown);
-                  }}
-                >
-                  <Text style={[styles.miniDropdownText, { color: colors.text }]}>{MONTHS[rightMonth].slice(0, 3)}</Text>
-                  <Ionicons name={showRightMonthDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
-                </TouchableOpacity>
-                <Modal
-                  visible={showRightMonthDropdown}
-                  transparent={true}
-                  animationType="fade"
-                  onRequestClose={() => setShowRightMonthDropdown(false)}
-                >
-                  <Pressable 
-                    style={styles.modalBackdrop}
-                    onPress={() => setShowRightMonthDropdown(false)}
-                  >
-                    <View 
-                      style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
-                      onStartShouldSetResponder={() => true}
-                    >
-                      <ScrollView 
-                        style={styles.miniDropdownScroll} 
-                        nestedScrollEnabled={true}
-                        keyboardShouldPersistTaps="handled"
-                        showsVerticalScrollIndicator={true}
-                      >
-                        {MONTHS.map((month, index) => (
-                          <TouchableOpacity
-                            key={index}
-                            style={[
-                              styles.miniDropdownItem,
-                              rightMonth === index && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
-                            ]}
-                            onPress={() => {
-                              setRightMonth(index);
-                              setShowRightMonthDropdown(false);
-                            }}
-                          >
-                            <Text style={[
-                              styles.miniDropdownItemText,
-                              { color: colors.text },
-                              rightMonth === index && { color: colors.primary, fontWeight: '600' }
-                            ]}>
-                              {month.slice(0, 3)}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  </Pressable>
-                </Modal>
+          {/* Comparison Data */}
+          <View style={styles.comparisonGrid}>
+            <View style={styles.comparisonColumn}>
+              <Text style={[styles.comparisonHeader, { color: colors.text }]}>{MONTHS[leftMonth].slice(0, 3)} {leftYear}</Text>
+              <TouchableOpacity onPress={() => handleShowEventReport(leftMonth, leftYear, leftEventStats)}>  
+                <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
+                  <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Events</Text>
+                  <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{leftEventStats.total}</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleShowIncomeReport(leftMonth, leftYear, leftFinancialStats)}> 
+                <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
+                  <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Income</Text>
+                  <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{formatCurrency(leftFinancialStats.totalIncome)}</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleShowExpenseReport(leftMonth, leftYear, leftFinancialStats)}> 
+                <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
+                  <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Expenses</Text>
+                  <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{formatCurrency(leftFinancialStats.totalExpenses)}</Text>
+                </View>
+              </TouchableOpacity>
+              <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
+                <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Assets</Text>
+                <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{leftAssetStats.count}</Text>
               </View>
-              <View style={styles.miniDropdownWrapper}>
-                <TouchableOpacity
-                  style={[styles.miniDropdownButton, { backgroundColor: colors.background, borderColor: colors.border }]}
-                  onPress={() => {
-                    closeAllDropdowns();
-                    setShowRightYearDropdown(!showRightYearDropdown);
-                  }}
-                >
-                  <Text style={[styles.miniDropdownText, { color: colors.text }]}>{rightYear}</Text>
-                  <Ionicons name={showRightYearDropdown ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} />
-                </TouchableOpacity>
-                <Modal
-                  visible={showRightYearDropdown}
-                  transparent={true}
-                  animationType="fade"
-                  onRequestClose={() => setShowRightYearDropdown(false)}
-                >
-                  <Pressable 
-                    style={styles.modalBackdrop}
-                    onPress={() => setShowRightYearDropdown(false)}
-                  >
-                    <View 
-                      style={[styles.miniDropdownMenu, { backgroundColor: colors.card, borderColor: colors.border }]}
-                      onStartShouldSetResponder={() => true}
-                    >
-                      <ScrollView 
-                        style={styles.miniDropdownScroll} 
-                        nestedScrollEnabled={true}
-                        keyboardShouldPersistTaps="handled"
-                        showsVerticalScrollIndicator={true}
-                      >
-                        {availableYears.map((year) => (
-                          <TouchableOpacity
-                            key={year}
-                            style={[
-                              styles.miniDropdownItem,
-                              rightYear === year && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
-                            ]}
-                            onPress={() => {
-                              setRightYear(year);
-                              setShowRightYearDropdown(false);
-                            }}
-                          >
-                            <Text style={[
-                              styles.miniDropdownItemText,
-                              { color: colors.text },
-                              rightYear === year && { color: colors.primary, fontWeight: '600' }
-                            ]}>
-                              {year}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  </Pressable>
-                </Modal>
+            </View>
+            <View style={styles.comparisonColumn}>
+              <Text style={[styles.comparisonHeader, { color: colors.text }]}>{MONTHS[rightMonth].slice(0, 3)} {rightYear}</Text>
+              <TouchableOpacity onPress={() => handleShowEventReport(rightMonth, rightYear, rightEventStats)}>  
+                <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
+                  <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Events</Text>
+                  <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{rightEventStats.total}</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleShowIncomeReport(rightMonth, rightYear, rightFinancialStats)}> 
+                <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
+                  <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Income</Text>
+                  <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{formatCurrency(rightFinancialStats.totalIncome)}</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleShowExpenseReport(rightMonth, rightYear, rightFinancialStats)}> 
+                <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
+                  <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Expenses</Text>
+                  <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{formatCurrency(rightFinancialStats.totalExpenses)}</Text>
+                </View>
+              </TouchableOpacity>
+              <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
+                <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Assets</Text>
+                <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{rightAssetStats.count}</Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Comparison Data */}
-        <View style={styles.comparisonGrid}>
-          <View style={styles.comparisonColumn}>
-            <Text style={[styles.comparisonHeader, { color: colors.text }]}>{MONTHS[leftMonth].slice(0, 3)} {leftYear}</Text>
-            <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
-              <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Events</Text>
-              <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{leftEventStats.total}</Text>
-            </View>
-            <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
-              <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Income</Text>
-              <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{formatCurrency(leftFinancialStats.income)}</Text>
-            </View>
-            <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
-              <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Expenses</Text>
-              <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{formatCurrency(leftFinancialStats.totalExpenses)}</Text>
-            </View>
-            <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
-              <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Assets</Text>
-              <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{leftAssetStats.count}</Text>
-            </View>
-          </View>
-          <View style={styles.comparisonColumn}>
-            <Text style={[styles.comparisonHeader, { color: colors.text }]}>{MONTHS[rightMonth].slice(0, 3)} {rightYear}</Text>
-            <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
-              <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Events</Text>
-              <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{rightEventStats.total}</Text>
-            </View>
-            <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
-              <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Income</Text>
-              <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{formatCurrency(rightFinancialStats.income)}</Text>
-            </View>
-            <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
-              <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Expenses</Text>
-              <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{formatCurrency(rightFinancialStats.totalExpenses)}</Text>
-            </View>
-            <View style={[styles.comparisonItem, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
-              <Text style={[styles.comparisonItemLabel, { color: colors.textSecondary }]}>Assets</Text>
-              <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{rightAssetStats.count}</Text>
-            </View>
-          </View>
-        </View>
-      </View>
+        <View style={{ height: 24 }} />     
+      </ScrollView>
+      <Modal
+        visible={reportModal.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setReportModal({ ...reportModal, visible: false })}
+      >
+        <Pressable 
+          style={styles.modalOverlay} 
+          onPress={() => setReportModal({ ...reportModal, visible: false })}
+        >
+          <View 
+            style={[styles.reportModalContent, { backgroundColor: colors.card }]}
+            onStartShouldSetResponder={() => true}
+          >
+            <Text style={[styles.reportModalTitle, { color: colors.text }]}>
+              {reportModal.title}
+            </Text>
+            
+            <View style={[styles.reportDivider, { backgroundColor: colors.border }]} />
 
-      <View style={{ height: 24 }} />
-    </ScrollView>
+            {reportModal.data.map((item, index) => (
+              <View key={index} style={styles.reportRow}>
+                <Text style={[styles.reportLabel, { color: colors.textSecondary }]}>{item.label}</Text>
+                <Text style={[styles.reportValue, { color: colors.text }]}>{item.value}</Text>
+              </View>
+            ))}
+
+            <TouchableOpacity 
+              style={[styles.reportCloseButton, { backgroundColor: colors.primary }]}
+              onPress={() => setReportModal({ ...reportModal, visible: false })}
+            >
+              <Text style={styles.reportCloseButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  eventCard: {
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   centerContainer: {
     flex: 1,
@@ -922,5 +1037,58 @@ const styles = StyleSheet.create({
   comparisonItemValue: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },reportModalContent: {
+    width: '90%',
+    maxWidth: 400,
+    borderRadius: 20,
+    padding: 24,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+  },
+  reportModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  reportDivider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    marginBottom: 20,
+  },
+  reportRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  reportLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  reportValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  reportCloseButton: {
+    marginTop: 10,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  reportCloseButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

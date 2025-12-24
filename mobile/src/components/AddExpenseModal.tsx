@@ -397,7 +397,7 @@ export default function AddExpenseModal({ visible, onClose, expense }: AddExpens
                 indicatorStyle={isDark ? "white" : "black"}
                 style={styles.dropdownScroll}
               >
-                {['DDC Fund', ...(teamMembers?.map(m => m.name) || [])].map((account) => (
+                {['DDC Fund','Client Payment', ...(teamMembers?.map(m => m.name) || [])].map((account) => (
                   <TouchableOpacity 
                     key={account}
                     style={[styles.dropdownItem, formData.from_account === account && [styles.selectedDropdownItem, { backgroundColor: isDark ? '#4a5568' : '#fef2f2' }], { backgroundColor: colors.card }]}

@@ -130,6 +130,23 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     });
     return planIds;
   }, [allExpenses]);
+
+    const getExpenseIndicator = (paymentStatus: 'Paid' | 'Partial' | string) => {
+    switch (paymentStatus) {
+      case 'Paid':
+        return {
+          icon: 'checkmark-done-circle-sharp',
+          color: '#16a34a',
+        };
+      case 'Partial':
+        return {
+          icon: 'checkmark-circle',
+          color: '#eab308',
+        };
+      default:
+        return null;
+    }
+  };
   
   // Log data loading status
   console.log('📊 Data loading status:', {
@@ -544,9 +561,24 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
         {/* Row 1: Event Name with linked expense indicator */}
         <View style={styles.eventNameRow}>
           <Text style={[styles.eventName, { color: colors.text }]}>{event.eventName}</Text>
-          {eventLinkedExpense && eventLinkedExpense.id && (
-            <Ionicons name="checkmark-circle" size={22} color="#22c55e" style={{ flexShrink: 0 }} />
-          )}
+          {eventLinkedExpense && eventLinkedExpense.id && (() => {
+            const indicator = getExpenseIndicator(event.paymentStatus); 
+            
+            if (!indicator) return null;
+
+            return (
+              <View style={[
+                styles.linkedExpenseIndicator, 
+                { backgroundColor: isDark ? `${indicator.color}26` : `${indicator.color}15` }
+              ]}>
+                <Ionicons 
+                  name={indicator.icon as any} 
+                  size={16} 
+                  color={indicator.color} 
+                />
+              </View>
+            );
+          })()}
         </View>
         
         {/* Row 2: Service + Status */}
@@ -815,9 +847,24 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                                 color={colors.textSecondary} 
                               />
                               <Text style={[styles.planName, { color: colors.text }]}>{planDetails}</Text>
-                              {plansWithLinkedExpenses.has(plan.id) && (
-                                <Ionicons name="checkmark-circle" size={14} color="#22c55e" style={{ flexShrink: 0 }} />
-                              )}
+                              {plansWithLinkedExpenses.has(plan.id) && (() => {
+                                const indicator = getExpenseIndicator(event.paymentStatus); 
+                                
+                                if (!indicator) return null;
+                  
+                                return (
+                                  <View style={[
+                                    styles.linkedExpenseIndicator, 
+                                    { backgroundColor: isDark ? `${indicator.color}26` : `${indicator.color}15` }
+                                  ]}>
+                                    <Ionicons 
+                                      name={indicator.icon as any} 
+                                      size={16} 
+                                      color={indicator.color} 
+                                    />
+                                  </View>
+                                );
+                              })()}
                               <Text style={[styles.planPayment, { color: colors.primary }]}>₹{parseFloat(plan.payment || '0').toLocaleString()}</Text>
                               {isEventCompleted && (
                                 <TouchableOpacity
@@ -1101,6 +1148,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  linkedExpenseIndicator: {
+    padding: 4,
+    borderRadius: 12,
   },
   header: {
     padding: 20,
