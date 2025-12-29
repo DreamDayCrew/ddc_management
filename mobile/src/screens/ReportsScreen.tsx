@@ -1,9 +1,9 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Modal, Pressable, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Modal, Pressable, FlatList } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, useMemo } from 'react';
-import { useNavigation } from '@react-navigation/native';
 import { useEvents, useExpenses, useAssets } from '../hooks/useApi';
 import { useTheme } from '../contexts';
+import { useNavigation } from '@react-navigation/native';
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -304,18 +304,18 @@ export default function ReportsScreen() {
           reason = "Event " + event.eventStatus + " - Payment not received";
         } 
         else if (["Completed", "In Progress"].includes(event.eventStatus) && !isFullyPaid && isPartialPaid) {
-          reason = "Event " + event.eventStatus + " - Payment partially received (Quote: " + formatCurrency(finalizedQuote) + ") Due";
+          reason = "Event " + event.eventStatus + " - Payment partially received (Quote: " + formatCurrency(finalizedQuote) + " & Received: " + formatCurrency(actualPaid) + ") Due";
         } 
         else if ("Inquired" === event.eventStatus && (isFullyPaid || isPartialPaid)) {
-          reason = "Update event status to In Progress since DDC received payment (Quote: " + formatCurrency(finalizedQuote) + ") Due";
+          reason = "Update event status to In Progress since DDC received payment (Quote: " + formatCurrency(finalizedQuote) + " & Received: " + formatCurrency(actualPaid) + ") Due";
         }
 
         if (reason) {
           totalRiskAmount += balanceDue;
           reports.push({
-            label: `${event.clientName || "Client"} - ${event.eventName}`,
-            value: balanceDue > 0 ? `${reason}: ${formatCurrency(balanceDue)}` : reason,
-            eventId: event.id
+            id: event.id,
+            label: `${event.clientName || "Unknown Client"} - ${event.eventName}`,
+            value: balanceDue > 0 ? `${reason}: ${formatCurrency(balanceDue)}` : reason
           });
         }
       });
@@ -477,6 +477,49 @@ export default function ReportsScreen() {
                     </ScrollView>
                   </View>
                 </Pressable>
+              </Modal>
+              <Modal
+                visible={reportModal.visible}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setReportModal({ ...reportModal, visible: false })}
+              >
+                <View style={styles.modalOverlay}>
+                  <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
+                    <View style={styles.modalHeader}>
+                      <Text style={[styles.modalTitle, { color: colors.text }]}>{reportModal.title}</Text>
+                      <TouchableOpacity onPress={() => setReportModal({ ...reportModal, visible: false })}>
+                        <Ionicons name="close" size={24} color={colors.text} />
+                      </TouchableOpacity>
+                    </View>
+
+                    <FlatList
+                      data={reportModal.data}
+                      keyExtractor={(item: any, index: number) => `audit-${index}`}
+                      renderItem={({ item }: { item: any }) => (
+                        <TouchableOpacity 
+                          key={item.id}
+                          style={[styles.modalRow, { borderBottomColor: colors.border }]}
+                          onPress={() => {
+                            setReportModal({ ...reportModal, visible: false });
+                            navigation.navigate('Events', { screen: 'EventDetails', params: { eventId: item.id }});
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <View style={styles.modalContentText}>
+                            <Text style={[styles.modalLabel, { color: colors.text }]}>
+                              {item.label}
+                            </Text>
+                            <Text style={[styles.modalValue, { color: colors.textSecondary }]}>
+                              {item.value}
+                            </Text>
+                          </View>
+                          <Ionicons name="alert-circle" size={18} color="#f59e0b" style={{ marginTop: 2 }} />
+                        </TouchableOpacity>
+                      )}
+                    />
+                  </View>
+                </View>
               </Modal>
             </View>
 
@@ -931,62 +974,6 @@ export default function ReportsScreen() {
 
         <View style={{ height: 24 }} />     
       </ScrollView>
-      <Modal
-        visible={reportModal.visible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setReportModal({ ...reportModal, visible: false })}
-      >
-        <Pressable 
-          style={styles.modalOverlay} 
-          onPress={() => setReportModal({ ...reportModal, visible: false })}
-        >
-          <View 
-            style={[styles.reportModalContent, { backgroundColor: colors.card }]}
-            onStartShouldSetResponder={() => true}
-          >
-            <Text style={[styles.reportModalTitle, { color: colors.text }]}>
-              {reportModal.title}
-            </Text>
-            
-            <View style={[styles.reportDivider, { backgroundColor: colors.border }]} />
-
-            <ScrollView style={{ maxHeight: 300 }} nestedScrollEnabled={true}>
-              {reportModal.data.map((item, index) => (
-                <TouchableOpacity 
-                  key={index} 
-                  style={[styles.reportRow, item.eventId && styles.reportRowTappable]}
-                  onPress={() => {
-                    if (item.eventId) {
-                      setReportModal({ ...reportModal, visible: false });
-                      navigation.navigate('Events', { 
-                        screen: 'EventDetails', 
-                        params: { eventId: item.eventId } 
-                      });
-                    }
-                  }}
-                  disabled={!item.eventId}
-                >
-                  <View style={styles.reportRowContent}>
-                    <Text style={[styles.reportLabel, { color: colors.textSecondary }]}>{item.label}</Text>
-                    <Text style={[styles.reportValue, { color: colors.text }]}>{item.value}</Text>
-                  </View>
-                  {item.eventId && (
-                    <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <TouchableOpacity 
-              style={[styles.reportCloseButton, { backgroundColor: colors.primary }]}
-              onPress={() => setReportModal({ ...reportModal, visible: false })}
-            >
-              <Text style={styles.reportCloseButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
@@ -1260,7 +1247,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-  },reportModalContent: {
+  },
+  modalContentText: {
+    flex: 1,
+    paddingRight: 10, 
+  },
+  reportModalContent: {
     width: '90%',
     maxWidth: 400,
     borderRadius: 20,
@@ -1375,4 +1367,44 @@ const styles = StyleSheet.create({
     top: 0,
     padding: 4,
   },
+  modalContainer: {
+    width: '90%',
+    maxHeight: '80%',
+    borderRadius: 16,
+    padding: 16,
+    elevation: 5, // Android shadow
+    shadowColor: '#000', // iOS shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalTitle: {        // <--- Added this to fix your error
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(128,128,128,0.2)',
+  },
+  modalRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+    flexWrap: 'wrap', 
+  },
+  modalValue: {
+    fontSize: 12,
+    lineHeight: 18, 
+  }
 });
