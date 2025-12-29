@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Modal, Pressable, Alert, Platform } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, useMemo } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import { useEvents, useExpenses, useAssets } from '../hooks/useApi';
 import { useTheme } from '../contexts';
 
@@ -11,7 +12,7 @@ const MONTHS = [
 type ReportModalState = {
   visible: boolean;
   title: string;
-  data: { label: string; value: number | string }[];
+  data: { label: string; value: number | string; eventId?: string }[];
 };
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat("en-IN", {
@@ -33,6 +34,7 @@ const parseISODate = (dateStr: string): { month: number; year: number } | null =
 
 export default function ReportsScreen() {
   const { colors, isDark } = useTheme();
+  const navigation = useNavigation<any>();
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
@@ -312,7 +314,8 @@ export default function ReportsScreen() {
           totalRiskAmount += balanceDue;
           reports.push({
             label: `${event.clientName || "Client"} - ${event.eventName}`,
-            value: balanceDue > 0 ? `${reason}: ${formatCurrency(balanceDue)}` : reason
+            value: balanceDue > 0 ? `${reason}: ${formatCurrency(balanceDue)}` : reason,
+            eventId: event.id
           });
         }
       });
@@ -948,12 +951,32 @@ export default function ReportsScreen() {
             
             <View style={[styles.reportDivider, { backgroundColor: colors.border }]} />
 
-            {reportModal.data.map((item, index) => (
-              <View key={index} style={styles.reportRow}>
-                <Text style={[styles.reportLabel, { color: colors.textSecondary }]}>{item.label}</Text>
-                <Text style={[styles.reportValue, { color: colors.text }]}>{item.value}</Text>
-              </View>
-            ))}
+            <ScrollView style={{ maxHeight: 300 }} nestedScrollEnabled={true}>
+              {reportModal.data.map((item, index) => (
+                <TouchableOpacity 
+                  key={index} 
+                  style={[styles.reportRow, item.eventId && styles.reportRowTappable]}
+                  onPress={() => {
+                    if (item.eventId) {
+                      setReportModal({ ...reportModal, visible: false });
+                      navigation.navigate('Events', { 
+                        screen: 'EventDetails', 
+                        params: { eventId: item.eventId } 
+                      });
+                    }
+                  }}
+                  disabled={!item.eventId}
+                >
+                  <View style={styles.reportRowContent}>
+                    <Text style={[styles.reportLabel, { color: colors.textSecondary }]}>{item.label}</Text>
+                    <Text style={[styles.reportValue, { color: colors.text }]}>{item.value}</Text>
+                  </View>
+                  {item.eventId && (
+                    <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
 
             <TouchableOpacity 
               style={[styles.reportCloseButton, { backgroundColor: colors.primary }]}
@@ -1264,6 +1287,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+  },
+  reportRowTappable: {
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    marginHorizontal: -8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(128, 0, 32, 0.05)',
+  },
+  reportRowContent: {
+    flex: 1,
+    marginRight: 8,
   },
   reportLabel: {
     fontSize: 15,
