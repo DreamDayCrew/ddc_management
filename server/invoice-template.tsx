@@ -399,12 +399,12 @@ export const ServerInvoiceTemplate: React.FC<InvoiceTemplateProps> = ({
           
           <View style={styles.invoiceDetails}>
             <View style={styles.invoiceDetailRow}>
-              <Text style={styles.invoiceLabel}>{documentType === 'Quotation' ? 'Quotation#' : 'Invoice#'}</Text>
+              <Text style={styles.invoiceLabel}>{documentType === 'Quotation' ? 'Quotation:' : 'Invoice:'}</Text>
               <Text style={styles.invoiceValue}>{invoiceNumber}</Text>
             </View>
             <View style={styles.invoiceDetailRow}>
               <Text style={styles.invoiceLabel}>Event Date:</Text>
-              <Text style={styles.invoiceValue}>{event.eventDate}</Text>
+              <Text style={styles.invoiceValue}>{event.eventDate ? formatDate(event.eventDate) : 'TBD'}</Text>
             </View>
             <View style={styles.invoiceDetailRow}>
               <Text style={styles.invoiceLabel}>Date:</Text>

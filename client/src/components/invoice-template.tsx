@@ -398,7 +398,7 @@ export const InvoiceTemplate = ({
           
           <View style={styles.invoiceDetails}>
             <View style={styles.invoiceDetailRow}>
-              <Text style={styles.invoiceLabel}>{documentType === 'Quotation' ? 'Quotation#' : 'Invoice#'}</Text>
+              <Text style={styles.invoiceLabel}>{documentType === 'Quotation' ? 'Quotation:' : 'Invoice:'}</Text>
               <Text style={styles.invoiceValue}>{invoiceNumber}</Text>
             </View>
             <View style={styles.invoiceDetailRow}>
