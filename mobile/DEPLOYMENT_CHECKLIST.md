@@ -10,7 +10,7 @@ Before building your APK for distribution, **make sure you complete ALL these st
 
 **Current code:**
 ```typescript
-const PRODUCTION_API_URL = process.env.EXPO_PUBLIC_API_URL || 'REPLACE_WITH_YOUR_REPLIT_URL';
+const PRODUCTION_API_URL = process.env.o || 'REPLACE_WITH_YOUR_REPLIT_URL';
 ```
 
 **What to do:**

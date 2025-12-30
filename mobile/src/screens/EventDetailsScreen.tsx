@@ -472,17 +472,10 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       // Create download URL for the quotation (matches server endpoint)
       const baseUrl = envConfig.API_URL;
       const downloadUrl = `${baseUrl}/api/events/${eventId}/quotation?quotation_number=${quotationNumber}`;
-      
-      console.log('🌐 Quotation API Configuration:');
-      console.log('  Base URL:', baseUrl);
-      console.log('  Full download URL:', downloadUrl);
-      console.log('  Quotation number:', quotationNumber);
-      
+            
       // Download quote directly
       if (Platform.OS === 'web') {
-        console.log('🔗 Opening quotation URL:', downloadUrl);
         window.open(downloadUrl, '_blank');
-        console.log('✅ Opened in new tab (web)');
       } else {
         console.log('🔗 Opening quotation URL:', downloadUrl);
         Linking.openURL(downloadUrl)
@@ -493,8 +486,6 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
           });
       }
     } catch (error) {
-      console.error('💥 Quote download error:', error);
-      console.error('💥 Error details:', JSON.stringify(error, null, 2));
       Alert.alert('Error', `Failed to download quote: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
@@ -517,6 +508,15 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       const cost = parseFloat(plan.payment || '0');
       return total + (isNaN(cost) ? 0 : cost);
     }, 0);
+  };
+
+  const formatDate = (date: Date | string): string => {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return d.toLocaleDateString('en-IN', { 
+      day: '2-digit',
+      month: '2-digit', 
+      year: 'numeric', 
+    });
   };
 
   if (eventLoading || requirementsLoading || plansLoading) {
@@ -686,7 +686,7 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       {/* Event Information */}
       <View style={[styles.section, { backgroundColor: colors.card, shadowColor: isDark ? '#000' : '#000' }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Event Information</Text>
-        <InfoRow icon="calendar" label="Event Date" value={new Date(event.eventDate).toLocaleDateString()} />
+        <InfoRow icon="calendar" label="Event Date" value={formatDate(event.eventDate)} />
         <InfoRow icon="location" label="Venue" value={event.venue} />
         {event.clientName && <InfoRow icon="person" label="Client" value={event.clientName} />}
         {event.clientPhone && <InfoRow icon="call" label="Phone" value={event.clientPhone} />}

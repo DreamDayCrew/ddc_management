@@ -42,6 +42,8 @@ export default function AddAssetModal({ visible, onClose, asset, onCreated }: Ad
     quantity: '1',
     purchasedAmount: '',
     status: 'Active',
+    detailsAndUse: '',
+    warranty: '',
   });
 
   // Sync form data when asset prop changes
@@ -52,7 +54,9 @@ export default function AddAssetModal({ visible, onClose, asset, onCreated }: Ad
         category: asset.category || '',
         quantity: asset.quantity?.toString() || '1',
         purchasedAmount: asset.purchasedAmount?.toString() || '',
-        status: asset.status || 'Available',
+        status: asset.status || 'Active',
+        detailsAndUse: asset.detailsAndUse || '',
+        warranty: asset.warranty || '',
       });
       setPurchaseDate(asset.purchaseDate ? new Date(asset.purchaseDate) : new Date());
     } else if (!visible) {
@@ -95,6 +99,8 @@ export default function AddAssetModal({ visible, onClose, asset, onCreated }: Ad
       quantity: '1',
       purchasedAmount: '',
       status : 'Active',
+      detailsAndUse: '',
+      warranty: '',
     });
     setPurchaseDate(new Date());
     setShowCategoryDropdown(false);
@@ -186,6 +192,28 @@ export default function AddAssetModal({ visible, onClose, asset, onCreated }: Ad
                 placeholder="1"
                 placeholderTextColor={colors.textSecondary}
                 keyboardType="number-pad"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.text }]}>Details & Use</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
+                value={formData.detailsAndUse}
+                onChangeText={(text) => setFormData({ ...formData, detailsAndUse: text })}
+                placeholder="Enter details and use"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.text }]}>Warranty</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
+                value={formData.warranty}
+                onChangeText={(text) => setFormData({ ...formData, warranty: text })}
+                placeholder="Enter warranty details"
+                placeholderTextColor={colors.textSecondary}
               />
             </View>
 
@@ -300,11 +328,11 @@ export default function AddAssetModal({ visible, onClose, asset, onCreated }: Ad
                 indicatorStyle={isDark ? "white" : "black"}
                 style={styles.dropdownScroll}
               >
-                {['Available', 'In Use', 'Under Maintenance', 'Retired'].map((status: string) => (
+                {['Active', 'Inactive', 'Maintenance'].map((status: string) => (
                   <TouchableOpacity 
                     key={status}
                     style={[
-                      styles.dropdownItem, 
+                      styles.dropdownItem,     
                       { backgroundColor: colors.card, borderBottomColor: colors.border },
                       formData.status === status && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
                     ]}

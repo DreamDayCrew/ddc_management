@@ -8,16 +8,30 @@ import {
   Vibration,
   Dimensions,
   StatusBar,
-  Modal,
+  Modal,TextInput
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSecurity, useTheme } from '../contexts';
 import * as LocalAuthentication from 'expo-local-authentication';
+import emailjs from '@emailjs/react-native';
+const EMAILJS_SERVICE_ID = 'service_dsvsoaq';
+const EMAILJS_TEMPLATE_ID = 'template_ufd0aek';
+const EMAILJS_PUBLIC_KEY = 'ojcaaXdZZl0BcPZ5t';
 
 const BRAND_MAROON = '#800020';
 const { width, height } = Dimensions.get('window');
 
 export default function AuthenticationScreen() {
+  const [forgotPinStep, setForgotPinStep] = useState<'EMAIL' | 'OTP'>('EMAIL');
+  const [emailInput, setEmailInput] = useState('');
+  const [otpInput, setOtpInput] = useState('');
+  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [otpExpiry, setOtpExpiry] = useState<number | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
   const { colors, isDark } = useTheme();
   const { securitySettings, setAuthenticated, authenticate, updateSecuritySettings } = useSecurity();
   const [enteredPin, setEnteredPin] = useState('');
@@ -29,6 +43,76 @@ export default function AuthenticationScreen() {
 
   const MAX_ATTEMPTS = 5;
   const LOCK_DURATION = 300; // 5 minutes in seconds
+
+  const validateEmail = (email: string) => {
+    return /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email);
+  };
+  const formatExpiryTime = (timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  };
+  const handleRequestOtp = async () => {
+    setEmailError('');
+    setSuccessMessage('');
+    if (!validateEmail(emailInput)) {
+      setEmailError('Please enter a valid email address.');
+      return;
+    }
+
+    setIsSending(true);
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiryTime = Date.now() + 15 * 60 * 1000;
+    const readableExpiry = formatExpiryTime(expiryTime);
+
+    setGeneratedOtp(otp);
+    try {
+      await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_ID,
+        {
+          email: emailInput,
+          passcode: otp,
+          time: readableExpiry,
+        },
+        {
+          publicKey: EMAILJS_PUBLIC_KEY, 
+        } 
+      );
+      setGeneratedOtp(otp);
+      setForgotPinStep('OTP');
+      setOtpExpiry(expiryTime);
+      setSuccessMessage(`Email sent successfully to ${emailInput}.`);
+    } catch (error) {
+      console.error('EmailJS Error:', error);
+      setEmailError('Failed to send email. Check your connection.');
+    } finally {
+      setIsSending(false);
+    }
+  };
+  
+  const handleVerifyOtp = () => {
+    setOtpError('');
+    const now = Date.now();
+    if (!otpExpiry || now > otpExpiry) {
+      setOtpError('This OTP has expired. Please request a new one.');
+      setGeneratedOtp(''); 
+      setForgotPinStep('EMAIL'); 
+      return;
+    }
+    if (otpInput === generatedOtp) {
+      setShowForgotPinModal(false);
+      setShowForgotPin(true); 
+      setForgotPinStep('EMAIL');
+      setGeneratedOtp('');
+      setOtpExpiry(null);
+      setOtpInput('');
+      setAuthenticated(true);
+    } else {
+      setOtpError('Incorrect OTP. Please try again.');
+    }
+  };
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -353,6 +437,7 @@ export default function AuthenticationScreen() {
     );
   }
 
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle="light-content" backgroundColor={BRAND_MAROON} />
@@ -426,41 +511,141 @@ export default function AuthenticationScreen() {
       </View>
       
       {/* Custom Forgot PIN Modal */}
-      <Modal
-        visible={showForgotPinModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowForgotPinModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Forgot PIN</Text>
-            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>What would you like to do?</Text>
-            
-            <TouchableOpacity
-              style={[styles.modalButton, { backgroundColor: colors.surface }]}
-              onPress={() => {
-                setShowForgotPinModal(false);
-                handleBiometricReset();
-              }}
-            >
-              <Text style={[styles.modalButtonText, { color: colors.text }]}>Use Biometric</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.modalButton, styles.modalButtonCancel, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={() => setShowForgotPinModal(false)}
-            >
-              <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
+      <Modal visible={showForgotPinModal} transparent animationType="slide">
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          {/* SUCCESS MESSAGE DISPLAY */}
+          {successMessage ? (
+            <View style={styles.successContainer}>
+              <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+              <Text style={styles.successText}>{successMessage}</Text>
+            </View>
+          ) : null}
+          <Text style={[styles.modalTitle, { color: colors.text }]}>
+            {forgotPinStep === 'EMAIL' ? 'Forgot PIN' : 'Verify OTP'}
+          </Text>
+
+          {forgotPinStep === 'EMAIL' ? (
+            <>
+              <TextInput
+                style={[
+                  styles.emailInput, 
+                  { borderColor: emailError ? '#ef4444' : colors.border, color: colors.text }
+                ]}
+                placeholder="Email Address"
+                value={emailInput}
+                onChangeText={(text) => {
+                  setEmailInput(text);
+                  if (emailError) setEmailError(''); // Clear error while typing
+                }}
+              />
+              {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+              
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: BRAND_MAROON }]} 
+                onPress={handleRequestOtp}
+                disabled={isSending}
+              >
+                <Text style={{color: '#fff', fontWeight: 'bold'}}>
+                  {isSending ? 'Sending...' : 'Send OTP'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TextInput
+                style={[
+                  styles.emailInput, 
+                  { borderColor: otpError ? '#ef4444' : colors.border, textAlign: 'center', color: colors.text }
+                ]}
+                placeholder="000000"
+                value={otpInput}
+                onChangeText={(text) => {
+                  setOtpInput(text);
+                  if (otpError) setOtpError('');
+                  if (text.length === 6 && text === generatedOtp) {
+                    setShowForgotPinModal(false);
+                    setAuthenticated(true);
+                  } else {
+                    setOtpError('Incorrect OTP');
+                  }
+                }}
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+              {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
+
+              {/* Validate and Resend Buttons 
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: BRAND_MAROON }]} 
+                onPress={handleVerifyOtp}
+              >
+                <Text style={{color: '#fff', fontWeight: 'bold'}}>Validate OTP</Text>
+              </TouchableOpacity>
+              */}
+
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: BRAND_MAROON }]} 
+                onPress={handleRequestOtp}
+              >
+                <Text style={{color: '#fff', fontWeight: 'bold'}}>Resent OTP</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* Cancel Button */}
+          <TouchableOpacity 
+            onPress={() => {
+              setShowForgotPinModal(false);
+              setEmailError('');
+              setOtpError('');
+            }}
+          >
+            <Text style={{ color: colors.textSecondary, marginTop: 10 }}>Cancel</Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
+      </View>
+    </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  successContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ecfdf5', // Very light green background
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 15,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  successText: {
+    color: '#059669', // Dark green text
+    fontSize: 13,
+    fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
+  },
+  emailInput: {
+    width: '100%',
+    height: 50,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    marginBottom: 20,
+    fontSize: 16,
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 12,
+    alignSelf: 'flex-start',
+    marginBottom: 15,
+    marginTop: -15,
+    marginLeft: 5,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f9fafb',

@@ -441,11 +441,11 @@ export default function AssetsScreen() {
 
 function getStatusColor(status: string, colors: any, isDark: boolean) {
   switch (status) {
-    case 'Available':
+    case 'Active':
       return { backgroundColor: isDark ? '#065f46' : '#d1fae5' };
-    case 'In Use':
+    case 'Inactive':
       return { backgroundColor: isDark ? '#1e40af' : '#dbeafe' };
-    case 'Under Maintenance':
+    case 'Maintenance':
       return { backgroundColor: isDark ? '#92400e' : '#fef3c7' };
     case 'Retired':
       return { backgroundColor: isDark ? '#7f1d1d' : '#fee2e2' };
