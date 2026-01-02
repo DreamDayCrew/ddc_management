@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSecurity, useTheme, useUser } from '../contexts';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { api } from '../lib/api';
+import { config } from '../config/environment';
 const BRAND_MAROON = '#800020';
 const { width, height } = Dimensions.get('window');
 
@@ -22,7 +23,6 @@ export default function AuthenticationScreen() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [otpInput, setOtpInput] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState('');
   const [otpExpiry, setOtpExpiry] = useState<number | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -98,7 +98,7 @@ export default function AuthenticationScreen() {
     setIsSending(true);
     try {
       // Request OTP generation and email from backend
-      const response = await fetch(`${api.config.API_URL}/api/auth/generate-otp`, {
+      const response = await fetch(`${config.API_URL}/api/auth/generate-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ memberId: user.id }),
@@ -120,25 +120,37 @@ export default function AuthenticationScreen() {
     }
   };
   
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
+    if (!user?.id) {
+      setOtpError('User not found. Please restart the app.');
+      return;
+    }
     setOtpError('');
     const now = Date.now();
     if (!otpExpiry || now > otpExpiry) {
       setOtpError('This code has expired. Please request a new one.');
-      setGeneratedOtp(''); 
-      setForgotPinStep('CONFIRM'); 
+      setForgotPinStep('CONFIRM');
       return;
     }
-    if (otpInput === generatedOtp) {
-      setShowForgotPinModal(false);
-      setShowForgotPin(true); 
-      setForgotPinStep('CONFIRM');
-      setGeneratedOtp('');
-      setOtpExpiry(null);
-      setOtpInput('');
-      setAuthenticated(true);
-    } else {
-      setOtpError('Incorrect code. Please try again.');
+    try {
+      const response = await fetch(`${config.API_URL}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId: user.id, otp: otpInput }),
+      });
+      const result = await response.json();
+      if (result.valid) {
+        setShowForgotPinModal(false);
+        setShowForgotPin(true);
+        setForgotPinStep('CONFIRM');
+        setOtpExpiry(null);
+        setOtpInput('');
+      } else {
+        setOtpError(result.error || 'Incorrect code. Please try again.');
+      }
+    } catch (error) {
+      console.error('Verify OTP Error:', error);
+      setOtpError('Failed to verify code. Please check your connection.');
     }
   };
 
@@ -615,23 +627,19 @@ export default function AuthenticationScreen() {
                 onChangeText={(text) => {
                   setOtpInput(text);
                   if (otpError) setOtpError('');
-                  if (text.length === 6) {
-                    if (text === generatedOtp) {
-                      setShowForgotPinModal(false);
-                      setShowForgotPin(true);
-                      setForgotPinStep('CONFIRM');
-                      setGeneratedOtp('');
-                      setOtpExpiry(null);
-                      setOtpInput('');
-                    } else {
-                      setOtpError('Incorrect code. Please try again.');
-                    }
-                  }
                 }}
                 keyboardType="number-pad"
                 maxLength={6}
               />
               {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
+
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: BRAND_MAROON, opacity: otpInput.length !== 6 ? 0.5 : 1 }]} 
+                onPress={handleVerifyOtp}
+                disabled={otpInput.length !== 6}
+              >
+                <Text style={{color: '#fff', fontWeight: 'bold'}}>Verify Code</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity 
                 style={[styles.modalButton, { backgroundColor: BRAND_MAROON }]} 
