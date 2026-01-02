@@ -10,6 +10,7 @@ import {
   Settings,
   BookOpen,
   BarChart3,
+  LogOut,
 } from "lucide-react";
 import {
   Sidebar,
@@ -20,8 +21,11 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Link, useLocation } from "wouter";
+import { useAuth } from "@/contexts/auth-context";
+import { Button } from "@/components/ui/button";
 
 const menuItems = [
   {
@@ -88,6 +92,7 @@ const menuItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const { user, logout } = useAuth();
 
   return (
     <Sidebar>
@@ -116,6 +121,26 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="p-4 border-t">
+        <div className="flex flex-col gap-2">
+          {user && (
+            <div className="text-sm">
+              <p className="font-medium text-foreground">{user.name}</p>
+              <p className="text-xs text-muted-foreground">{user.designation}</p>
+            </div>
+          )}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={logout}
+            className="justify-start text-muted-foreground hover:text-foreground"
+            data-testid="button-logout"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
+        </div>
+      </SidebarFooter>
     </Sidebar>
   );
 }

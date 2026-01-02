@@ -289,6 +289,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(204).send();
   });
 
+  // Authentication routes
+  app.post("/api/auth/validate", async (req, res) => {
+    try {
+      const { memberId, password } = req.body;
+      
+      if (!memberId || !password) {
+        return res.status(400).json({ error: "Member ID and password are required" });
+      }
+      
+      const member = await storage.getTeamMember(memberId);
+      if (!member) {
+        return res.status(404).json({ error: "Team member not found" });
+      }
+      
+      // Check if password matches (password stored as base64)
+      const storedPassword = member.password || '';
+      const encodedInputPassword = Buffer.from(password).toString('base64');
+      
+      if (storedPassword === encodedInputPassword) {
+        res.json({ valid: true, member: { id: member.id, name: member.name, designation: member.designation } });
+      } else {
+        res.json({ valid: false });
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/auth/update-password", async (req, res) => {
+    try {
+      const { memberId, password } = req.body;
+      
+      if (!memberId || !password) {
+        return res.status(400).json({ error: "Member ID and password are required" });
+      }
+      
+      if (password.length < 4) {
+        return res.status(400).json({ error: "Password must be at least 4 characters" });
+      }
+      
+      // Encode password as base64
+      const encodedPassword = Buffer.from(password).toString('base64');
+      
+      const member = await storage.updateTeamMember(memberId, { password: encodedPassword });
+      if (!member) {
+        return res.status(404).json({ error: "Team member not found" });
+      }
+      
+      res.json({ success: true, member: { id: member.id, name: member.name, designation: member.designation } });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Expense routes
   app.get("/api/expenses", async (_req, res) => {
     console.log('[API] GET /api/expenses - Fetching all expenses');
