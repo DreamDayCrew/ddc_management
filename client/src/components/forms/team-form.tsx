@@ -32,6 +32,7 @@ export function TeamForm({ member, onSuccess }: TeamFormProps) {
       designation: member?.designation || "",
       email: member?.email || "",
       phone: member?.phone || "",
+      password: member?.password || "",
     },
   });
 

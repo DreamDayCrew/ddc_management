@@ -619,7 +619,13 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
         
         {/* Row 2: Service + Status */}
         <View style={styles.serviceStatusRow}>
-          <Text style={[styles.eventService, { color: colors.primary }]}>{event.providedService}</Text>
+          <Text 
+            style={[styles.eventService, { color: colors.primary }]} 
+            numberOfLines={2}
+            ellipsizeMode="tail"
+          >
+            {event.providedService}
+          </Text>
           <View style={[styles.statusBadge, getStatusColor(event.eventStatus)]}>
             <Text style={[styles.statusText, { color: '#000000' }]}>{event.eventStatus}</Text>
           </View>
@@ -1211,6 +1217,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     marginBottom: 12,
+    flexWrap: 'nowrap',
   },
   headerActions: {
     flexDirection: 'row',
@@ -1235,6 +1242,8 @@ const styles = StyleSheet.create({
   },
   eventService: {
     fontSize: 16,
+    flex: 1,
+    flexShrink: 1,
   },
   statusBadge: {
     paddingHorizontal: 12,

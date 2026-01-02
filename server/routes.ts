@@ -1011,16 +1011,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/events/:id", async (req, res) => {
     const eventId = req.params.id;
-    // 1. Delete all plans linked to each requirement of the event
+    
+    // 1. Delete all expenses linked to the event directly
+    const eventExpenses = await storage.getExpensesByEventId(eventId);
+    console.log(`Deleting ${eventExpenses.length} expense(s) linked to event ${eventId}`);
+    for (const expense of eventExpenses) {
+      await storage.deleteExpense(expense.id);
+    }
+    
+    // 2. Delete all plans and their linked expenses for each requirement of the event
     const requirements = await storage.getRequirements(eventId);
     for (const req of requirements) {
       const plans = await storage.getFulfillmentPlans(req.id);
       for (const plan of plans) {
+        // Delete expenses linked to this fulfillment plan
+        const planExpenses = await storage.getExpensesByPlanId(plan.id);
+        console.log(`Deleting ${planExpenses.length} expense(s) linked to plan ${plan.id}`);
+        for (const expense of planExpenses) {
+          await storage.deleteExpense(expense.id);
+        }
         await storage.deleteFulfillmentPlan(plan.id);
       }
       await storage.deleteRequirement(req.id);
     }
-    // 2. Delete the main event
+    
+    // 3. Delete the main event
     const deleted = await storage.deleteEvent(eventId);
     if (!deleted) {
       return res.status(404).json({ error: "Event not found" });
@@ -1460,7 +1475,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete requirement for a specific event
   app.delete("/api/events/:eventId/requirements/:id", async (req, res) => {
     try {
-      await storage.deleteRequirement(req.params.id);
+      const requirementId = req.params.id;
+      
+      // Delete all expenses linked to fulfillment plans of this requirement
+      const plans = await storage.getFulfillmentPlans(requirementId);
+      for (const plan of plans) {
+        const planExpenses = await storage.getExpensesByPlanId(plan.id);
+        console.log(`Deleting ${planExpenses.length} expense(s) linked to plan ${plan.id}`);
+        for (const expense of planExpenses) {
+          await storage.deleteExpense(expense.id);
+        }
+        await storage.deleteFulfillmentPlan(plan.id);
+      }
+      
+      await storage.deleteRequirement(requirementId);
       res.status(204).send();
     } catch (error: any) {
       console.error("Error deleting requirement:", error);

@@ -311,6 +311,18 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getExpensesByEventId(eventId: string): Promise<Expense[]> {
+    console.log(`[DB] Fetching all expenses by event ID: ${eventId}`);
+    try {
+      const result = await db.select().from(expenses).where(eq(expenses.eventId, eventId));
+      console.log(`[DB] Found ${result.length} expense(s) for event ${eventId}`);
+      return result;
+    } catch (error) {
+      console.error(`[DB] Error fetching expenses by event ${eventId}:`, error);
+      return [];
+    }
+  }
+
   async getExpenseByPlanId(planId: string): Promise<Expense | undefined> {
     console.log(`[DB] Fetching expense by plan ID: ${planId}`);
     try {
@@ -320,6 +332,18 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error(`[DB] Error fetching expense by plan ${planId}:`, error);
       throw error;
+    }
+  }
+
+  async getExpensesByPlanId(planId: string): Promise<Expense[]> {
+    console.log(`[DB] Fetching all expenses by plan ID: ${planId}`);
+    try {
+      const result = await db.select().from(expenses).where(eq(expenses.fulfillmentPlanId, planId));
+      console.log(`[DB] Found ${result.length} expense(s) for plan ${planId}`);
+      return result;
+    } catch (error) {
+      console.error(`[DB] Error fetching expenses by plan ${planId}:`, error);
+      return [];
     }
   }
 
