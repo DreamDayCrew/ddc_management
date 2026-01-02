@@ -585,7 +585,7 @@ export default function AuthenticationScreen() {
                   <Text style={[styles.confirmText, { color: colors.textSecondary }]}>
                     A reset code will be sent to:
                   </Text>
-                  <Text style={[styles.emailDisplay, { color: colors.text }]}>
+                  <Text style={[styles.emailDisplay, { color: colors.text, backgroundColor: colors.card }]}>
                     {maskEmail(userEmail)}
                   </Text>
                   
@@ -723,7 +723,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
     padding: 12,
-    backgroundColor: '#f3f4f6',
     borderRadius: 8,
     width: '100%',
   },
