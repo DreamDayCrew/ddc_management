@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { ServerInvoiceTemplate } from './invoice-template';
 import { ServerCatalogTemplate } from './catalog-template';
+import { ServerEventReportTemplate } from './event-report-template';
 import React from 'react';
 import multer from 'multer';
 import path from 'path';
@@ -939,6 +940,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('  Full error object:', error);
       res.status(500).json({ 
         error: "Failed to generate invoice",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
+  // Event Report PDF generation endpoint
+  app.get("/api/events/:id/report", async (req, res) => {
+    console.log('📊 Event Report API called');
+    console.log('  Event ID:', req.params.id);
+    
+    try {
+      const { id } = req.params;
+      
+      // Fetch event data
+      const event = await storage.getEvent(id);
+      if (!event) {
+        console.error('❌ Event not found for report:', id);
+        return res.status(404).json({ error: "Event not found" });
+      }
+      
+      console.log('✅ Event found for report:', event.eventName);
+      
+      // Fetch requirements with fulfillment plans
+      const requirements = await storage.getRequirements(id);
+      console.log('✅ Requirements found:', requirements.length);
+      
+      // Fetch fulfillment plans for each requirement
+      const requirementsWithPlans = await Promise.all(
+        requirements.map(async (req) => {
+          const plans = await storage.getFulfillmentPlans(req.id);
+          return { ...req, plans: plans || [] };
+        })
+      );
+      
+      // Fetch configuration
+      const config = await storage.getConfiguration();
+      console.log('✅ Configuration loaded');
+      
+      // Fetch linked expense for this event
+      let eventExpense = null;
+      try {
+        eventExpense = await storage.getExpenseByEventId(id);
+      } catch (e) {
+        console.log('No linked expense found for event');
+      }
+      
+      // Generate PDF
+      console.log('🎨 Starting Event Report PDF generation...');
+      const reportElement = ServerEventReportTemplate({
+        event,
+        requirements: requirementsWithPlans,
+        configuration: config || null,
+        eventExpense: eventExpense || null,
+      });
+      
+      if (!reportElement) {
+        console.error('❌ Failed to generate event report template');
+        return res.status(500).json({ error: "Failed to generate event report template" });
+      }
+      
+      console.log('✅ Event Report template generated successfully');
+      
+      const pdfBuffer = await renderToBuffer(reportElement as React.ReactElement);
+      console.log('✅ PDF buffer generated, size:', pdfBuffer.length, 'bytes');
+      
+      // Set response headers for PDF download
+      const fileName = `EventReport_${event.eventName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      
+      console.log('✅ Sending Event Report PDF to client');
+      res.send(pdfBuffer);
+      
+    } catch (error: any) {
+      console.error('💥 Event Report generation error:');
+      console.error('  Error message:', error.message);
+      console.error('  Error stack:', error.stack);
+      res.status(500).json({ 
+        error: "Failed to generate event report",
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }

@@ -52,7 +52,7 @@ import { FulfillmentForm } from "@/components/forms/fulfillment-form";
 import { RequirementItem } from "@/components/requirement-item";
 import { InvoiceTemplate } from "@/components/invoice-template";
 import { EventGallery } from "@/components/event-gallery";
-import { RefreshCcwDot, ArrowLeft, FileDown, FileText, Upload, Calendar, MapPin, Link, User, Plus, Edit, Trash2, SquareUserRound, Mail, MapPinHouse, BadgeIndianRupee, ChartColumn, HeartHandshake, HeartCrack, Meh, Smile, SmilePlus } from "lucide-react";
+import { RefreshCcwDot, ArrowLeft, FileDown, FileText, Upload, Calendar, MapPin, Link, User, Plus, Edit, Trash2, SquareUserRound, Mail, MapPinHouse, BadgeIndianRupee, ChartColumn, HeartHandshake, HeartCrack, Meh, Smile, SmilePlus, ClipboardList, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 
@@ -70,6 +70,7 @@ export default function EventDetails() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showDeleteEventDialog, setShowDeleteEventDialog] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
   
   // Handle refresh invoice value button click
   const handleRefreshInvoice = async () => {
@@ -95,6 +96,42 @@ export default function EventDetails() {
         description: "Failed to refresh invoice value: " + (error as Error).message,
         variant: "destructive",
       });
+    }
+  };
+
+  const handleDownloadReport = async () => {
+    if (!id) return;
+    
+    setIsDownloadingReport(true);
+    try {
+      const response = await fetch(`/api/events/${id}/report`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate report');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `EventReport_${event?.eventName?.replace(/[^a-zA-Z0-9]/g, '_') || 'Event'}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Success",
+        description: "Event Report downloaded successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download event report: " + (error as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingReport(false);
     }
   };
 
@@ -713,6 +750,21 @@ export default function EventDetails() {
               </div>
             )
           )}
+          
+          {/* Event Report Download Button */}
+          <Button 
+            variant="outline" 
+            onClick={handleDownloadReport}
+            disabled={isDownloadingReport}
+            data-testid="button-generate-report"
+          >
+            {isDownloadingReport ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <ClipboardList className="h-4 w-4 mr-2" />
+            )}
+            {isDownloadingReport ? "Generating..." : "Event Report"}
+          </Button>
           
           {/* Event Gallery - Shows all images from requirements */}
           <EventGallery requirements={requirements} eventName={event.eventName} eventId={id || ""} />

@@ -490,6 +490,38 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     }
   };
 
+  const handleDownloadReport = async () => {
+    console.log('📊 Starting event report download process...');
+    console.log('📊 Event ID:', eventId);
+    
+    try {
+      if (!event) {
+        Alert.alert('Error', 'Event data not loaded');
+        return;
+      }
+
+      const baseUrl = envConfig.API_URL;
+      const downloadUrl = `${baseUrl}/api/events/${eventId}/report`;
+      
+      console.log('🔗 Opening event report URL:', downloadUrl);
+      
+      if (Platform.OS === 'web') {
+        window.open(downloadUrl, '_blank');
+        console.log('✅ Opened in new tab (web)');
+      } else {
+        Linking.openURL(downloadUrl)
+          .then(() => console.log('✅ Opened URL in browser'))
+          .catch((error) => {
+            console.error('❌ Failed to open URL:', error);
+            Alert.alert('Error', 'Cannot open browser');
+          });
+      }
+    } catch (error) {
+      console.error('💥 Event report download error:', error);
+      Alert.alert('Error', `Failed to download event report: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([refetchEvent(), refetchRequirements(), refetchPlans()]);
@@ -604,6 +636,13 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
             data-testid="button-download-invoice"
           >
             <Ionicons name="download-outline" size={22} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.iconButton, { backgroundColor: colors.surface }]}
+            onPress={handleDownloadReport}
+            data-testid="button-download-report"
+          >
+            <Ionicons name="clipboard-outline" size={22} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.iconButton, { backgroundColor: colors.surface }]}
