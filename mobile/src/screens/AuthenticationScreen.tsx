@@ -57,10 +57,16 @@ export default function AuthenticationScreen() {
   // Mask email for display (show first 3 chars and domain)
   const maskEmail = (email: string) => {
     const [localPart, domain] = email.split('@');
-    if (localPart.length <= 3) {
-      return `${localPart[0]}***@${domain}`;
+
+    // If the name is too short (e.g., "ab@gmail.com"), 
+    // we can't show 3 at start and 3 at end.
+    if (localPart.length <= 6) {
+      return `${localPart[0]}***${localPart[localPart.length - 1]}@${domain}`;
     }
-    return `${localPart.slice(0, 3)}***@${domain}`;
+
+    const start = localPart.slice(0, 3);
+    const end = localPart.slice(-3);     
+    return `${start}***${end}@${domain}`;
   };
 
   // Fetch user email when modal opens
