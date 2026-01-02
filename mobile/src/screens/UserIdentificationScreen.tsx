@@ -1,0 +1,476 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Dimensions,
+  StatusBar,
+  TextInput,
+  Alert,
+  ScrollView,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts';
+import { useUser } from '../contexts/UserContext';
+import { config } from '../config/environment';
+import { api } from '../lib/api';
+import emailjs from '@emailjs/react-native';
+
+const EMAILJS_SERVICE_ID = 'service_dsvsoaq';
+const EMAILJS_TEMPLATE_ID = 'template_ufd0aek';
+const EMAILJS_PUBLIC_KEY = 'ojcaaXdZZl0BcPZ5t';
+
+const BRAND_MAROON = '#800020';
+const { width } = Dimensions.get('window');
+
+type Step = 'SELECT_USER' | 'OTP_SENT' | 'VERIFY_OTP';
+
+interface TeamMember {
+  id: string;
+  name: string;
+  designation: string;
+  email: string;
+}
+
+export default function UserIdentificationScreen() {
+  const { colors } = useTheme();
+  const { setUser } = useUser();
+  const [step, setStep] = useState<Step>('SELECT_USER');
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [otpInput, setOtpInput] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [otpExpiry, setOtpExpiry] = useState<number | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    fetchTeamMembers();
+  }, []);
+
+  const fetchTeamMembers = async () => {
+    try {
+      const members = await api.getTeamMembers();
+      setTeamMembers(members);
+    } catch (err) {
+      console.error('Error fetching team members:', err);
+      setError('Failed to load team members. Please check your connection.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMemberSelect = (member: TeamMember) => {
+    setSelectedMember(member);
+    setShowDropdown(false);
+    setError('');
+  };
+
+  const handleContinue = async () => {
+    if (!selectedMember) {
+      setError('Please select your name');
+      return;
+    }
+
+    if (!selectedMember.email) {
+      setError("We don't have your email on file. Please contact admin.");
+      return;
+    }
+
+    sendOtp();
+  };
+
+  const sendOtp = async () => {
+    if (!selectedMember) return;
+
+    setIsSending(true);
+    setError('');
+
+    try {
+      // Generate OTP on server side
+      const response = await fetch(`${config.API_URL}/api/auth/generate-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId: selectedMember.id }),
+      });
+      const otpData = await response.json();
+
+      if (!otpData.success) {
+        setError(otpData.error || 'Failed to generate OTP');
+        return;
+      }
+
+      const expiryTime = Date.now() + 10 * 60 * 1000;
+      const readableExpiry = new Date(expiryTime).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      // Send OTP via EmailJS
+      await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_ID,
+        {
+          email: otpData.email,
+          passcode: otpData.otp,
+          time: readableExpiry,
+        },
+        { publicKey: EMAILJS_PUBLIC_KEY }
+      );
+
+      setOtpExpiry(expiryTime);
+      setStep('OTP_SENT');
+      setSuccess(`OTP sent to ${otpData.email}`);
+    } catch (err) {
+      console.error('OTP Error:', err);
+      setError('Failed to send OTP. Please check your connection.');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!selectedMember) return;
+    setError('');
+
+    if (otpInput.length !== 6) {
+      setError('Please enter the 6-digit OTP');
+      return;
+    }
+
+    const now = Date.now();
+    if (!otpExpiry || now > otpExpiry) {
+      setError('OTP has expired. Please request a new one.');
+      setOtpInput('');
+      return;
+    }
+
+    try {
+      // Verify OTP on server side
+      const response = await fetch(`${config.API_URL}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId: selectedMember.id, otp: otpInput }),
+      });
+      const result = await response.json();
+
+      if (result.valid && result.resetToken) {
+        // Update using_mobile_app flag on server
+        await fetch(`${config.API_URL}/api/team/${selectedMember.id}/mobile-app`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ using_mobile_app: 'true' }),
+        });
+
+        // Save user to local storage
+        await setUser({
+          id: selectedMember.id,
+          name: selectedMember.name,
+          designation: selectedMember.designation,
+        });
+
+        setSuccess('Verification successful!');
+      } else {
+        setError(result.error || 'Invalid OTP. Please try again.');
+      }
+    } catch (err) {
+      console.error('Verify error:', err);
+      setError('Failed to verify OTP. Please try again.');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <StatusBar barStyle="light-content" backgroundColor={BRAND_MAROON} />
+        <View style={styles.header}>
+          <Text style={styles.appName}>Dream Day Crew</Text>
+          <Text style={styles.subtitle}>Loading...</Text>
+        </View>
+        <View style={styles.content}>
+          <ActivityIndicator size="large" color={BRAND_MAROON} />
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle="light-content" backgroundColor={BRAND_MAROON} />
+      
+      <View style={styles.header}>
+        <View style={styles.lockIcon}>
+          <Ionicons name="person-circle" size={48} color="#fff" />
+        </View>
+        <Text style={styles.appName}>Dream Day Crew</Text>
+        <Text style={styles.subtitle}>
+          {step === 'SELECT_USER' ? 'Select your name to continue' : 'Verify your identity'}
+        </Text>
+      </View>
+
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+        {error ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={16} color="#ef4444" />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
+
+        {success ? (
+          <View style={styles.successContainer}>
+            <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+            <Text style={styles.successText}>{success}</Text>
+          </View>
+        ) : null}
+
+        {step === 'SELECT_USER' && (
+          <View style={styles.formContainer}>
+            <Text style={[styles.label, { color: colors.text }]}>Select Your Name</Text>
+            
+            <TouchableOpacity
+              style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]}
+              onPress={() => setShowDropdown(!showDropdown)}
+            >
+              <Text style={[styles.dropdownText, { color: selectedMember ? colors.text : colors.textSecondary }]}>
+                {selectedMember ? selectedMember.name : 'Choose your name...'}
+              </Text>
+              <Ionicons name={showDropdown ? 'chevron-up' : 'chevron-down'} size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+
+            {showDropdown && (
+              <View style={[styles.dropdownList, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                  {teamMembers.map((member) => (
+                    <TouchableOpacity
+                      key={member.id}
+                      style={[
+                        styles.dropdownItem,
+                        selectedMember?.id === member.id && styles.dropdownItemSelected,
+                      ]}
+                      onPress={() => handleMemberSelect(member)}
+                    >
+                      <Text style={[styles.dropdownItemText, { color: colors.text }]}>{member.name}</Text>
+                      <Text style={[styles.dropdownItemSubtext, { color: colors.textSecondary }]}>
+                        {member.designation}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[styles.button, !selectedMember && styles.buttonDisabled]}
+              onPress={handleContinue}
+              disabled={!selectedMember || isSending}
+            >
+              {isSending ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Continue</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {step === 'OTP_SENT' && (
+          <View style={styles.formContainer}>
+            <Text style={[styles.label, { color: colors.text }]}>Enter OTP</Text>
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+              We've sent a 6-digit code to {selectedMember?.email}
+            </Text>
+
+            <TextInput
+              style={[styles.otpInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.card }]}
+              placeholder="000000"
+              placeholderTextColor={colors.textSecondary}
+              value={otpInput}
+              onChangeText={setOtpInput}
+              keyboardType="number-pad"
+              maxLength={6}
+            />
+
+            <TouchableOpacity
+              style={[styles.button, otpInput.length !== 6 && styles.buttonDisabled]}
+              onPress={handleVerifyOtp}
+              disabled={otpInput.length !== 6}
+            >
+              <Text style={styles.buttonText}>Verify OTP</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.linkButton}
+              onPress={sendOtp}
+              disabled={isSending}
+            >
+              <Text style={[styles.linkText, { color: BRAND_MAROON }]}>
+                {isSending ? 'Sending...' : 'Resend OTP'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.linkButton}
+              onPress={() => {
+                setStep('SELECT_USER');
+                setOtpInput('');
+                setError('');
+                setSuccess('');
+              }}
+            >
+              <Text style={[styles.linkText, { color: colors.textSecondary }]}>Back to user selection</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    backgroundColor: BRAND_MAROON,
+    paddingTop: 60,
+    paddingBottom: 40,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  lockIcon: {
+    marginBottom: 12,
+  },
+  appName: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#f3f4f6',
+    textAlign: 'center',
+  },
+  content: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: 24,
+  },
+  formContainer: {
+    marginTop: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  helperText: {
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  dropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderWidth: 1,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  dropdownText: {
+    fontSize: 16,
+  },
+  dropdownList: {
+    borderWidth: 1,
+    borderRadius: 8,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  dropdownItemSelected: {
+    backgroundColor: 'rgba(128, 0, 32, 0.1)',
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  dropdownItemSubtext: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  otpInput: {
+    fontSize: 24,
+    textAlign: 'center',
+    padding: 16,
+    borderWidth: 1,
+    borderRadius: 8,
+    marginBottom: 20,
+    letterSpacing: 8,
+  },
+  button: {
+    backgroundColor: BRAND_MAROON,
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  linkButton: {
+    alignItems: 'center',
+    marginTop: 16,
+    padding: 8,
+  },
+  linkText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  errorText: {
+    color: '#dc2626',
+    fontSize: 13,
+    marginLeft: 8,
+    flex: 1,
+  },
+  successContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ecfdf5',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  successText: {
+    color: '#059669',
+    fontSize: 13,
+    marginLeft: 8,
+    flex: 1,
+  },
+});

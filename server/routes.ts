@@ -347,6 +347,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(204).send();
   });
 
+  // Update mobile app usage flag
+  app.post("/api/team/:id/mobile-app", async (req, res) => {
+    try {
+      const { using_mobile_app } = req.body;
+      const member = await storage.updateTeamMember(req.params.id, { using_mobile_app });
+      if (!member) {
+        return res.status(404).json({ error: "Team member not found" });
+      }
+      res.json(member);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Authentication routes
   app.post("/api/auth/validate", async (req, res) => {
     try {

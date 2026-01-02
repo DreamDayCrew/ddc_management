@@ -7,9 +7,10 @@ import BottomTabNavigator from './src/navigation/BottomTabNavigator';
 import { queryClient } from './src/lib/queryClient';
 import { useNetworkConnectivity } from './src/hooks/useNetworkConnectivity';
 import NetworkStatusBanner from './src/components/NetworkStatusBanner';
-import { SecurityProvider, useSecurity } from './src/contexts';
+import { SecurityProvider, useSecurity, UserProvider, useUser } from './src/contexts';
 import { ThemeProvider, useTheme } from './src/contexts';
 import AuthenticationScreen from './src/screens/AuthenticationScreen';
+import UserIdentificationScreen from './src/screens/UserIdentificationScreen';
 
 function AppContent() {
   const { isConnected, hasChecked } = useNetworkConnectivity();

@@ -84,6 +84,7 @@ export const teamMembers = pgTable("team_members", {
   email: text("email").notNull(),
   phone: text("phone").notNull(),
   password: text("password").notNull(),
+  using_mobile_app: text("using_mobile_app").default("false"),
 });
 
 // Expenses Schema
