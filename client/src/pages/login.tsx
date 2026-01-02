@@ -35,6 +35,8 @@ export default function LoginPage() {
 
   const { data: teamMembers = [], isLoading: isLoadingMembers } = useQuery<TeamMember[]>({
     queryKey: ['/api/team'],
+    staleTime: 0, // Always refetch to get latest password status
+    refetchOnMount: 'always',
   });
 
   const validatePasswordMutation = useMutation({
