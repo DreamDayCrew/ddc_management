@@ -260,7 +260,7 @@ export default function AddRequirementModal({ visible, onClose, eventId, require
 
 
 
-  const statuses = config?.planStatuses || ['To Do', 'In Progress', 'Completed'];
+  const statuses = config?.planStatuses || ['To Do', 'In Progress', 'Completed', 'Dropped'];
   const isPending = createMutation.isPending;
 
   return (

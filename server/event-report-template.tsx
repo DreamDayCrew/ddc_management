@@ -452,6 +452,41 @@ export const EventReportTemplate: React.FC<EventReportProps> = ({
         </View>
         
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Budget Summary</Text>
+          <View style={styles.summaryBox}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Total Invoice Amount (Requirements)</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(totalInvoiceAmount)}</Text>
+            </View>
+            {eventDiscount > 0 && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Event Discount</Text>
+                <Text style={[styles.summaryValue, styles.varianceNegative]}>-{formatCurrency(eventDiscount)}</Text>
+              </View>
+            )}
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Finalized Quote</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(finalizedQuote)}</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Total Spent (Fulfillment Plans)</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(totalSpentAmount)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Amount Received from Client</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(paidAmount)}</Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Profit / Loss (Quote - Spent)</Text>
+              <Text style={[styles.totalValue, variance >= 0 ? styles.variancePositive : styles.varianceNegative]}>
+                {variance >= 0 ? '+' : ''}{formatCurrency(variance)}
+              </Text>
+            </View>
+          </View>
+        </View>
+        
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Payment Information</Text>
           <View style={styles.infoGrid}>
             <View style={styles.infoItem}>
@@ -542,41 +577,6 @@ export const EventReportTemplate: React.FC<EventReportProps> = ({
                 </View>
               );
             })}
-          </View>
-        </View>
-        
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Budget Summary</Text>
-          <View style={styles.summaryBox}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Total Invoice Amount (Requirements)</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(totalInvoiceAmount)}</Text>
-            </View>
-            {eventDiscount > 0 && (
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Event Discount</Text>
-                <Text style={[styles.summaryValue, styles.varianceNegative]}>-{formatCurrency(eventDiscount)}</Text>
-              </View>
-            )}
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Finalized Quote</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(finalizedQuote)}</Text>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Total Spent (Fulfillment Plans)</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(totalSpentAmount)}</Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Amount Received from Client</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(paidAmount)}</Text>
-            </View>
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Profit / Loss (Quote - Spent)</Text>
-              <Text style={[styles.totalValue, variance >= 0 ? styles.variancePositive : styles.varianceNegative]}>
-                {variance >= 0 ? '+' : ''}{formatCurrency(variance)}
-              </Text>
-            </View>
           </View>
         </View>
         

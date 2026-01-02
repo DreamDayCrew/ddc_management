@@ -704,7 +704,7 @@ export default function EventDetails() {
                   // Determine which icon to show based on conditions
                   let Icon = null;
                   let tooltip = '';
-                  
+                  {/*
                   if (ddcSpent === 0 || isNaN(ddcSpent)) {
                     Icon = <HeartHandshake color="#0df83c" className="h-5 w-5" />;
                     tooltip = 'Invoice fulfilled with no spending — excellent efficiency!';
@@ -721,6 +721,7 @@ export default function EventDetails() {
                     Icon = <SmilePlus color="#13d820" className="h-5 w-5" />;
                     tooltip = 'Spending far below the invoice — possible loss or underbilling';
                   }
+                    */}
                   
                   return (
                     <div className="flex items-center gap-2">
