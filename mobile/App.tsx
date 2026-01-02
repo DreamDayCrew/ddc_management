@@ -15,10 +15,11 @@ import UserIdentificationScreen from './src/screens/UserIdentificationScreen';
 function AppContent() {
   const { isConnected, hasChecked } = useNetworkConnectivity();
   const { isAuthenticated, isLoading } = useSecurity();
+  const { isUserIdentified, isUserLoading } = useUser();
   const { colors, isDark } = useTheme();
 
-  // Show loading indicator while checking network connectivity or authentication
-  if (!hasChecked || isLoading) {
+  // Show loading indicator while checking network connectivity, user, or authentication
+  if (!hasChecked || isLoading || isUserLoading) {
     return (
       <SafeAreaProvider style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -27,7 +28,19 @@ function AppContent() {
     );
   }
 
-  // Show authentication screen if not authenticated
+  // Show user identification screen if user not identified
+  if (!isUserIdentified) {
+    return (
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <UserIdentificationScreen />
+          <StatusBar style={isDark ? "light" : "dark"} />
+        </QueryClientProvider>
+      </SafeAreaProvider>
+    );
+  }
+
+  // Show authentication screen if not authenticated (but user is identified)
   if (!isAuthenticated) {
     return (
       <SafeAreaProvider>
@@ -37,7 +50,7 @@ function AppContent() {
     );
   }
 
-  // Show main app if authenticated
+  // Show main app if user identified and authenticated
   return (
     <SafeAreaProvider>
       <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -56,9 +69,11 @@ function AppContent() {
 export default function App() {
   return (
     <ThemeProvider>
-      <SecurityProvider>
-        <AppContent />
-      </SecurityProvider>
+      <UserProvider>
+        <SecurityProvider>
+          <AppContent />
+        </SecurityProvider>
+      </UserProvider>
     </ThemeProvider>
   );
 }

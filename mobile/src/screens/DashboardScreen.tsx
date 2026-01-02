@@ -7,7 +7,7 @@ import type { NavigationProp } from '@react-navigation/native';
 import { useEvents, useExpenses, useAssets, useTeamMembers, useRepayments } from '../hooks/useApi';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { useTheme } from '../contexts';
+import { useTheme, useUser } from '../contexts';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import RepaymentDetailsModal from '../components/RepaymentDetailsModal';
 
@@ -46,6 +46,7 @@ const CAROUSEL_CARD_HEIGHT = 250;
 export default function DashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootTabParamList>>();
   const { colors, isDark } = useTheme();
+  const { user } = useUser();
   const [repaymentModalVisible, setRepaymentModalVisible] = useState(false);
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
@@ -182,16 +183,15 @@ export default function DashboardScreen() {
 
   return (
     <>
+      {/* Header with Welcome Message */}
+      <View style={[styles.dashboardHeader, { backgroundColor: BRAND_MAROON }]}>
+        <Text style={styles.dashboardHeaderTitle}>Dream Day Crew</Text>
+        <Text style={styles.dashboardHeaderWelcome}>
+          Hi {user?.name?.split(' ')[0] || 'User'}, welcome
+        </Text>
+      </View>
+      
       <ScrollView style={[styles.container, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
-      {/* Header with Logo 
-      <View style={styles.header}>
-        <Image 
-          source={require('../../assets/ddc-logo.jpeg')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <Text style={styles.headerSubtitle}>Event Management Dashboard</Text>
-      </View>*/}
 
       {/* Swipeable Carousel */}
       <View style={styles.carouselSection}>
@@ -556,6 +556,24 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     paddingHorizontal: 20,
     alignItems: 'center',
+  },
+  dashboardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 50,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+  },
+  dashboardHeaderTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  dashboardHeaderWelcome: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '500',
   },
   logo: {
     width: width * 0.6,
