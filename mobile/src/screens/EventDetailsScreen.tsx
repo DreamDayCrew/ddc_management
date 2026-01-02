@@ -158,11 +158,13 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     configLoaded: !!config
   });
 
-  // Calculate DDC cost based on current event's plans
+  // Calculate DDC cost based on current event's plans (excluding dropped requirements)
   const calculateDDCCost = useCallback(() => {
     if (!allPlans || allPlans.length === 0 || !requirements || requirements.length === 0) return 0;
     
-    const requirementIds = new Set(requirements.map(req => req.id));
+    // Filter out dropped requirements before calculating DDC cost
+    const activeRequirements = requirements.filter(req => req.requirementStatus !== 'Dropped');
+    const requirementIds = new Set(activeRequirements.map(req => req.id));
     const eventPlans = allPlans.filter(plan => requirementIds.has(plan.requirementId));
     
     return eventPlans.reduce((total, plan) => {
@@ -171,11 +173,13 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     }, 0);
   }, [allPlans, requirements]);
 
-  // Calculate invoice value based on requirements (after individual requirement discounts)
+  // Calculate invoice value based on requirements (after individual requirement discounts, excluding dropped)
   const calculateInvoiceValue = useCallback(() => {
     if (!requirements || requirements.length === 0) return 0;
 
-    return requirements.reduce((total, req) => {
+    // Filter out dropped requirements before calculating invoice value
+    const activeRequirements = requirements.filter(req => req.requirementStatus !== 'Dropped');
+    return activeRequirements.reduce((total, req) => {
       const price = parseFloat(String(req.order ?? '0'));
       const baseAmount = isNaN(price) ? 0 : price;
       
