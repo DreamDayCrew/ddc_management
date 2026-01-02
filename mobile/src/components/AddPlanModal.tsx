@@ -27,13 +27,14 @@ interface AddPlanModalProps {
   visible: boolean;
   onClose: () => void;
   requirementId: string;
+  eventId?: string;
   plan?: any;
   isEventCompleted?: boolean;
 }
 
 const BRAND_MAROON = '#800020';
 
-export default function AddPlanModal({ visible, onClose, requirementId, plan, isEventCompleted = false }: AddPlanModalProps) {
+export default function AddPlanModal({ visible, onClose, requirementId, eventId, plan, isEventCompleted = false }: AddPlanModalProps) {
   const { colors, isDark } = useTheme();
   const queryClient = useQueryClient();
   
@@ -169,7 +170,12 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['plans'] });
-      queryClient.invalidateQueries({ queryKey: ['requirements', requirementId.split('/')[0]] });
+      // Invalidate specific requirement and event queries to refresh event details screen
+      if (eventId) {
+        queryClient.invalidateQueries({ queryKey: ['requirements', eventId] });
+        queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+        queryClient.invalidateQueries({ queryKey: ['/api/events', eventId, 'requirements'] });
+      }
       resetForm();
       onClose();
     },
@@ -193,9 +199,10 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plans'] });
-      queryClient.invalidateQueries({ queryKey: ['requirements'] });
-      if (requirementId) {
-        queryClient.invalidateQueries({ queryKey: ['requirements', requirementId, 'plans'] });
+      if (eventId) {
+        queryClient.invalidateQueries({ queryKey: ['requirements', eventId] });
+        queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+        queryClient.invalidateQueries({ queryKey: ['/api/events', eventId, 'requirements'] });
       }
       onClose();
     },
@@ -292,10 +299,13 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
       });
 
       // Invalidate queries
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/expenses/by-plan', plan.id] });
       queryClient.invalidateQueries({ queryKey: ['plans'] });
-      queryClient.invalidateQueries({ queryKey: ['requirements'] });
+      if (eventId) {
+        queryClient.invalidateQueries({ queryKey: ['requirements', eventId] });
+        queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+      }
 
       Alert.alert(
         'Success',
@@ -399,10 +409,13 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
       // Update plan status
       await api.updatePlan(plan.id, { paymentStatus: status });
       
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/expenses/by-plan', plan.id] });
       queryClient.invalidateQueries({ queryKey: ['plans'] });
-      queryClient.invalidateQueries({ queryKey: ['requirements'] });
+      if (eventId) {
+        queryClient.invalidateQueries({ queryKey: ['requirements', eventId] });
+        queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+      }
       
       setFormData(prev => ({ ...prev, paymentStatus: status }));
       Alert.alert('Success', `Payment updated to full amount (₹${parseFloat(amount).toLocaleString('en-IN')})`);
@@ -430,10 +443,13 @@ export default function AddPlanModal({ visible, onClose, requirementId, plan, is
       // Update plan status to Pending
       await api.updatePlan(plan.id, { paymentStatus: 'Pending' });
       
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/expenses/by-plan', plan.id] });
       queryClient.invalidateQueries({ queryKey: ['plans'] });
-      queryClient.invalidateQueries({ queryKey: ['requirements'] });
+      if (eventId) {
+        queryClient.invalidateQueries({ queryKey: ['requirements', eventId] });
+        queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+      }
       
       setFormData(prev => ({ ...prev, paymentStatus: 'Pending' }));
       Alert.alert('Success', 'Payment status changed to Pending and expense removed');
@@ -1838,9 +1854,13 @@ useEffect(() => {
                     try {
                       await api.deleteExpense(linkedExpenseId);
                       await api.updatePlan(plan.id, { paymentStatus: 'Pending' });
-                      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+                      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
                       queryClient.invalidateQueries({ queryKey: ['/api/expenses/by-plan', plan.id] });
                       queryClient.invalidateQueries({ queryKey: ['plans'] });
+                      if (eventId) {
+                        queryClient.invalidateQueries({ queryKey: ['requirements', eventId] });
+                        queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+                      }
                       setFormData(prev => ({ ...prev, paymentStatus: 'Pending' }));
                       setShowLinkedExpenseDialog(false);
                       Alert.alert('Success', 'Expense deleted and payment status reset to Pending');

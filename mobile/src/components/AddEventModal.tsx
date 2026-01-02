@@ -115,7 +115,9 @@ export default function AddEventModal({ visible, onClose, event }: AddEventModal
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/events'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
       if (event) {
+        queryClient.invalidateQueries({ queryKey: ['event', event.id] });
         queryClient.invalidateQueries({ queryKey: ['/api/events', event.id] });
         Alert.alert('Success', 'Event updated successfully!');
       } else {

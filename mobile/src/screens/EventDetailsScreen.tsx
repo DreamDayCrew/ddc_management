@@ -1017,6 +1017,7 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
           setSelectedRequirementId(null);
         }}
         requirementId={selectedRequirementId || ''}
+        eventId={eventId}
         plan={selectedPlan}
         isEventCompleted={event?.eventStatus === 'Completed'}
       />

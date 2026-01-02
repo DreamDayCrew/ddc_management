@@ -26,6 +26,7 @@ export default function VendorsScreen() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteVendor(id),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vendors'] });
       queryClient.invalidateQueries({ queryKey: ['/api/vendor'] });
       Alert.alert('Success', 'Vendor deleted successfully');
     },

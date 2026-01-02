@@ -607,6 +607,7 @@ const styles = StyleSheet.create({
   },
   eventInfo: {
     flex: 1,
+    flexShrink: 1,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -616,6 +617,8 @@ const styles = StyleSheet.create({
   },
   statusWrapper: {
     alignItems: 'flex-end',
+    flexShrink: 0,
+    marginLeft: 8,
   },
   statusRow: {
     flexDirection: 'row',
@@ -631,10 +634,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+    maxWidth: '80%',
+    marginTop: 4,
   },
   serviceBadgeText: {
     fontSize: 12,
     fontWeight: '600',
+    flexShrink: 1,
   },
   statusText: {
     fontSize: 11,
