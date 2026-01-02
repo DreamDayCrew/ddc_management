@@ -314,6 +314,7 @@ const getStatusColor = (status: string): string => {
     case 'Inquired': return '#f59e0b';
     case 'Paid': return '#16a34a';
     case 'Partial': return '#f59e0b';
+    case 'Dropped': return '#dc2626';
     default: return '#6b7280';
   }
 };
@@ -335,7 +336,11 @@ export const EventReportTemplate: React.FC<EventReportProps> = ({
   configuration,
   eventExpense,
 }) => {
-  const totalInvoiceAmount = requirements.reduce((sum, req) => {
+  // Filter out dropped requirements for totals calculation
+  const activeRequirements = requirements.filter(req => req.requirementStatus !== 'Dropped');
+  const droppedRequirements = requirements.filter(req => req.requirementStatus === 'Dropped');
+  
+  const totalInvoiceAmount = activeRequirements.reduce((sum, req) => {
     const price = Number(req.price || 0);
     const quantity = Number(req.quantity || 1);
     const discount = Number(req.req_discount_amount || 0);
@@ -343,7 +348,7 @@ export const EventReportTemplate: React.FC<EventReportProps> = ({
     return sum + lineTotal;
   }, 0);
   
-  const totalSpentAmount = requirements.reduce((sum, req) => {
+  const totalSpentAmount = activeRequirements.reduce((sum, req) => {
     return sum + req.plans.reduce((planSum, plan) => {
       return planSum + Number(plan.payment || 0);
     }, 0);
@@ -536,6 +541,7 @@ export const EventReportTemplate: React.FC<EventReportProps> = ({
             </View>
             
             {requirements.map((req, index) => {
+              const isDropped = req.requirementStatus === 'Dropped';
               const price = Number(req.price || 0);
               const quantity = Number(req.quantity || 1);
               const discount = Number(req.req_discount_amount || 0);
@@ -544,18 +550,31 @@ export const EventReportTemplate: React.FC<EventReportProps> = ({
               const reqVariance = reqInvoice - reqSpent;
               
               return (
-                <View key={req.id} style={styles.tableRow} wrap={false}>
+                <View key={req.id} style={[styles.tableRow, isDropped ? { backgroundColor: '#fef2f2' } : {}]} wrap={false}>
                   <Text style={[styles.tableCell, styles.colNum]}>{index + 1}</Text>
                   <View style={styles.colReq}>
-                    <Text style={[styles.tableCell, { fontWeight: 'bold' }]}>{req.requirement}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={[styles.tableCell, { fontWeight: 'bold' }, isDropped ? { textDecoration: 'line-through', color: '#999' } : {}]}>
+                        {req.requirement}
+                      </Text>
+                      {isDropped && (
+                        <Text style={{ fontSize: 7, color: '#fff', backgroundColor: '#dc2626', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 2, marginLeft: 4 }}>
+                          DROPPED
+                        </Text>
+                      )}
+                    </View>
                     {req.description && (
-                      <Text style={styles.planDetail}>{req.description}</Text>
+                      <Text style={[styles.planDetail, isDropped ? { color: '#999' } : {}]}>{req.description}</Text>
                     )}
                   </View>
-                  <Text style={[styles.tableCell, styles.colQty]}>{quantity}</Text>
-                  <Text style={[styles.tableCell, styles.colInvoice]}>{formatCurrency(reqInvoice)}</Text>
+                  <Text style={[styles.tableCell, styles.colQty, isDropped ? { color: '#999' } : {}]}>{quantity}</Text>
+                  <Text style={[styles.tableCell, styles.colInvoice, isDropped ? { color: '#999', textDecoration: 'line-through' } : {}]}>
+                    {isDropped ? '-' : formatCurrency(reqInvoice)}
+                  </Text>
                   <View style={styles.colPlans}>
-                    {req.plans.length > 0 ? (
+                    {isDropped ? (
+                      <Text style={[styles.noPlans, { color: '#999' }]}>Requirement dropped</Text>
+                    ) : req.plans.length > 0 ? (
                       req.plans.map((plan) => (
                         <View key={plan.id} style={styles.planRow}>
                           <Text style={styles.planType}>{getPlanTypeLabel(plan)}</Text>
@@ -570,9 +589,11 @@ export const EventReportTemplate: React.FC<EventReportProps> = ({
                       <Text style={styles.noPlans}>No plans assigned</Text>
                     )}
                   </View>
-                  <Text style={[styles.tableCell, styles.colSpent]}>{formatCurrency(reqSpent)}</Text>
-                  <Text style={[styles.tableCell, styles.colVariance, reqVariance >= 0 ? styles.variancePositive : styles.varianceNegative]}>
-                    {reqVariance >= 0 ? '+' : ''}{formatCurrency(reqVariance)}
+                  <Text style={[styles.tableCell, styles.colSpent, isDropped ? { color: '#999' } : {}]}>
+                    {isDropped ? '-' : formatCurrency(reqSpent)}
+                  </Text>
+                  <Text style={[styles.tableCell, styles.colVariance, isDropped ? { color: '#999' } : (reqVariance >= 0 ? styles.variancePositive : styles.varianceNegative)]}>
+                    {isDropped ? '-' : (reqVariance >= 0 ? '+' : '') + formatCurrency(reqVariance)}
                   </Text>
                 </View>
               );

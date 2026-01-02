@@ -252,14 +252,15 @@ export default function EventDetails() {
     }
   };
 
-  // Calculate DDC cost based on current event's plans
+  // Calculate DDC cost based on current event's plans (excluding dropped requirements)
   const calculateDDCCost = useCallback(() => {
     if (!allPlans || allPlans.length === 0 || !requirements || requirements.length === 0) return 0;
     
-    // Get all requirement IDs for the current event
-    const requirementIds = new Set(requirements.map(req => req.id));
+    // Get all requirement IDs for the current event, excluding dropped requirements
+    const activeRequirements = requirements.filter(req => req.requirementStatus !== 'Dropped');
+    const requirementIds = new Set(activeRequirements.map(req => req.id));
     
-    // Filter plans to only include those for this event's requirements
+    // Filter plans to only include those for this event's active (non-dropped) requirements
     const eventPlans = allPlans.filter(plan => requirementIds.has(plan.requirementId));
     
     return eventPlans.reduce((total, plan) => {
@@ -268,13 +269,16 @@ export default function EventDetails() {
     }, 0);
   }, [allPlans, requirements]);
 
-  // Calculate invoice value based on requirements with discount logic
+  // Calculate invoice value based on requirements with discount logic (excluding dropped requirements)
   const calculateInvoiceValue = useCallback(() => {
     if (!requirements || requirements.length === 0) return 0;
     
+    // Filter out dropped requirements
+    const activeRequirements = requirements.filter(req => req.requirementStatus !== 'Dropped');
+    
     // Since requirement-level discounts are now included in the order field,
-    // we just sum all requirement orders and apply event-level discount
-    const requirementTotal = requirements.reduce((total, req) => {
+    // we just sum all active requirement orders and apply event-level discount
+    const requirementTotal = activeRequirements.reduce((total, req) => {
       const amount = parseFloat(String(req.order ?? '0'));
       return total + (isNaN(amount) ? 0 : amount);
     }, 0);

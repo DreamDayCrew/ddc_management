@@ -115,6 +115,11 @@ export default function Dashboard() {
       count: allRequirements.filter(r => r.requirementStatus === "Completed").length, 
       color: "bg-chart-2" 
     },
+    { 
+      status: "Dropped", 
+      count: allRequirements.filter(r => r.requirementStatus === "Dropped").length, 
+      color: "bg-destructive" 
+    },
   ];
 
   const totalRequirements = allRequirements.length;

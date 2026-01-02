@@ -331,9 +331,12 @@ export const ServerInvoiceTemplate: React.FC<InvoiceTemplateProps> = ({
   const clientName = event.clientName || 'Customer';
   const clientPhone = event.clientPhone || '';
   
+  // Filter out dropped requirements for invoice/quotation
+  const activeRequirements = requirements?.filter(req => req.requirementStatus !== 'Dropped') || [];
+  
   let subtotal = 0;
-  if (requirements && requirements.length > 0) {
-    subtotal = requirements.reduce((sum, req) => {
+  if (activeRequirements.length > 0) {
+    subtotal = activeRequirements.reduce((sum, req) => {
       const price = Number(req.price ?? 0);
       const quantity = Number(req.quantity ?? 1);
       const reqDiscount = req.req_discount === 'true' ? Number(req.req_discount_amount ?? 0) : 0;
@@ -357,7 +360,7 @@ export const ServerInvoiceTemplate: React.FC<InvoiceTemplateProps> = ({
   const gstAmount = includeGst ? afterEventDiscount * gstRate : 0;
   const grandTotal = afterEventDiscount + gstAmount;
   
-  const hasAnyReqDiscount = requirements && requirements.some(req => 
+  const hasAnyReqDiscount = activeRequirements.some(req => 
     req.req_discount === 'true' && Number(req.req_discount_amount ?? 0) > 0
   );
 
@@ -436,8 +439,8 @@ export const ServerInvoiceTemplate: React.FC<InvoiceTemplateProps> = ({
             <Text style={[styles.tableHeaderCell, hasAnyReqDiscount ? styles.colTotalWithDiscount : styles.colTotal]}>TOTAL</Text>
           </View>
           
-          {requirements && requirements.length > 0 ? (
-            requirements.map((req, index) => {
+          {activeRequirements.length > 0 ? (
+            activeRequirements.map((req, index) => {
               const price = Number(req.price ?? 0);
               const quantity = Number(req.quantity ?? 1);
               const reqDiscountAmount = req.req_discount === 'true' ? Number(req.req_discount_amount ?? 0) : 0;
