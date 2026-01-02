@@ -22,6 +22,16 @@ The backend is an Express.js API with TypeScript, supporting CORS and JSON body 
 
 The system manages an event workflow from "Inquired" to "Completed" status. Requirements are added to events, and FulfillmentPlans link these to resources, tracking actual costs. Invoice generation is server-side using `@react-pdf/renderer`, integrating event details, requirements, and configuration data for dynamic PDF creation with branding, GST calculation, and currency formatting. Budget reporting for completed events compares quoted values against actual costs from fulfillment plans to calculate variances.
 
+### Dropped Requirements Handling
+
+Requirements can be marked as "Dropped" to exclude them from financial calculations while maintaining visibility in reports:
+- **Invoice/Quotation PDFs**: Dropped requirements are completely filtered out and not shown
+- **Invoice Value calculation**: Uses `requirements.filter(req => req.requirementStatus !== 'Dropped')` before summing
+- **DDC Spent calculation**: Only includes fulfillment plans for non-dropped requirements
+- **Event Report PDF**: Shows dropped requirements with visual indicators (light red background, strikethrough, "DROPPED" badge) but excludes them from totals
+- **Dashboard**: Requirement summary shows Dropped count with destructive color styling
+- **Pattern**: Always filter using `req.requirementStatus !== 'Dropped'` before any financial calculation
+
 ### Expense Linking Architecture
 
 Expenses use a forward-reference pattern where expenses point to events/plans (not vice versa):
