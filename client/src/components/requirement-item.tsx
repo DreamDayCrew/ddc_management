@@ -294,7 +294,7 @@ export function RequirementItem({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {["To Do", "In Progress", "Completed"].map((status) => (
+                  {config?.planStatuses.map((status) => (
                     <SelectItem key={status} value={status}>
                       {status}
                     </SelectItem>

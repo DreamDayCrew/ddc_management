@@ -14,6 +14,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { z } from "zod";
 
 interface TeamFormProps {
   member?: TeamMember;
@@ -29,6 +30,8 @@ export function TeamForm({ member, onSuccess }: TeamFormProps) {
     defaultValues: {
       name: member?.name || "",
       designation: member?.designation || "",
+      email: member?.email || "",
+      phone: member?.phone || "",
     },
   });
 
@@ -54,6 +57,11 @@ export function TeamForm({ member, onSuccess }: TeamFormProps) {
       });
     },
   });
+
+  const validateEmail = (email: string) => {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+  };
 
   const updateMutation = useMutation({
     mutationFn: async (data: InsertTeamMember) => {
@@ -112,6 +120,34 @@ export function TeamForm({ member, onSuccess }: TeamFormProps) {
               <FormLabel>Designation</FormLabel>
               <FormControl>
                 <Input {...field} placeholder="Enter designation (e.g., Event Coordinator, Manager)" data-testid="input-team-designation" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Enter email" data-testid="input-team-email" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="phone"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Phone</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Enter phone number" data-testid="input-team-phone" />
               </FormControl>
               <FormMessage />
             </FormItem>

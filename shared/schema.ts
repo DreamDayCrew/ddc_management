@@ -81,6 +81,9 @@ export const teamMembers = pgTable("team_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   designation: text("designation").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
+  password: text("password").notNull(),
 });
 
 // Expenses Schema
@@ -250,7 +253,20 @@ export const insertAssetSchema = createInsertSchema(assets)
       .pipe(z.string().nullable().optional()),
   });
 export const insertVendorSchema = createInsertSchema(vendors).omit({ id: true });
-export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id: true });
+export const insertTeamMemberSchema = createInsertSchema(teamMembers)
+                                        .omit({ id: true })
+                                        .extend({
+                                        // Validate email format
+                                        email: z.string()
+                                          .email("Please enter a valid email address")
+                                          .optional().or(z.literal('')),
+                                          
+                                        // Validate phone number (10 digits)
+                                        phone: z.string()
+                                          .min(10, "Phone number must be at least 10 digits")
+                                          .max(15, "Phone number is too long")
+                                          .optional().or(z.literal("")),
+                                      });;
 export const insertExpenseSchema = createInsertSchema(expenses)
   .omit({ id: true, created_at: true, updated_at: true })
   .extend({
