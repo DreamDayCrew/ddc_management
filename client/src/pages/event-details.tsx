@@ -475,8 +475,10 @@ export default function EventDetails() {
       // Delete event (this should cascade delete requirements and plans on backend)
       return await apiRequest("DELETE", `/api/events/${id}`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+    onSuccess: async () => {
+      // Wait for cache invalidation to complete before navigating
+      await queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/requirements"] });
       toast({
         title: "Success",
         description: "Event and all associated data deleted successfully",
