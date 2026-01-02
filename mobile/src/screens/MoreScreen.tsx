@@ -42,6 +42,13 @@ const resourcesMenu: MenuItem[] = [
     icon: 'book',
     screen: 'Catalog',
     description: 'View and manage service packages'
+  },
+  {
+    id: 'gallery',
+    title: 'DDC Gallery',
+    icon: 'images',
+    screen: 'Gallery',
+    description: 'View all event images'
   }
 ];
 

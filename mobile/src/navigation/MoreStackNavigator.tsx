@@ -4,6 +4,7 @@ import AssetsScreen from '../screens/AssetsScreen';
 import TeamScreen from '../screens/TeamScreen';
 import VendorsScreen from '../screens/VendorsScreen';
 import CatalogScreen from '../screens/CatalogScreen';
+import GalleryScreen from '../screens/GalleryScreen';
 import ConfigurationScreen from '../screens/ConfigurationScreen';
 import AppConfigurationScreen from '../screens/AppConfigurationScreen';
 import { useTheme } from '../contexts';
@@ -14,6 +15,7 @@ export type MoreStackParamList = {
   Team: undefined;
   Vendors: undefined;
   Catalog: undefined;
+  Gallery: undefined;
   Configuration: undefined;
   AppConfiguration: undefined;
 };
@@ -64,6 +66,11 @@ export default function MoreStackNavigator() {
         name="Catalog" 
         component={CatalogScreen}
         options={{ title: 'Service Catalog' }}
+      />
+      <Stack.Screen 
+        name="Gallery" 
+        component={GalleryScreen}
+        options={{ title: 'DDC Gallery' }}
       />
       <Stack.Screen 
         name="Configuration" 

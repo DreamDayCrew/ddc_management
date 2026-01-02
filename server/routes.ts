@@ -1408,6 +1408,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Gallery endpoint - Get all images grouped by events and requirements
+  app.get("/api/gallery", async (_req, res) => {
+    try {
+      const events = await storage.getEvents();
+      const requirements = await storage.getAllRequirements();
+      
+      // Group requirements by event and filter only those with images
+      const galleryData = events
+        .map((event: any) => {
+          const eventRequirements = requirements
+            .filter(req => req.eventId === event.id && req.images && req.images.length > 0)
+            .map(req => ({
+              id: req.id,
+              requirement: req.requirement,
+              description: req.description,
+              images: req.images || []
+            }));
+          
+          if (eventRequirements.length === 0) return null;
+          
+          return {
+            eventId: event.id,
+            eventName: event.eventName,
+            clientName: event.clientName,
+            eventDate: event.eventDate,
+            status: event.status,
+            requirements: eventRequirements,
+            totalImages: eventRequirements.reduce((sum, req) => sum + req.images.length, 0)
+          };
+        })
+        .filter(Boolean);
+      
+      res.json(galleryData);
+    } catch (error: any) {
+      console.error("Error fetching gallery:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Fulfillment Plan routes
   app.get("/api/plans", async (_req, res) => {
     const plans = await storage.getAllFulfillmentPlans();

@@ -1,7 +1,7 @@
 import {
   LayoutDashboard,
   Calendar,
-  ListTodo,
+  Image,
   Package,
   Users,
   Briefcase,
@@ -37,10 +37,10 @@ const menuItems = [
     testId: "nav-events",
   },
   {
-    title: "Plans",
-    url: "/plans",
-    icon: ListTodo,
-    testId: "nav-plans",
+    title: "DDC Gallery",
+    url: "/gallery",
+    icon: Image,
+    testId: "nav-gallery",
   },
   {
     title: "Assets",
