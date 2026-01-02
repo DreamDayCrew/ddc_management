@@ -12,6 +12,28 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { v2 as cloudinary } from 'cloudinary';
+import bcrypt from 'bcrypt';
+
+const BCRYPT_SALT_ROUNDS = 10;
+const otpStore = new Map<number, { otp: string; expiresAt: Date }>();
+
+function generateOTP(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+function isValidOTP(memberId: number, otp: string): boolean {
+  const stored = otpStore.get(memberId);
+  if (!stored) return false;
+  if (new Date() > stored.expiresAt) {
+    otpStore.delete(memberId);
+    return false;
+  }
+  return stored.otp === otp;
+}
+
+function clearOTP(memberId: number): void {
+  otpStore.delete(memberId);
+}
 
 // Configure Cloudinary
 cloudinary.config({
@@ -303,11 +325,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Team member not found" });
       }
       
-      // Check if password matches (password stored as base64)
       const storedPassword = member.password || '';
-      const encodedInputPassword = Buffer.from(password).toString('base64');
       
-      if (storedPassword === encodedInputPassword) {
+      // Support legacy base64 passwords and new bcrypt hashes
+      let isValid = false;
+      if (storedPassword.startsWith('$2')) {
+        // bcrypt hash
+        isValid = await bcrypt.compare(password, storedPassword);
+      } else if (storedPassword) {
+        // Legacy base64 - compare and upgrade to bcrypt
+        const decodedStoredPassword = Buffer.from(storedPassword, 'base64').toString('utf-8');
+        isValid = decodedStoredPassword === password;
+        if (isValid) {
+          // Upgrade to bcrypt hash
+          const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+          await storage.updateTeamMember(memberId, { password: hashedPassword });
+        }
+      }
+      
+      if (isValid) {
         res.json({ valid: true, member: { id: member.id, name: member.name, designation: member.designation } });
       } else {
         res.json({ valid: false });
@@ -317,25 +353,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate OTP for password setup/reset (server-side storage)
+  app.post("/api/auth/generate-otp", async (req, res) => {
+    try {
+      const { memberId } = req.body;
+      
+      if (!memberId) {
+        return res.status(400).json({ error: "Member ID is required" });
+      }
+      
+      const member = await storage.getTeamMember(memberId);
+      if (!member) {
+        return res.status(404).json({ error: "Team member not found" });
+      }
+      
+      if (!member.email) {
+        return res.status(400).json({ error: "Team member has no email configured" });
+      }
+      
+      const otp = generateOTP();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      otpStore.set(memberId, { otp, expiresAt });
+      
+      // Return OTP info for client to send via EmailJS
+      res.json({ 
+        success: true, 
+        email: member.email,
+        name: member.name,
+        otp: otp // Client will send this via EmailJS
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Verify OTP server-side
+  app.post("/api/auth/verify-otp", async (req, res) => {
+    try {
+      const { memberId, otp } = req.body;
+      
+      if (!memberId || !otp) {
+        return res.status(400).json({ error: "Member ID and OTP are required" });
+      }
+      
+      if (isValidOTP(memberId, otp)) {
+        res.json({ valid: true });
+      } else {
+        res.json({ valid: false, error: "Invalid or expired OTP" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update password (requires valid OTP)
   app.post("/api/auth/update-password", async (req, res) => {
     try {
-      const { memberId, password } = req.body;
+      const { memberId, password, otp } = req.body;
       
       if (!memberId || !password) {
         return res.status(400).json({ error: "Member ID and password are required" });
+      }
+      
+      if (!otp) {
+        return res.status(400).json({ error: "OTP verification required" });
+      }
+      
+      if (!isValidOTP(memberId, otp)) {
+        return res.status(401).json({ error: "Invalid or expired OTP" });
       }
       
       if (password.length < 4) {
         return res.status(400).json({ error: "Password must be at least 4 characters" });
       }
       
-      // Encode password as base64
-      const encodedPassword = Buffer.from(password).toString('base64');
+      // Hash password with bcrypt
+      const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
       
-      const member = await storage.updateTeamMember(memberId, { password: encodedPassword });
+      const member = await storage.updateTeamMember(memberId, { password: hashedPassword });
       if (!member) {
         return res.status(404).json({ error: "Team member not found" });
       }
+      
+      // Clear the OTP after successful password update
+      clearOTP(memberId);
       
       res.json({ success: true, member: { id: member.id, name: member.name, designation: member.designation } });
     } catch (error: any) {

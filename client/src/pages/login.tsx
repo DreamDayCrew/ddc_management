@@ -56,8 +56,8 @@ export default function LoginPage() {
   });
 
   const updatePasswordMutation = useMutation({
-    mutationFn: async ({ memberId, password }: { memberId: string; password: string }) => {
-      const response = await apiRequest('POST', '/api/auth/update-password', { memberId, password });
+    mutationFn: async ({ memberId, password, otp }: { memberId: string; password: string; otp: string }) => {
+      const response = await apiRequest('POST', '/api/auth/update-password', { memberId, password, otp });
       return response.json();
     },
     onSuccess: (data) => {
@@ -69,6 +69,20 @@ export default function LoginPage() {
     },
     onError: (error: Error) => {
       setError(error.message);
+    },
+  });
+
+  const generateOtpMutation = useMutation({
+    mutationFn: async (memberId: string) => {
+      const response = await apiRequest('POST', '/api/auth/generate-otp', { memberId });
+      return response.json();
+    },
+  });
+
+  const verifyOtpMutation = useMutation({
+    mutationFn: async ({ memberId, otp }: { memberId: string; otp: string }) => {
+      const response = await apiRequest('POST', '/api/auth/verify-otp', { memberId, otp });
+      return response.json();
     },
   });
 
@@ -122,54 +136,71 @@ export default function LoginPage() {
     setIsSendingOtp(true);
     setError('');
     
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiryTime = Date.now() + 15 * 60 * 1000;
-    const readableExpiry = new Date(expiryTime).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-
     try {
+      // Generate OTP on server side
+      const otpData = await generateOtpMutation.mutateAsync(selectedMember.id);
+      
+      if (!otpData.success) {
+        setError(otpData.error || 'Failed to generate OTP');
+        return;
+      }
+      
+      const expiryTime = Date.now() + 10 * 60 * 1000; // 10 minutes to match server
+      const readableExpiry = new Date(expiryTime).toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+
+      // Send OTP via EmailJS
       await emailjs.send(
         EMAILJS_SERVICE_ID,
         EMAILJS_TEMPLATE_ID,
         {
-          email: selectedMember.email,
-          passcode: otp,
+          email: otpData.email,
+          passcode: otpData.otp,
           time: readableExpiry,
         },
         EMAILJS_PUBLIC_KEY
       );
 
-      setGeneratedOtp(otp);
       setOtpExpiry(expiryTime);
       setAuthStep('OTP_SENT');
-      setSuccess(`OTP sent successfully to ${selectedMember.email}`);
+      setSuccess(`OTP sent successfully to ${otpData.email}`);
     } catch (error) {
-      console.error('EmailJS Error:', error);
+      console.error('OTP Error:', error);
       setError('Failed to send OTP. Please check your connection and try again.');
     } finally {
       setIsSendingOtp(false);
     }
   };
 
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
+    if (!selectedMember) return;
     setError('');
     
     const now = Date.now();
     if (!otpExpiry || now > otpExpiry) {
       setError('This OTP has expired. Please request a new one.');
-      setGeneratedOtp('');
       setOtpInput('');
       return;
     }
 
-    if (otpInput === generatedOtp) {
-      setSuccess('OTP verified successfully! Please set your password.');
-      setAuthStep('SET_PASSWORD');
-      setOtpInput('');
-    } else {
-      setError('Incorrect OTP. Please try again.');
+    try {
+      // Verify OTP on server side
+      const result = await verifyOtpMutation.mutateAsync({ 
+        memberId: selectedMember.id, 
+        otp: otpInput 
+      });
+      
+      if (result.valid) {
+        setGeneratedOtp(otpInput); // Store verified OTP for password update
+        setSuccess('OTP verified successfully! Please set your password.');
+        setAuthStep('SET_PASSWORD');
+      } else {
+        setError(result.error || 'Incorrect OTP. Please try again.');
+      }
+    } catch (error) {
+      setError('Failed to verify OTP. Please try again.');
     }
   };
 
@@ -193,7 +224,12 @@ export default function LoginPage() {
       return;
     }
 
-    updatePasswordMutation.mutate({ memberId: selectedMember.id, password });
+    if (!generatedOtp) {
+      setError('OTP verification required. Please start over.');
+      return;
+    }
+
+    updatePasswordMutation.mutate({ memberId: selectedMember.id, password, otp: generatedOtp });
   };
 
   const handleForgotPassword = () => {
