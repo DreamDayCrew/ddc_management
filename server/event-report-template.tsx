@@ -128,16 +128,56 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   
-  colNum: { width: '5%', textAlign: 'center' },
-  colReq: { width: '30%', paddingRight: 4 },
-  colPlans: { width: '25%', paddingRight: 4 },
-  colInvoice: { width: '20%', textAlign: 'right', paddingRight: 4 },
-  colSpent: { width: '20%', textAlign: 'right' },
+  colNum: { width: '4%', textAlign: 'center' },
+  colReq: { width: '22%', paddingRight: 4 },
+  colQty: { width: '6%', textAlign: 'center' },
+  colInvoice: { width: '12%', textAlign: 'right', paddingRight: 4 },
+  colPlans: { width: '34%', paddingRight: 4 },
+  colSpent: { width: '12%', textAlign: 'right' },
+  colVariance: { width: '10%', textAlign: 'right' },
   
   planDetail: {
     fontSize: 8,
     color: '#555',
     marginTop: 2,
+  },
+  planRow: {
+    flexDirection: 'row',
+    marginTop: 2,
+    paddingVertical: 2,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#eee',
+  },
+  planType: {
+    fontSize: 7,
+    color: '#fff',
+    backgroundColor: BRAND_MAROON,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 2,
+    marginRight: 4,
+  },
+  planName: {
+    fontSize: 8,
+    color: '#333',
+    flex: 1,
+  },
+  planAmount: {
+    fontSize: 8,
+    color: '#555',
+    fontWeight: 'bold',
+  },
+  planStatus: {
+    fontSize: 7,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 2,
+    marginLeft: 4,
+  },
+  noPlans: {
+    fontSize: 8,
+    color: '#999',
+    fontStyle: 'italic',
   },
   
   summaryBox: {
@@ -220,11 +260,41 @@ const styles = StyleSheet.create({
 
 const formatCurrency = (amount: number | string | null | undefined): string => {
   const num = Number(amount) || 0;
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(num);
+  const fixedAmount = Math.abs(num).toFixed(0);
+  
+  const len = fixedAmount.length;
+  let result = '';
+  
+  if (len <= 3) {
+    result = fixedAmount;
+  } else {
+    result = fixedAmount.slice(-3);
+    let remaining = fixedAmount.slice(0, -3);
+    while (remaining.length > 0) {
+      const chunk = remaining.slice(-2);
+      result = chunk + ',' + result;
+      remaining = remaining.slice(0, -2);
+    }
+  }
+  
+  const sign = num < 0 ? '-' : '';
+  return `${sign}Rs.${result}`;
+};
+
+const getPaymentStatusColor = (status: string): string => {
+  switch (status) {
+    case 'Paid': return '#16a34a';
+    case 'Partial': return '#f59e0b';
+    case 'Pending': return '#6b7280';
+    default: return '#6b7280';
+  }
+};
+
+const getPlanTypeLabel = (plan: FulfillmentPlan): string => {
+  if (plan.assetId) return 'Asset';
+  if (plan.teamMemberId) return 'Team';
+  if (plan.vendorId) return 'Vendor';
+  return 'Other';
 };
 
 const formatDate = (dateStr: string | null | undefined): string => {
@@ -423,9 +493,11 @@ export const EventReportTemplate: React.FC<EventReportProps> = ({
             <View style={styles.tableHeader}>
               <Text style={[styles.tableHeaderCell, styles.colNum]}>#</Text>
               <Text style={[styles.tableHeaderCell, styles.colReq]}>Requirement</Text>
-              <Text style={[styles.tableHeaderCell, styles.colPlans]}>Plans</Text>
-              <Text style={[styles.tableHeaderCell, styles.colInvoice]}>Invoice Amt</Text>
-              <Text style={[styles.tableHeaderCell, styles.colSpent]}>Spent Amt</Text>
+              <Text style={[styles.tableHeaderCell, styles.colQty]}>Qty</Text>
+              <Text style={[styles.tableHeaderCell, styles.colInvoice]}>Invoice</Text>
+              <Text style={[styles.tableHeaderCell, styles.colPlans]}>Fulfillment Plans</Text>
+              <Text style={[styles.tableHeaderCell, styles.colSpent]}>Spent</Text>
+              <Text style={[styles.tableHeaderCell, styles.colVariance]}>Var</Text>
             </View>
             
             {requirements.map((req, index) => {
@@ -434,29 +506,39 @@ export const EventReportTemplate: React.FC<EventReportProps> = ({
               const discount = Number(req.req_discount_amount || 0);
               const reqInvoice = Math.max((price * quantity) - discount, 0);
               const reqSpent = req.plans.reduce((sum, p) => sum + Number(p.payment || 0), 0);
+              const reqVariance = reqInvoice - reqSpent;
               
               return (
-                <View key={req.id} style={styles.tableRow}>
+                <View key={req.id} style={styles.tableRow} wrap={false}>
                   <Text style={[styles.tableCell, styles.colNum]}>{index + 1}</Text>
                   <View style={styles.colReq}>
-                    <Text style={styles.tableCell}>{req.requirement}</Text>
+                    <Text style={[styles.tableCell, { fontWeight: 'bold' }]}>{req.requirement}</Text>
                     {req.description && (
                       <Text style={styles.planDetail}>{req.description}</Text>
                     )}
                   </View>
+                  <Text style={[styles.tableCell, styles.colQty]}>{quantity}</Text>
+                  <Text style={[styles.tableCell, styles.colInvoice]}>{formatCurrency(reqInvoice)}</Text>
                   <View style={styles.colPlans}>
                     {req.plans.length > 0 ? (
-                      req.plans.map((plan, pIndex) => (
-                        <Text key={plan.id} style={styles.planDetail}>
-                          {getPlanDescription(plan)} - {formatCurrency(plan.payment)}
-                        </Text>
+                      req.plans.map((plan) => (
+                        <View key={plan.id} style={styles.planRow}>
+                          <Text style={styles.planType}>{getPlanTypeLabel(plan)}</Text>
+                          <Text style={styles.planName}>{getPlanDescription(plan)}</Text>
+                          <Text style={styles.planAmount}>{formatCurrency(plan.payment)}</Text>
+                          <Text style={[styles.planStatus, { backgroundColor: getPaymentStatusColor(plan.paymentStatus || 'Pending'), color: '#fff' }]}>
+                            {plan.paymentStatus || 'Pending'}
+                          </Text>
+                        </View>
                       ))
                     ) : (
-                      <Text style={styles.planDetail}>No plans</Text>
+                      <Text style={styles.noPlans}>No plans assigned</Text>
                     )}
                   </View>
-                  <Text style={[styles.tableCell, styles.colInvoice]}>{formatCurrency(reqInvoice)}</Text>
                   <Text style={[styles.tableCell, styles.colSpent]}>{formatCurrency(reqSpent)}</Text>
+                  <Text style={[styles.tableCell, styles.colVariance, reqVariance >= 0 ? styles.variancePositive : styles.varianceNegative]}>
+                    {reqVariance >= 0 ? '+' : ''}{formatCurrency(reqVariance)}
+                  </Text>
                 </View>
               );
             })}
