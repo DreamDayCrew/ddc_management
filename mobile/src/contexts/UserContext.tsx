@@ -5,6 +5,7 @@ interface MobileUser {
   id: string;
   name: string;
   designation: string;
+  resetToken?: string;
 }
 
 interface UserContextType {

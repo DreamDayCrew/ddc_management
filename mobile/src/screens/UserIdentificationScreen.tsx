@@ -25,7 +25,7 @@ const EMAILJS_PUBLIC_KEY = 'ojcaaXdZZl0BcPZ5t';
 const BRAND_MAROON = '#800020';
 const { width } = Dimensions.get('window');
 
-type Step = 'SELECT_USER' | 'OTP_SENT' | 'VERIFY_OTP';
+type Step = 'SELECT_USER' | 'OTP_SENT' | 'VERIFY_OTP' | 'COMPLETED';
 
 interface TeamMember {
   id: string;
@@ -160,21 +160,45 @@ export default function UserIdentificationScreen() {
       const result = await response.json();
 
       if (result.valid && result.resetToken) {
-        // Update using_mobile_app flag on server
-        await fetch(`${config.API_URL}/api/team/${selectedMember.id}/mobile-app`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ using_mobile_app: 'true' }),
-        });
+        // Store the reset token locally
+        setResetToken(result.resetToken);
+        
+        // Immediately transition to completed state to prevent re-submissions
+        setStep('COMPLETED');
+        setSuccess('Verification successful! Setting up your account...');
+        
+        // Update using_mobile_app flag on server using PATCH with retry
+        let flagUpdateSuccess = false;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const flagResponse = await fetch(`${config.API_URL}/api/team/${selectedMember.id}/mobile-app`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ using_mobile_app: true }),
+            });
+            
+            if (flagResponse.ok) {
+              flagUpdateSuccess = true;
+              break;
+            }
+          } catch (flagErr) {
+            console.warn(`PATCH attempt ${attempt} failed:`, flagErr);
+          }
+        }
+        
+        if (!flagUpdateSuccess) {
+          console.warn('Could not update mobile app flag after retries - proceeding anyway');
+        }
 
-        // Save user to local storage
+        // Save user to local storage with reset token - this triggers App.tsx to show AuthenticationScreen
         await setUser({
           id: selectedMember.id,
           name: selectedMember.name,
           designation: selectedMember.designation,
+          resetToken: result.resetToken,
         });
-
-        setSuccess('Verification successful!');
+        
+        // The component will unmount as App.tsx transitions to AuthenticationScreen
       } else {
         setError(result.error || 'Invalid OTP. Please try again.');
       }
@@ -326,6 +350,15 @@ export default function UserIdentificationScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {step === 'COMPLETED' && (
+          <View style={styles.completedContainer}>
+            <ActivityIndicator size="large" color={BRAND_MAROON} />
+            <Text style={[styles.completedText, { color: colors.text }]}>
+              Setting up your account...
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -472,5 +505,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginLeft: 8,
     flex: 1,
+  },
+  completedContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  completedText: {
+    fontSize: 16,
+    marginTop: 20,
+    textAlign: 'center',
   },
 });

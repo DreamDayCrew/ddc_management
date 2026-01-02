@@ -348,7 +348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update mobile app usage flag
-  app.post("/api/team/:id/mobile-app", async (req, res) => {
+  app.patch("/api/team/:id/mobile-app", async (req, res) => {
     try {
       const { using_mobile_app } = req.body;
       const member = await storage.updateTeamMember(req.params.id, { using_mobile_app });
