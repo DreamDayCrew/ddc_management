@@ -263,6 +263,8 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     mutationFn: () => api.deleteEvent(eventId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses/by-event', eventId] });
       Alert.alert('Success', 'Event deleted successfully', [
         {
           text: 'OK',
@@ -1025,6 +1027,9 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
           setPlanModalVisible(false);
           setSelectedPlan(undefined);
           setSelectedRequirementId(null);
+          // Invalidate expenses to refresh linked expense indicators
+          queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/expenses/by-event', eventId] });
         }}
         requirementId={selectedRequirementId || ''}
         eventId={eventId}
