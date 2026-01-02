@@ -150,6 +150,7 @@ export default function DashboardScreen() {
     const today = new Date();
     return eventDate >= today;
   }).length;
+  const inquiredEvents = safeEvents.filter(e => e.eventStatus === 'Inquired').length;
   const inProgressEvents = safeEvents.filter(e => e.eventStatus === 'In Progress').length;
   const completedEvents = safeEvents.filter(e => e.eventStatus === 'Completed').length;
 
@@ -157,6 +158,7 @@ export default function DashboardScreen() {
   const toDoRequirements = requirements.filter(r => r.requirementStatus === 'To Do').length;
   const inProgressRequirements = requirements.filter(r => r.requirementStatus === 'In Progress').length;
   const completedRequirements = requirements.filter(r => r.requirementStatus === 'Completed').length;
+  const droppedRequirements = requirements.filter(r => r.requirementStatus === 'Dropped').length;
   const totalRequirements = requirements.length;
 
   // Upcoming events for timeline
@@ -415,8 +417,8 @@ export default function DashboardScreen() {
             <View style={[styles.statIconContainer, { backgroundColor: `${colors.primary}20` }]}>
               <Ionicons name="time-outline" size={28} color={colors.primary} />
             </View>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{upcomingEvents}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Upcoming</Text>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{inquiredEvents}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Inquired</Text>
           </View>
 
           <View style={[styles.statCard, styles.modernStatCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: '#fbbf24', borderLeftWidth: 4 }]}>
@@ -510,7 +512,26 @@ export default function DashboardScreen() {
               />
             </View>
           )}
+
+          <View style={styles.progressRow}>
+            <View style={styles.progressInfo}>
+              <View style={[styles.progressDot, { backgroundColor: '#f31010ff' }]} />
+              <Text style={[styles.progressLabel, { color: colors.text }]}>Dropped</Text>
+            </View>
+            <Text style={[styles.progressCount, { color: colors.text }]}>{droppedRequirements}</Text>
+          </View>
+          {totalRequirements > 0 && (
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { width: `${(droppedRequirements / totalRequirements) * 100}%`, backgroundColor: '#f31010ff' }
+                ]} 
+              />
+            </View>
+          )}
         </View>
+        
       </TouchableOpacity>
 
       <View style={{ height: 40 }} />

@@ -622,7 +622,7 @@ export default function ReportsScreen() {
           <View style={styles.financialRow}>
             <View style={[styles.financialBox, { backgroundColor: isDark ? 'rgba(0,184,148,0.1)' : '#e6fff5' }]}>
               <Ionicons name="trending-up" size={20} color="#00b894" />
-              <Text style={[styles.financialAmount, { color: '#00b894' }]}>{formatCurrency(financialStats.income)}</Text>
+              <Text style={[styles.financialAmount, { color: '#00b894' }]}>{formatCurrency(financialStats.totalIncome)}</Text>
               <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Total Income</Text>
             </View>
             <View style={[styles.financialBox, { backgroundColor: isDark ? 'rgba(225,112,85,0.1)' : '#ffebe6' }]}>
