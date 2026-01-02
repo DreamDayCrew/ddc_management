@@ -407,32 +407,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/generate-otp", async (req, res) => {
     try {
       const { memberId } = req.body;
-      
       if (!memberId) {
         return res.status(400).json({ error: "Member ID is required" });
       }
-      
       const member = await storage.getTeamMember(memberId);
       if (!member) {
         return res.status(404).json({ error: "Team member not found" });
       }
-      
       if (!member.email) {
         return res.status(400).json({ error: "Team member has no email configured" });
       }
-      
       const otp = generateOTP();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
       otpStore.set(memberId, { otp, expiresAt, attempts: 0 });
-      
-      // Return OTP info for client to send via EmailJS
-      res.json({ 
-        success: true, 
-        email: member.email,
-        name: member.name,
-        otp: otp // Client will send this via EmailJS
+      // Send OTP email via EmailJS server-side
+      const readableExpiry = new Date(expiresAt).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
       });
-    } catch (error: any) {
+      try {
+        const { sendOtpEmail } = await import('./email');
+        await sendOtpEmail({ email: member.email, otp, time: readableExpiry });
+        res.json({ success: true, email: member.email, name: member.name });
+      } catch (err) {
+        res.status(500).json({ error: 'Failed to send OTP email', details: err?.message });
+      }
+    } catch (error) {
       res.status(500).json({ error: error.message });
     }
   });

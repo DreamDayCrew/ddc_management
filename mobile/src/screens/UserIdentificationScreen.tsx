@@ -16,11 +16,7 @@ import { useTheme } from '../contexts';
 import { useUser } from '../contexts/UserContext';
 import { config } from '../config/environment';
 import { api } from '../lib/api';
-import emailjs from '@emailjs/react-native';
 
-const EMAILJS_SERVICE_ID = 'service_dsvsoaq';
-const EMAILJS_TEMPLATE_ID = 'template_ufd0aek';
-const EMAILJS_PUBLIC_KEY = 'ojcaaXdZZl0BcPZ5t';
 
 const BRAND_MAROON = '#800020';
 const { width } = Dimensions.get('window');
@@ -139,39 +135,19 @@ export default function UserIdentificationScreen() {
 
     setIsSending(true);
     setError('');
-
     try {
-      // Generate OTP on server side
+      // Request OTP generation and email from backend
       const response = await fetch(`${config.API_URL}/api/auth/generate-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ memberId: selectedMember.id }),
       });
       const otpData = await response.json();
-
       if (!otpData.success) {
         setError(otpData.error || 'Failed to generate OTP');
         return;
       }
-
       const expiryTime = Date.now() + 10 * 60 * 1000;
-      const readableExpiry = new Date(expiryTime).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-
-      // Send OTP via EmailJS
-      await emailjs.send(
-        EMAILJS_SERVICE_ID,
-        EMAILJS_TEMPLATE_ID,
-        {
-          email: otpData.email,
-          passcode: otpData.otp,
-          time: readableExpiry,
-        },
-        { publicKey: EMAILJS_PUBLIC_KEY }
-      );
-
       setOtpExpiry(expiryTime);
       setStep('OTP_SENT');
       setSuccess(`OTP sent to ${otpData.email}`);
@@ -267,6 +243,7 @@ export default function UserIdentificationScreen() {
           <Ionicons name="person-circle" size={48} color="#fff" />
         </View>
         <Text style={styles.appName}>Dream Day Crew</Text>
+        <Text style={[styles.footerSubtext, { color: colors.textSecondary }]}>Event Management System v1.0.23</Text>
         <Text style={styles.subtitle}>
           {step === 'SELECT_USER' ? 'Select your name to continue' : 'Verify your identity'}
         </Text>
@@ -436,6 +413,10 @@ export default function UserIdentificationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  footerSubtext: {
+    fontSize: 12,
+    color: '#9ca3af',
   },
   header: {
     backgroundColor: BRAND_MAROON,

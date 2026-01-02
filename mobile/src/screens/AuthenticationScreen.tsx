@@ -13,12 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSecurity, useTheme, useUser } from '../contexts';
 import * as LocalAuthentication from 'expo-local-authentication';
-import emailjs from '@emailjs/react-native';
 import { api } from '../lib/api';
-const EMAILJS_SERVICE_ID = 'service_dsvsoaq';
-const EMAILJS_TEMPLATE_ID = 'template_ufd0aek';
-const EMAILJS_PUBLIC_KEY = 'ojcaaXdZZl0BcPZ5t';
-
 const BRAND_MAROON = '#800020';
 const { width, height } = Dimensions.get('window');
 
@@ -94,38 +89,31 @@ export default function AuthenticationScreen() {
   };
 
   const handleSendOtp = async () => {
-    if (!userEmail) {
-      setErrorMessage('No email address available.');
+    if (!user?.id) {
+      setErrorMessage('User not found. Please restart the app.');
       return;
     }
-
     setErrorMessage('');
     setSuccessMessage('');
     setIsSending(true);
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiryTime = Date.now() + 15 * 60 * 1000;
-    const readableExpiry = formatExpiryTime(expiryTime);
-
     try {
-      await emailjs.send(
-        EMAILJS_SERVICE_ID,
-        EMAILJS_TEMPLATE_ID,
-        {
-          email: userEmail,
-          passcode: otp,
-          time: readableExpiry,
-        },
-        {
-          publicKey: EMAILJS_PUBLIC_KEY, 
-        } 
-      );
-      setGeneratedOtp(otp);
-      setForgotPinStep('OTP');
+      // Request OTP generation and email from backend
+      const response = await fetch(`${api.config.API_URL}/api/auth/generate-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId: user.id }),
+      });
+      const otpData = await response.json();
+      if (!otpData.success) {
+        setErrorMessage(otpData.error || 'Failed to generate OTP');
+        return;
+      }
+      const expiryTime = Date.now() + 10 * 60 * 1000;
       setOtpExpiry(expiryTime);
-      setSuccessMessage(`Reset code sent to ${maskEmail(userEmail)}`);
+      setForgotPinStep('OTP');
+      setSuccessMessage(`Reset code sent to ${maskEmail(otpData.email)}`);
     } catch (error) {
-      console.error('EmailJS Error:', error);
+      console.error('OTP Error:', error);
       setErrorMessage('Failed to send email. Check your connection.');
     } finally {
       setIsSending(false);
