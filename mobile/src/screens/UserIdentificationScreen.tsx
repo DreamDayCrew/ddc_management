@@ -25,7 +25,7 @@ const EMAILJS_PUBLIC_KEY = 'ojcaaXdZZl0BcPZ5t';
 const BRAND_MAROON = '#800020';
 const { width } = Dimensions.get('window');
 
-type Step = 'SELECT_USER' | 'OTP_SENT' | 'VERIFY_OTP' | 'COMPLETED';
+type Step = 'SELECT_USER' | 'OTP_SENT' | 'VERIFY_OTP' | 'COMPLETING' | 'FLAG_ERROR';
 
 interface TeamMember {
   id: string;
@@ -83,6 +83,55 @@ export default function UserIdentificationScreen() {
     }
 
     sendOtp();
+  };
+
+  const updateMobileAppFlag = async (memberId: string): Promise<boolean> => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const response = await fetch(`${config.API_URL}/api/team/${memberId}/mobile-app`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ using_mobile_app: true }),
+        });
+        
+        if (response.ok) {
+          return true;
+        }
+        console.warn(`PATCH attempt ${attempt} returned ${response.status}`);
+      } catch (err) {
+        console.warn(`PATCH attempt ${attempt} failed:`, err);
+      }
+      
+      // Wait before retry
+      if (attempt < 3) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    return false;
+  };
+
+  const handleRetryFlagUpdate = async () => {
+    if (!selectedMember) return;
+    
+    setStep('COMPLETING');
+    setError('');
+    setSuccess('Retrying setup...');
+    
+    const success = await updateMobileAppFlag(selectedMember.id);
+    
+    if (!success) {
+      setStep('FLAG_ERROR');
+      setError('Could not complete setup. Please check your connection and try again.');
+      return;
+    }
+    
+    // Save user to local storage with reset token
+    await setUser({
+      id: selectedMember.id,
+      name: selectedMember.name,
+      designation: selectedMember.designation,
+      resetToken: resetToken,
+    });
   };
 
   const sendOtp = async () => {
@@ -163,31 +212,17 @@ export default function UserIdentificationScreen() {
         // Store the reset token locally
         setResetToken(result.resetToken);
         
-        // Immediately transition to completed state to prevent re-submissions
-        setStep('COMPLETED');
-        setSuccess('Verification successful! Setting up your account...');
+        // Transition to completing state to prevent re-submissions
+        setStep('COMPLETING');
+        setSuccess('Verification successful! Completing setup...');
         
-        // Update using_mobile_app flag on server using PATCH with retry
-        let flagUpdateSuccess = false;
-        for (let attempt = 1; attempt <= 2; attempt++) {
-          try {
-            const flagResponse = await fetch(`${config.API_URL}/api/team/${selectedMember.id}/mobile-app`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ using_mobile_app: true }),
-            });
-            
-            if (flagResponse.ok) {
-              flagUpdateSuccess = true;
-              break;
-            }
-          } catch (flagErr) {
-            console.warn(`PATCH attempt ${attempt} failed:`, flagErr);
-          }
-        }
+        // Update using_mobile_app flag on server - this must succeed before proceeding
+        const flagSuccess = await updateMobileAppFlag(selectedMember.id);
         
-        if (!flagUpdateSuccess) {
-          console.warn('Could not update mobile app flag after retries - proceeding anyway');
+        if (!flagSuccess) {
+          setStep('FLAG_ERROR');
+          setError('Could not complete setup. Please check your connection and try again.');
+          return;
         }
 
         // Save user to local storage with reset token - this triggers App.tsx to show AuthenticationScreen
@@ -351,12 +386,46 @@ export default function UserIdentificationScreen() {
           </View>
         )}
 
-        {step === 'COMPLETED' && (
+        {step === 'COMPLETING' && (
           <View style={styles.completedContainer}>
             <ActivityIndicator size="large" color={BRAND_MAROON} />
             <Text style={[styles.completedText, { color: colors.text }]}>
               Setting up your account...
             </Text>
+          </View>
+        )}
+
+        {step === 'FLAG_ERROR' && (
+          <View style={styles.formContainer}>
+            <View style={styles.errorIconContainer}>
+              <Ionicons name="warning" size={48} color="#f59e0b" />
+            </View>
+            <Text style={[styles.errorTitle, { color: colors.text }]}>
+              Setup Incomplete
+            </Text>
+            <Text style={[styles.helperText, { color: colors.textSecondary, textAlign: 'center' }]}>
+              Your identity was verified but we couldn't complete the setup. Please check your internet connection and try again.
+            </Text>
+            
+            <TouchableOpacity
+              style={styles.button}
+              onPress={handleRetryFlagUpdate}
+            >
+              <Text style={styles.buttonText}>Retry Setup</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.linkButton}
+              onPress={() => {
+                setStep('SELECT_USER');
+                setOtpInput('');
+                setError('');
+                setSuccess('');
+                setResetToken('');
+              }}
+            >
+              <Text style={[styles.linkText, { color: colors.textSecondary }]}>Start Over</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -515,5 +584,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 20,
     textAlign: 'center',
+  },
+  errorIconContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 12,
   },
 });
