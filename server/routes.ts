@@ -429,10 +429,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { sendOtpEmail } = await import('./email');
         await sendOtpEmail({ email: member.email, otp, time: readableExpiry });
         res.json({ success: true, email: member.email, name: member.name });
-      } catch (err) {
+      } catch (err: any) {
         res.status(500).json({ error: 'Failed to send OTP email', details: err?.message });
       }
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
