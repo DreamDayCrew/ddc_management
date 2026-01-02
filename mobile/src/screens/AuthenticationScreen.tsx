@@ -11,9 +11,10 @@ import {
   Modal,TextInput
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSecurity, useTheme } from '../contexts';
+import { useSecurity, useTheme, useUser } from '../contexts';
 import * as LocalAuthentication from 'expo-local-authentication';
 import emailjs from '@emailjs/react-native';
+import { api } from '../lib/api';
 const EMAILJS_SERVICE_ID = 'service_dsvsoaq';
 const EMAILJS_TEMPLATE_ID = 'template_ufd0aek';
 const EMAILJS_PUBLIC_KEY = 'ojcaaXdZZl0BcPZ5t';
@@ -22,18 +23,20 @@ const BRAND_MAROON = '#800020';
 const { width, height } = Dimensions.get('window');
 
 export default function AuthenticationScreen() {
-  const [forgotPinStep, setForgotPinStep] = useState<'EMAIL' | 'OTP'>('EMAIL');
-  const [emailInput, setEmailInput] = useState('');
+  const [forgotPinStep, setForgotPinStep] = useState<'CONFIRM' | 'OTP'>('CONFIRM');
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [otpInput, setOtpInput] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [otpExpiry, setOtpExpiry] = useState<number | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const [emailError, setEmailError] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [otpError, setOtpError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
   const { colors, isDark } = useTheme();
   const { securitySettings, setAuthenticated, authenticate, updateSecuritySettings } = useSecurity();
+  const { user } = useUser();
   const [enteredPin, setEnteredPin] = useState('');
   const [attempts, setAttempts] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
@@ -44,35 +47,66 @@ export default function AuthenticationScreen() {
   const MAX_ATTEMPTS = 5;
   const LOCK_DURATION = 300; // 5 minutes in seconds
 
-  const validateEmail = (email: string) => {
-    return /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email);
-  };
   const formatExpiryTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString([], { 
       hour: '2-digit', 
       minute: '2-digit' 
     });
   };
-  const handleRequestOtp = async () => {
-    setEmailError('');
-    setSuccessMessage('');
-    if (!validateEmail(emailInput)) {
-      setEmailError('Please enter a valid email address.');
+
+  // Mask email for display (show first 3 chars and domain)
+  const maskEmail = (email: string) => {
+    const [localPart, domain] = email.split('@');
+    if (localPart.length <= 3) {
+      return `${localPart[0]}***@${domain}`;
+    }
+    return `${localPart.slice(0, 3)}***@${domain}`;
+  };
+
+  // Fetch user email when modal opens
+  const fetchUserEmail = async () => {
+    if (!user?.id) {
+      setErrorMessage('User not found. Please restart the app.');
       return;
     }
 
+    setIsLoadingEmail(true);
+    setErrorMessage('');
+    try {
+      const teamMember = await api.getTeamMember(user.id);
+      if (teamMember?.email) {
+        setUserEmail(teamMember.email);
+      } else {
+        setErrorMessage('No email address found for your account. Please contact support.');
+      }
+    } catch (error) {
+      console.error('Error fetching user email:', error);
+      setErrorMessage('Failed to fetch your email. Please try again.');
+    } finally {
+      setIsLoadingEmail(false);
+    }
+  };
+
+  const handleSendOtp = async () => {
+    if (!userEmail) {
+      setErrorMessage('No email address available.');
+      return;
+    }
+
+    setErrorMessage('');
+    setSuccessMessage('');
     setIsSending(true);
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiryTime = Date.now() + 15 * 60 * 1000;
     const readableExpiry = formatExpiryTime(expiryTime);
 
-    setGeneratedOtp(otp);
     try {
       await emailjs.send(
         EMAILJS_SERVICE_ID,
         EMAILJS_TEMPLATE_ID,
         {
-          email: emailInput,
+          email: userEmail,
           passcode: otp,
           time: readableExpiry,
         },
@@ -83,10 +117,10 @@ export default function AuthenticationScreen() {
       setGeneratedOtp(otp);
       setForgotPinStep('OTP');
       setOtpExpiry(expiryTime);
-      setSuccessMessage(`Email sent successfully to ${emailInput}.`);
+      setSuccessMessage(`Reset code sent to ${maskEmail(userEmail)}`);
     } catch (error) {
       console.error('EmailJS Error:', error);
-      setEmailError('Failed to send email. Check your connection.');
+      setErrorMessage('Failed to send email. Check your connection.');
     } finally {
       setIsSending(false);
     }
@@ -96,21 +130,21 @@ export default function AuthenticationScreen() {
     setOtpError('');
     const now = Date.now();
     if (!otpExpiry || now > otpExpiry) {
-      setOtpError('This OTP has expired. Please request a new one.');
+      setOtpError('This code has expired. Please request a new one.');
       setGeneratedOtp(''); 
-      setForgotPinStep('EMAIL'); 
+      setForgotPinStep('CONFIRM'); 
       return;
     }
     if (otpInput === generatedOtp) {
       setShowForgotPinModal(false);
       setShowForgotPin(true); 
-      setForgotPinStep('EMAIL');
+      setForgotPinStep('CONFIRM');
       setGeneratedOtp('');
       setOtpExpiry(null);
       setOtpInput('');
       setAuthenticated(true);
     } else {
-      setOtpError('Incorrect OTP. Please try again.');
+      setOtpError('Incorrect code. Please try again.');
     }
   };
 
@@ -196,8 +230,14 @@ export default function AuthenticationScreen() {
   };
 
   const handleForgotPin = () => {
-    console.log('Forgot PIN button pressed'); // Debug log
+    console.log('Forgot PIN button pressed');
     setShowForgotPinModal(true);
+    setForgotPinStep('CONFIRM');
+    setSuccessMessage('');
+    setErrorMessage('');
+    setOtpInput('');
+    setOtpError('');
+    fetchUserEmail();
   };
 
   const handleBiometricReset = async () => {
@@ -521,53 +561,77 @@ export default function AuthenticationScreen() {
               <Text style={styles.successText}>{successMessage}</Text>
             </View>
           ) : null}
+          
+          {/* ERROR MESSAGE DISPLAY */}
+          {errorMessage ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={16} color="#ef4444" />
+              <Text style={styles.errorContainerText}>{errorMessage}</Text>
+            </View>
+          ) : null}
+
           <Text style={[styles.modalTitle, { color: colors.text }]}>
-            {forgotPinStep === 'EMAIL' ? 'Forgot PIN' : 'Verify OTP'}
+            {forgotPinStep === 'CONFIRM' ? 'Forgot PIN' : 'Enter Reset Code'}
           </Text>
 
-          {forgotPinStep === 'EMAIL' ? (
+          {forgotPinStep === 'CONFIRM' ? (
             <>
-              <TextInput
-                style={[
-                  styles.emailInput, 
-                  { borderColor: emailError ? '#ef4444' : colors.border, color: colors.text }
-                ]}
-                placeholder="Email Address"
-                value={emailInput}
-                onChangeText={(text) => {
-                  setEmailInput(text);
-                  if (emailError) setEmailError(''); // Clear error while typing
-                }}
-              />
-              {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-              
-              <TouchableOpacity 
-                style={[styles.modalButton, { backgroundColor: BRAND_MAROON }]} 
-                onPress={handleRequestOtp}
-                disabled={isSending}
-              >
-                <Text style={{color: '#fff', fontWeight: 'bold'}}>
-                  {isSending ? 'Sending...' : 'Send OTP'}
+              {isLoadingEmail ? (
+                <View style={styles.loadingContainer}>
+                  <Text style={{ color: colors.textSecondary }}>Loading your email...</Text>
+                </View>
+              ) : userEmail ? (
+                <>
+                  <Text style={[styles.confirmText, { color: colors.textSecondary }]}>
+                    A reset code will be sent to:
+                  </Text>
+                  <Text style={[styles.emailDisplay, { color: colors.text }]}>
+                    {maskEmail(userEmail)}
+                  </Text>
+                  
+                  <TouchableOpacity 
+                    style={[styles.modalButton, { backgroundColor: BRAND_MAROON }]} 
+                    onPress={handleSendOtp}
+                    disabled={isSending}
+                  >
+                    <Text style={{color: '#fff', fontWeight: 'bold'}}>
+                      {isSending ? 'Sending...' : 'Send Reset Code'}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <Text style={[styles.confirmText, { color: colors.textSecondary }]}>
+                  Unable to retrieve your email. Please contact support.
                 </Text>
-              </TouchableOpacity>
+              )}
             </>
           ) : (
             <>
+              <Text style={[styles.confirmText, { color: colors.textSecondary, marginBottom: 15 }]}>
+                Enter the 6-digit code sent to your email
+              </Text>
               <TextInput
                 style={[
                   styles.emailInput, 
                   { borderColor: otpError ? '#ef4444' : colors.border, textAlign: 'center', color: colors.text }
                 ]}
                 placeholder="000000"
+                placeholderTextColor={colors.textSecondary}
                 value={otpInput}
                 onChangeText={(text) => {
                   setOtpInput(text);
                   if (otpError) setOtpError('');
-                  if (text.length === 6 && text === generatedOtp) {
-                    setShowForgotPinModal(false);
-                    setAuthenticated(true);
-                  } else {
-                    setOtpError('Incorrect OTP');
+                  if (text.length === 6) {
+                    if (text === generatedOtp) {
+                      setShowForgotPinModal(false);
+                      setShowForgotPin(true);
+                      setForgotPinStep('CONFIRM');
+                      setGeneratedOtp('');
+                      setOtpExpiry(null);
+                      setOtpInput('');
+                    } else {
+                      setOtpError('Incorrect code. Please try again.');
+                    }
                   }
                 }}
                 keyboardType="number-pad"
@@ -575,20 +639,14 @@ export default function AuthenticationScreen() {
               />
               {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
 
-              {/* Validate and Resend Buttons 
               <TouchableOpacity 
                 style={[styles.modalButton, { backgroundColor: BRAND_MAROON }]} 
-                onPress={handleVerifyOtp}
+                onPress={handleSendOtp}
+                disabled={isSending}
               >
-                <Text style={{color: '#fff', fontWeight: 'bold'}}>Validate OTP</Text>
-              </TouchableOpacity>
-              */}
-
-              <TouchableOpacity 
-                style={[styles.modalButton, { backgroundColor: BRAND_MAROON }]} 
-                onPress={handleRequestOtp}
-              >
-                <Text style={{color: '#fff', fontWeight: 'bold'}}>Resent OTP</Text>
+                <Text style={{color: '#fff', fontWeight: 'bold'}}>
+                  {isSending ? 'Sending...' : 'Resend Code'}
+                </Text>
               </TouchableOpacity>
             </>
           )}
@@ -597,8 +655,11 @@ export default function AuthenticationScreen() {
           <TouchableOpacity 
             onPress={() => {
               setShowForgotPinModal(false);
-              setEmailError('');
+              setErrorMessage('');
               setOtpError('');
+              setSuccessMessage('');
+              setForgotPinStep('CONFIRM');
+              setOtpInput('');
             }}
           >
             <Text style={{ color: colors.textSecondary, marginTop: 10 }}>Cancel</Text>
@@ -628,6 +689,43 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 8,
     flex: 1,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 15,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  errorContainerText: {
+    color: '#dc2626',
+    fontSize: 13,
+    fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  confirmText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emailDisplay: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 20,
+    padding: 12,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    width: '100%',
   },
   emailInput: {
     width: '100%',
