@@ -1,6 +1,6 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "../contexts";
+import { useTheme, useUser } from "../contexts";
 import DashboardScreen from "../screens/DashboardScreen";
 import EventsStackNavigator from "./EventsStackNavigator";
 import ExpensesScreen from "../screens/ExpensesScreen";
@@ -14,6 +14,10 @@ const BRAND_MAROON_LIGHT = "#a0203a";
 
 export default function BottomTabNavigator() {
   const { colors, isDark } = useTheme();
+  const { user } = useUser();
+  
+  // Get first name from user
+  const firstName = user?.name?.split(' ')[0] || 'User';
 
   return (
     <Tab.Navigator
@@ -67,7 +71,7 @@ export default function BottomTabNavigator() {
       <Tab.Screen
         name="Dashboard"
         component={DashboardScreen}
-        options={{ headerTitle: "Dream Day Crew" }}
+        options={{ headerTitle: `Hi ${firstName}, Welcome!` }}
       />
       <Tab.Screen
         name="Events"
