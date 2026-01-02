@@ -15,24 +15,60 @@ import { v2 as cloudinary } from 'cloudinary';
 import bcrypt from 'bcrypt';
 
 const BCRYPT_SALT_ROUNDS = 10;
-const otpStore = new Map<number, { otp: string; expiresAt: Date }>();
+const otpStore = new Map<number, { otp: string; expiresAt: Date; attempts: number }>();
+const passwordResetTokenStore = new Map<number, { token: string; expiresAt: Date }>();
+
+const MAX_OTP_ATTEMPTS = 5;
 
 function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-function isValidOTP(memberId: number, otp: string): boolean {
-  const stored = otpStore.get(memberId);
-  if (!stored) return false;
-  if (new Date() > stored.expiresAt) {
-    otpStore.delete(memberId);
-    return false;
-  }
-  return stored.otp === otp;
+function generateResetToken(): string {
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
 
-function clearOTP(memberId: number): void {
+function consumeOTPAndGetToken(memberId: number, otp: string): string | null {
+  const stored = otpStore.get(memberId);
+  if (!stored) return null;
+  
+  if (new Date() > stored.expiresAt) {
+    otpStore.delete(memberId);
+    return null;
+  }
+  
+  if (stored.attempts >= MAX_OTP_ATTEMPTS) {
+    otpStore.delete(memberId);
+    return null;
+  }
+  
+  if (stored.otp !== otp) {
+    stored.attempts++;
+    return null;
+  }
+  
+  // OTP is valid - consume it and generate reset token
   otpStore.delete(memberId);
+  
+  const token = generateResetToken();
+  const tokenExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes for password reset
+  passwordResetTokenStore.set(memberId, { token, expiresAt: tokenExpiry });
+  
+  return token;
+}
+
+function isValidResetToken(memberId: number, token: string): boolean {
+  const stored = passwordResetTokenStore.get(memberId);
+  if (!stored) return false;
+  if (new Date() > stored.expiresAt) {
+    passwordResetTokenStore.delete(memberId);
+    return false;
+  }
+  return stored.token === token;
+}
+
+function clearResetToken(memberId: number): void {
+  passwordResetTokenStore.delete(memberId);
 }
 
 // Configure Cloudinary
@@ -373,7 +409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const otp = generateOTP();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-      otpStore.set(memberId, { otp, expiresAt });
+      otpStore.set(memberId, { otp, expiresAt, attempts: 0 });
       
       // Return OTP info for client to send via EmailJS
       res.json({ 
@@ -387,7 +423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Verify OTP server-side
+  // Verify OTP server-side - consumes OTP and returns reset token
   app.post("/api/auth/verify-otp", async (req, res) => {
     try {
       const { memberId, otp } = req.body;
@@ -396,31 +432,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Member ID and OTP are required" });
       }
       
-      if (isValidOTP(memberId, otp)) {
-        res.json({ valid: true });
+      const resetToken = consumeOTPAndGetToken(memberId, otp);
+      
+      if (resetToken) {
+        res.json({ valid: true, resetToken });
       } else {
-        res.json({ valid: false, error: "Invalid or expired OTP" });
+        const stored = otpStore.get(memberId);
+        if (stored && stored.attempts >= MAX_OTP_ATTEMPTS) {
+          res.json({ valid: false, error: "Too many incorrect attempts. Please request a new OTP." });
+        } else {
+          res.json({ valid: false, error: "Invalid or expired OTP" });
+        }
       }
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  // Update password (requires valid OTP)
+  // Update password (requires valid reset token, not OTP)
   app.post("/api/auth/update-password", async (req, res) => {
     try {
-      const { memberId, password, otp } = req.body;
+      const { memberId, password, resetToken } = req.body;
       
       if (!memberId || !password) {
         return res.status(400).json({ error: "Member ID and password are required" });
       }
       
-      if (!otp) {
-        return res.status(400).json({ error: "OTP verification required" });
+      if (!resetToken) {
+        return res.status(400).json({ error: "Reset token required" });
       }
       
-      if (!isValidOTP(memberId, otp)) {
-        return res.status(401).json({ error: "Invalid or expired OTP" });
+      if (!isValidResetToken(memberId, resetToken)) {
+        return res.status(401).json({ error: "Invalid or expired reset token. Please verify OTP again." });
       }
       
       if (password.length < 4) {
@@ -435,8 +478,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Team member not found" });
       }
       
-      // Clear the OTP after successful password update
-      clearOTP(memberId);
+      // Clear the reset token after successful password update
+      clearResetToken(memberId);
       
       res.json({ success: true, member: { id: member.id, name: member.name, designation: member.designation } });
     } catch (error: any) {

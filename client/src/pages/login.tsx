@@ -26,7 +26,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [otpInput, setOtpInput] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [resetToken, setResetToken] = useState('');
   const [otpExpiry, setOtpExpiry] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -56,8 +56,8 @@ export default function LoginPage() {
   });
 
   const updatePasswordMutation = useMutation({
-    mutationFn: async ({ memberId, password, otp }: { memberId: string; password: string; otp: string }) => {
-      const response = await apiRequest('POST', '/api/auth/update-password', { memberId, password, otp });
+    mutationFn: async ({ memberId, password, resetToken }: { memberId: string; password: string; resetToken: string }) => {
+      const response = await apiRequest('POST', '/api/auth/update-password', { memberId, password, resetToken });
       return response.json();
     },
     onSuccess: (data) => {
@@ -186,16 +186,17 @@ export default function LoginPage() {
     }
 
     try {
-      // Verify OTP on server side
+      // Verify OTP on server side - consumes OTP and returns reset token
       const result = await verifyOtpMutation.mutateAsync({ 
         memberId: selectedMember.id, 
         otp: otpInput 
       });
       
-      if (result.valid) {
-        setGeneratedOtp(otpInput); // Store verified OTP for password update
+      if (result.valid && result.resetToken) {
+        setResetToken(result.resetToken); // Store reset token for password update
         setSuccess('OTP verified successfully! Please set your password.');
         setAuthStep('SET_PASSWORD');
+        setOtpInput('');
       } else {
         setError(result.error || 'Incorrect OTP. Please try again.');
       }
@@ -224,12 +225,12 @@ export default function LoginPage() {
       return;
     }
 
-    if (!generatedOtp) {
-      setError('OTP verification required. Please start over.');
+    if (!resetToken) {
+      setError('Session expired. Please verify OTP again.');
       return;
     }
 
-    updatePasswordMutation.mutate({ memberId: selectedMember.id, password, otp: generatedOtp });
+    updatePasswordMutation.mutate({ memberId: selectedMember.id, password, resetToken });
   };
 
   const handleForgotPassword = () => {
@@ -252,6 +253,7 @@ export default function LoginPage() {
     setPassword('');
     setConfirmPassword('');
     setOtpInput('');
+    setResetToken('');
     setError('');
     setSuccess('');
     setShowForgotPassword(false);
