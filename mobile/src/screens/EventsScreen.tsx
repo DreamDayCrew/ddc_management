@@ -56,11 +56,6 @@ export default function EventsScreen({ navigation }: Props) {
           icon: 'checkmark-circle',
           color: '#eab308',
         };
-      case 'Pending':
-        return {
-          icon: 'close-circle-outline',
-          color: '#ea1708ff',
-        };
       default:
         return null;
     }

@@ -31,6 +31,7 @@ export default function AppConfigurationScreen({ navigation }: any) {
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [pinCode, setPinCode] = useState('');
   const [confirmPinCode, setConfirmPinCode] = useState('');
+  const [pinMismatchError, setPinMismatchError] = useState('');
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [showEmergencyResetConfirm, setShowEmergencyResetConfirm] = useState(false);
   const [infoDialog, setInfoDialog] = useState<{ visible: boolean; title: string; message: string; type: 'error' | 'warning' | 'info' }>({
@@ -157,6 +158,7 @@ export default function AppConfigurationScreen({ navigation }: any) {
     }
 
     if (pinCode !== confirmPinCode) {
+      setPinMismatchError('PINs do not match');
       showInfoDialog('Error', 'PIN codes do not match', 'error');
       return;
     }
@@ -171,6 +173,7 @@ export default function AppConfigurationScreen({ navigation }: any) {
       setShowPinSetup(false);
       setPinCode('');
       setConfirmPinCode('');
+      setPinMismatchError('');
     } catch (error) {
       showInfoDialog('Error', 'Failed to enable PIN authentication. Please try again.', 'error');
     }
@@ -210,7 +213,17 @@ export default function AppConfigurationScreen({ navigation }: any) {
         <TextInput
           style={[styles.pinInput, { borderColor: colors.border, backgroundColor: colors.background, color: colors.text }]}
           value={pinCode}
-          onChangeText={setPinCode}
+          onChangeText={(value) => {
+            setPinCode(value);
+            // Clear error when user changes the first PIN
+            if (pinMismatchError && confirmPinCode.length === 4) {
+              if (value.length === 4 && value === confirmPinCode) {
+                setPinMismatchError('');
+              } else if (value.length === 4 && value !== confirmPinCode) {
+                setPinMismatchError('PINs do not match');
+              }
+            }
+          }}
           placeholder="****"
           placeholderTextColor={colors.textSecondary}
           keyboardType="numeric"
@@ -222,15 +235,39 @@ export default function AppConfigurationScreen({ navigation }: any) {
       <View style={styles.pinInputContainer}>
         <Text style={[styles.label, { color: colors.text }]}>Confirm PIN</Text>
         <TextInput
-          style={[styles.pinInput, { borderColor: colors.border, backgroundColor: colors.background, color: colors.text }]}
+          style={[
+            styles.pinInput,
+            {
+              borderColor: pinMismatchError ? '#ef4444' : colors.border,
+              backgroundColor: colors.background,
+              color: colors.text
+            }
+          ]}
           value={confirmPinCode}
-          onChangeText={setConfirmPinCode}
+          onChangeText={(value) => {
+            setConfirmPinCode(value);
+            // Real-time validation when user types in confirm field
+            if (value.length === 4 && pinCode.length === 4) {
+              if (value !== pinCode) {
+                setPinMismatchError('PINs do not match');
+              } else {
+                setPinMismatchError('');
+              }
+            } else if (value.length > 0 && pinCode.length === 4 && value !== pinCode.substring(0, value.length)) {
+              setPinMismatchError('PINs do not match');
+            } else {
+              setPinMismatchError('');
+            }
+          }}
           placeholder="****"
           placeholderTextColor={colors.textSecondary}
           keyboardType="numeric"
           maxLength={4}
           secureTextEntry
         />
+        {pinMismatchError ? (
+          <Text style={styles.errorText}>{pinMismatchError}</Text>
+        ) : null}
       </View>
 
       <View style={styles.pinSetupActions}>
@@ -240,6 +277,7 @@ export default function AppConfigurationScreen({ navigation }: any) {
             setShowPinSetup(false);
             setPinCode('');
             setConfirmPinCode('');
+            setPinMismatchError('');
           }}
         >
           <Text style={[styles.pinCancelButtonText, { color: colors.text }]}>Cancel</Text>
@@ -695,6 +733,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: 'center',
     letterSpacing: 4,
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
   },
   pinSetupActions: {
     flexDirection: 'row',

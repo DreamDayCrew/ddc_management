@@ -36,12 +36,6 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   
-  // Log component initialization
-  console.log('🚀 EventDetailsScreen initializing for eventId:', eventId);
-  console.log('🌐 Environment config:', envConfig);
-  console.log('🌐 API_URL from env:', envConfig.API_URL);
-  console.log('🌐 EXPO_PUBLIC_API_URL:', process.env.EXPO_PUBLIC_API_URL);
-  console.log('🌐 __DEV__ flag:', __DEV__);
   
   // Validate eventId
   if (!eventId || typeof eventId !== 'string') {
@@ -146,11 +140,6 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
         return {
           icon: 'checkmark-circle',
           color: '#eab308',
-        };
-      case 'Pending':
-        return {
-          icon: 'close-circle-outline',
-          color: '#ea1708ff',
         };
       default:
         return null;

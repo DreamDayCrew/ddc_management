@@ -38,6 +38,8 @@ export default function AuthenticationScreen() {
   const [lockTimeRemaining, setLockTimeRemaining] = useState(0);
   const [showForgotPin, setShowForgotPin] = useState(false);
   const [showForgotPinModal, setShowForgotPinModal] = useState(false);
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
 
   const MAX_ATTEMPTS = 5;
   const LOCK_DURATION = 300; // 5 minutes in seconds
@@ -297,9 +299,6 @@ export default function AuthenticationScreen() {
   };
 
   const renderForgotPinSetup = () => {
-    const [newPin, setNewPin] = useState('');
-    const [confirmPin, setConfirmPin] = useState('');
-
     const handleNewPinPress = (digit: string) => {
       if (digit === 'delete') {
         setNewPin((prev) => prev.slice(0, -1));
@@ -338,6 +337,8 @@ export default function AuthenticationScreen() {
           pinEnabled: true
         });
         setShowForgotPin(false);
+        setNewPin('');
+        setConfirmPin('');
         setAuthenticated(true);
         Alert.alert('PIN Updated', 'Your PIN has been successfully updated!');
       } catch (error) {
@@ -416,7 +417,11 @@ export default function AuthenticationScreen() {
             ))}
           </View>
           <View style={styles.pinRow}>
-            <TouchableOpacity style={styles.pinButton} onPress={() => setShowForgotPin(false)}>
+            <TouchableOpacity style={styles.pinButton} onPress={() => {
+              setShowForgotPin(false);
+              setNewPin('');
+              setConfirmPin('');
+            }}>
               <Ionicons name="close" size={24} color="#374151" />
             </TouchableOpacity>
             <TouchableOpacity
