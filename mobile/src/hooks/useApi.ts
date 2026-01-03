@@ -45,6 +45,7 @@ export function useDeleteEvent() {
     mutationFn: api.deleteEvent,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/events'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
     },
   });
 }

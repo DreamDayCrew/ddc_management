@@ -53,6 +53,7 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
   const [planModalVisible, setPlanModalVisible] = useState(false);
   const [eventModalVisible, setEventModalVisible] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteResult, setDeleteResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [showBudgetUpdateConfirm, setShowBudgetUpdateConfirm] = useState(false);
   const [showRequirementDeleteConfirm, setShowRequirementDeleteConfirm] = useState(false);
   const [requirementToDelete, setRequirementToDelete] = useState<Requirement | null>(null);
@@ -118,20 +119,23 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
     queryFn: () => api.getExpenses(),
   });
 
-  // Create a set of plan IDs that have linked expenses
+  // Create a map of plan IDs to their linked expenses (to access payment status)
   const plansWithLinkedExpenses = useMemo(() => {
-    const planIds = new Set<string>();
+    const planExpenseMap = new Map<string, any>();
+    console.log('🔍 Processing expenses for plan linkage:', allExpenses.length);
     allExpenses.forEach((expense: any) => {
-      // Check both camelCase and snake_case as API might return either
-      const planId = expense.fulfillmentPlanId || expense.fulfillment_plan_id;
+      // Check multiple field name variations
+      const planId = expense.fulfillmentPlanId || expense.fulfillment_plan_id || expense.planId || expense.plan_id;
       if (planId) {
-        planIds.add(planId);
+        console.log('✅ Found linked expense:', { planId, expense: expense });
+        planExpenseMap.set(planId, expense);
       }
     });
-    return planIds;
+    console.log('📊 Total plans with linked expenses:', planExpenseMap.size);
+    return planExpenseMap;
   }, [allExpenses]);
 
-    const getExpenseIndicator = (paymentStatus: 'Paid' | 'Partial' | string) => {
+    const getExpenseIndicator = (paymentStatus: 'Paid' | 'Partial' | 'Pending' | string) => {
     switch (paymentStatus) {
       case 'Paid':
         return {
@@ -142,6 +146,11 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
         return {
           icon: 'checkmark-circle',
           color: '#eab308',
+        };
+      case 'Pending':
+        return {
+          icon: 'close-circle-outline',
+          color: '#ea1708ff',
         };
       default:
         return null;
@@ -262,18 +271,22 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
   const deleteEventMutation = useMutation({
     mutationFn: () => api.deleteEvent(eventId),
     onSuccess: () => {
+      // Show success message in modal
+      setDeleteResult({ 
+        type: 'success', 
+        message: 'Event deleted successfully' 
+      });
+      
+      // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/expenses/by-event', eventId] });
-      Alert.alert('Success', 'Event deleted successfully', [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
     },
     onError: (error: Error) => {
-      Alert.alert('Error', `Failed to delete event: ${error.message}`);
+      // Show error message in modal
+      setDeleteResult({ 
+        type: 'error', 
+        message: `Failed to delete event: ${error.message}` 
+      });
     },
   });
 
@@ -313,7 +326,14 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
 
   const confirmDelete = () => {
     deleteEventMutation.mutate();
+  };
+
+  const handleDeleteResultClose = () => {
     setShowDeleteConfirm(false);
+    setDeleteResult(null);
+    if (deleteResult?.type === 'success') {
+      navigation.goBack();
+    }
   };
 
   // Modal handlers
@@ -898,10 +918,20 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
                                 color={colors.textSecondary} 
                               />
                               <Text style={[styles.planName, { color: colors.text }]}>{planDetails}</Text>
-                              {plansWithLinkedExpenses.has(plan.id) && (() => {
-                                const indicator = getExpenseIndicator(event.paymentStatus); 
+                              {(() => {
+                                const hasLinkedExpense = plansWithLinkedExpenses.has(plan.id);
                                 
-                                if (!indicator) return null;
+                                if (!hasLinkedExpense) return null;
+                                const planExpense = plansWithLinkedExpenses.get(plan.id);
+                                const paymentStatus = planExpense?.paymentStatus || 
+                                                     planExpense?.payment_status || 
+                                                     planExpense?.status ||
+                                                     'Unpaid';
+                                const indicator = getExpenseIndicator(paymentStatus); 
+                                
+                                if (!indicator) {
+                                  return null;
+                                }
                   
                                 return (
                                   <View style={[
@@ -1064,38 +1094,80 @@ export default function EventDetailsScreen({ route, navigation }: Props) {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.confirmationBox, { backgroundColor: colors.card, shadowColor: isDark ? '#000' : '#000' }]}>
-            <Text style={[styles.confirmationTitle, { color: colors.error }]}>Delete Event?</Text>
-            <Text style={[styles.warningText, { color: colors.primary }]}>⚠️ This action cannot be undone!</Text>
-            <Text style={[styles.confirmationMessage, { color: colors.text }]}>
-              Are you sure you want to delete "{event?.eventName}"?
-            </Text>
-            <View style={[styles.deletionInfo, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2', borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca' }]}>
-              <Text style={[styles.deletionInfoTitle, { color: colors.error }]}>This will permanently delete:</Text>
-              <Text style={[styles.deletionInfoItem, { color: colors.text }]}>• The event and all its information</Text>
-              <Text style={[styles.deletionInfoItem, { color: colors.text }]}>• All requirements ({requirements.length})</Text>
-              <Text style={[styles.deletionInfoItem, { color: colors.text }]}>• All associated fulfillment plans</Text>
-              <Text style={[styles.deletionInfoItem, { color: colors.text }]}>• All related invoicing data</Text>
-            </View>
-            <View style={styles.confirmationButtons}>
-              <TouchableOpacity 
-                style={[styles.confirmButton, styles.cancelButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                onPress={() => setShowDeleteConfirm(false)}
-                disabled={deleteEventMutation.isPending}
-              >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.confirmButton, styles.deleteConfirmButton, { backgroundColor: colors.error }]}
-                onPress={confirmDelete}
-                disabled={deleteEventMutation.isPending}
-              >
-                {deleteEventMutation.isPending ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.deleteButtonText}>Delete Event</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+            {deleteResult ? (
+              // Show result message
+              <>
+                <Text style={[
+                  styles.confirmationTitle, 
+                  { color: deleteResult.type === 'success' ? '#10b981' : colors.error }
+                ]}>
+                  {deleteResult.type === 'success' ? 'Success' : 'Error'}
+                </Text>
+                <Text style={[styles.confirmationMessage, { color: colors.text, textAlign: 'center' }]}>
+                  {deleteResult.message}
+                </Text>
+                <View style={styles.confirmationButtons}>
+                  <TouchableOpacity 
+                    style={[
+                      styles.confirmButton, 
+                      { backgroundColor: deleteResult.type === 'success' ? '#10b981' : colors.error }
+                    ]}
+                    onPress={handleDeleteResultClose}
+                  >
+                    <Text style={styles.deleteButtonText}>OK</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              // Show confirmation UI
+              <>
+                <Text style={[styles.confirmationTitle, { color: colors.error }]}>Delete Event?</Text>
+                <Text style={[styles.warningText, { color: colors.primary }]}>⚠️ This action cannot be undone!</Text>
+                <Text style={[styles.confirmationMessage, { color: colors.text }]}>
+                  Are you sure you want to delete "{event?.eventName}"?
+                </Text>
+                <View style={[styles.deletionInfo, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2', borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca' }]}>
+                  <Text style={[styles.deletionInfoTitle, { color: colors.error }]}>This will permanently delete:</Text>
+                  <Text style={[styles.deletionInfoItem, { color: colors.text }]}>• The event and all its information</Text>
+                  <Text style={[styles.deletionInfoItem, { color: colors.text }]}>• All requirements({requirements.length}) and plans</Text>
+                  <Text style={[styles.deletionInfoItem, { color: colors.text }]}>• All uploaded images</Text>
+                  <Text style={[styles.deletionInfoItem, { color: colors.text }]}>• All linked expenses</Text>
+                </View>
+                <View style={styles.confirmationButtons}>
+                  <TouchableOpacity 
+                    style={[
+                      styles.confirmButton, 
+                      styles.cancelButton, 
+                      { backgroundColor: colors.surface, borderColor: colors.border },
+                      deleteEventMutation.isPending && { opacity: 0.5 }
+                    ]}
+                    onPress={() => setShowDeleteConfirm(false)}
+                    disabled={deleteEventMutation.isPending}
+                  >
+                    <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[
+                      styles.confirmButton, 
+                      styles.deleteConfirmButton, 
+                      { backgroundColor: colors.error },
+                      deleteEventMutation.isPending && { opacity: 0.8 }
+                    ]}
+                    onPress={confirmDelete}
+                    disabled={deleteEventMutation.isPending}
+                  >
+                    {deleteEventMutation.isPending ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <ActivityIndicator color="#fff" size="small" />
+                        <Text style={styles.deleteButtonText}>Deleting...</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.deleteButtonText}>Delete Event</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>

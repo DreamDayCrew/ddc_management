@@ -44,7 +44,7 @@ export default function EventsScreen({ navigation }: Props) {
     );
   }, [expenses]);
 
-  const getExpenseIndicator = (paymentStatus: 'Paid' | 'Partial' | string) => {
+  const getExpenseIndicator = (paymentStatus: 'Paid' | 'Partial' | 'Pending' | string) => {
     switch (paymentStatus) {
       case 'Paid':
         return {
@@ -55,6 +55,11 @@ export default function EventsScreen({ navigation }: Props) {
         return {
           icon: 'checkmark-circle',
           color: '#eab308',
+        };
+      case 'Pending':
+        return {
+          icon: 'close-circle-outline',
+          color: '#ea1708ff',
         };
       default:
         return null;
@@ -177,6 +182,7 @@ export default function EventsScreen({ navigation }: Props) {
     mutationFn: (id: string) => api.deleteEvent(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/events'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
       setShowDeleteConfirm(false);
       setEventToDelete(null);
       Alert.alert('Success', 'Event deleted successfully!');

@@ -170,6 +170,7 @@ export default function AddPlanModal({ visible, onClose, requirementId, eventId,
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['plans'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
       // Invalidate specific requirement and event queries to refresh event details screen
       if (eventId) {
         queryClient.invalidateQueries({ queryKey: ['requirements', eventId] });

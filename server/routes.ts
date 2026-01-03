@@ -72,11 +72,22 @@ function clearResetToken(memberId: number): void {
 }
 
 // Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+const isCloudinaryConfigured = !!(
+  process.env.CLOUDINARY_CLOUD_NAME && 
+  process.env.CLOUDINARY_API_KEY && 
+  process.env.CLOUDINARY_API_SECRET
+);
+
+if (isCloudinaryConfigured) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+  console.log('✅ Cloudinary configured successfully');
+} else {
+  console.warn('⚠️ Cloudinary credentials not configured. Image uploads and deletions will be skipped.');
+}
 
 // Configure multer for memory storage (for Cloudinary upload)
 const uploadRequirementImages = multer({
@@ -418,12 +429,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Team member has no email configured" });
       }
       const otp = generateOTP();
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
       otpStore.set(memberId, { otp, expiresAt, attempts: 0 });
       // Send OTP email via EmailJS server-side
-      const readableExpiry = new Date(expiresAt).toLocaleTimeString([], {
+      const readableExpiry = new Date(expiresAt).toLocaleTimeString('en-IN', {
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: 'Asia/Kolkata'
       });
       try {
         const { sendOtpEmail } = await import('./email');
@@ -1012,35 +1024,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/events/:id", async (req, res) => {
     const eventId = req.params.id;
     
-    // 1. Delete all expenses linked to the event directly
-    const eventExpenses = await storage.getExpensesByEventId(eventId);
-    console.log(`Deleting ${eventExpenses.length} expense(s) linked to event ${eventId}`);
-    for (const expense of eventExpenses) {
-      await storage.deleteExpense(expense.id);
-    }
-    
-    // 2. Delete all plans and their linked expenses for each requirement of the event
-    const requirements = await storage.getRequirements(eventId);
-    for (const req of requirements) {
-      const plans = await storage.getFulfillmentPlans(req.id);
-      for (const plan of plans) {
-        // Delete expenses linked to this fulfillment plan
-        const planExpenses = await storage.getExpensesByPlanId(plan.id);
-        console.log(`Deleting ${planExpenses.length} expense(s) linked to plan ${plan.id}`);
-        for (const expense of planExpenses) {
-          await storage.deleteExpense(expense.id);
-        }
-        await storage.deleteFulfillmentPlan(plan.id);
+    try {
+      // 0. First check if the event exists
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        console.log(`❌ Event not found: ${eventId}`);
+        return res.status(404).json({ error: "Event not found" });
       }
-      await storage.deleteRequirement(req.id);
+      
+      console.log(`🗑️ Deleting event: ${event.eventName} (${eventId})`);
+      
+      // 1. Delete all expenses linked to the event directly
+      const eventExpense = await storage.getExpenseByEventId(eventId);
+      if (eventExpense) {
+        console.log(`📊 Deleting expense linked to event ${eventId}`);
+        await storage.deleteExpense(eventExpense.id);
+      }
+      
+      // 2. Delete all plans and their linked expenses for each requirement of the event
+      const requirements = await storage.getRequirements(eventId);
+      console.log(`📋 Found ${requirements.length} requirement(s) for event ${eventId}`);
+      
+      for (const req of requirements) {
+        // Delete requirement images from Cloudinary
+        if (req.images && req.images.length > 0 && isCloudinaryConfigured) {
+          console.log(`🖼️ Deleting ${req.images.length} image(s) from Cloudinary for requirement ${req.id}`);
+          for (const imageUrl of req.images) {
+            const publicId = getPublicIdFromUrl(imageUrl);
+            if (publicId) {
+              try {
+                await cloudinary.uploader.destroy(publicId);
+                console.log(`✅ Successfully deleted image from Cloudinary: ${publicId}`);
+              } catch (cloudinaryError) {
+                console.warn(`⚠️ Failed to delete image from Cloudinary: ${publicId}`, cloudinaryError);
+                // Continue even if Cloudinary delete fails
+              }
+            }
+          }
+        } else if (req.images && req.images.length > 0 && !isCloudinaryConfigured) {
+          console.log(`⚠️ Skipping deletion of ${req.images.length} image(s) - Cloudinary not configured`);
+        }
+        
+        // Delete plans and their expenses
+        const plans = await storage.getFulfillmentPlans(req.id);
+        console.log(`📦 Deleting ${plans.length} plan(s) for requirement ${req.id}`);
+        for (const plan of plans) {
+          // Delete expense linked to this fulfillment plan (if any)
+          const planExpense = await storage.getExpenseByPlanId(plan.id);
+          if (planExpense) {
+            console.log(`💰 Deleting expense linked to plan ${plan.id}`);
+            await storage.deleteExpense(planExpense.id);
+          }
+          await storage.deleteFulfillmentPlan(plan.id);
+        }
+        
+        // Delete the requirement
+        await storage.deleteRequirement(req.id);
+        console.log(`✅ Deleted requirement ${req.id}`);
+      }
+      
+      // 3. Finally, delete the main event
+      const deleted = await storage.deleteEvent(eventId);
+      if (!deleted) {
+        console.error(`❌ Failed to delete event ${eventId} from database`);
+        return res.status(500).json({ error: "Failed to delete event from database" });
+      }
+      
+      console.log(`✅ Successfully deleted event ${eventId}`);
+      res.status(204).send();
+    } catch (error) {
+      console.error(`💥 Error deleting event ${eventId}:`, error);
+      res.status(500).json({ 
+        error: "Failed to delete event", 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      });
     }
-    
-    // 3. Delete the main event
-    const deleted = await storage.deleteEvent(eventId);
-    if (!deleted) {
-      return res.status(404).json({ error: "Event not found" });
-    }
-    res.status(204).send();
   });
 
   // Health check endpoint for PDF download testing
@@ -1480,10 +1538,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Delete all expenses linked to fulfillment plans of this requirement
       const plans = await storage.getFulfillmentPlans(requirementId);
       for (const plan of plans) {
-        const planExpenses = await storage.getExpensesByPlanId(plan.id);
-        console.log(`Deleting ${planExpenses.length} expense(s) linked to plan ${plan.id}`);
-        for (const expense of planExpenses) {
-          await storage.deleteExpense(expense.id);
+        const planExpense = await storage.getExpenseByPlanId(plan.id);
+        if (planExpense) {
+          console.log(`Deleting expense linked to plan ${plan.id}`);
+          await storage.deleteExpense(planExpense.id);
         }
         await storage.deleteFulfillmentPlan(plan.id);
       }
@@ -1552,6 +1610,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Upload images for a requirement (max 5 images) - Using Cloudinary
   app.post("/api/requirements/:id/images", (req, res) => {
+    // Check if Cloudinary is configured
+    if (!isCloudinaryConfigured) {
+      return res.status(503).json({ 
+        error: "Image upload not available - Cloudinary not configured" 
+      });
+    }
+
     uploadRequirementImages(req, res, async (err) => {
       if (err) {
         console.error("Image upload error:", err);
@@ -1628,14 +1693,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Delete from Cloudinary
-      const publicId = getPublicIdFromUrl(imageUrl);
-      if (publicId) {
-        try {
-          await cloudinary.uploader.destroy(publicId);
-        } catch (cloudinaryError) {
-          console.warn("Failed to delete from Cloudinary:", cloudinaryError);
-          // Continue even if Cloudinary delete fails - still update DB
+      if (isCloudinaryConfigured) {
+        const publicId = getPublicIdFromUrl(imageUrl);
+        if (publicId) {
+          try {
+            await cloudinary.uploader.destroy(publicId);
+            console.log(`✅ Deleted image from Cloudinary: ${publicId}`);
+          } catch (cloudinaryError) {
+            console.warn("⚠️ Failed to delete from Cloudinary:", cloudinaryError);
+            // Continue even if Cloudinary delete fails - still update DB
+          }
         }
+      } else {
+        console.log('⚠️ Skipping Cloudinary deletion - not configured');
       }
 
       // Update requirement

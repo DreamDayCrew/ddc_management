@@ -8,6 +8,9 @@ import GalleryScreen from '../screens/GalleryScreen';
 import ConfigurationScreen from '../screens/ConfigurationScreen';
 import AppConfigurationScreen from '../screens/AppConfigurationScreen';
 import { useTheme } from '../contexts';
+import { TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 
 export type MoreStackParamList = {
   MoreMenu: undefined;
@@ -50,12 +53,50 @@ export default function MoreStackNavigator() {
       <Stack.Screen 
         name="Assets" 
         component={AssetsScreen}
-        options={{ title: 'Assets' }}
+        options={({ navigation }) => ({ 
+          title: 'Assets',
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => {
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  // If can't go back in stack, navigate to Dashboard
+                  navigation.getParent()?.dispatch(
+                    CommonActions.navigate('Dashboard')
+                  );
+                }
+              }}
+              style={{ marginLeft: 0 }}
+            >
+              <Ionicons name="arrow-back" size={24} color="#ffffff" />
+            </TouchableOpacity>
+          ),
+        })}
       />
       <Stack.Screen 
         name="Team" 
         component={TeamScreen}
-        options={{ title: 'Team Members' }}
+        options={({ navigation }) => ({ 
+          title: 'Team Members',
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => {
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  // If can't go back in stack, navigate to Dashboard
+                  navigation.getParent()?.dispatch(
+                    CommonActions.navigate('Dashboard')
+                  );
+                }
+              }}
+              style={{ marginLeft: 0 }}
+            >
+              <Ionicons name="arrow-back" size={24} color="#ffffff" />
+            </TouchableOpacity>
+          ),
+        })}
       />
       <Stack.Screen 
         name="Vendors" 

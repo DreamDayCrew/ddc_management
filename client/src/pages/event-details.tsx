@@ -479,6 +479,7 @@ export default function EventDetails() {
       // Wait for cache invalidation to complete before navigating
       await queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/requirements"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
       toast({
         title: "Success",
         description: "Event and all associated data deleted successfully",

@@ -497,14 +497,9 @@ export default function ReportsScreen() {
                       data={reportModal.data}
                       keyExtractor={(item: any, index: number) => `audit-${index}`}
                       renderItem={({ item }: { item: any }) => (
-                        <TouchableOpacity 
+                        <View 
                           key={item.id}
                           style={[styles.modalRow, { borderBottomColor: colors.border }]}
-                          onPress={() => {
-                            setReportModal({ ...reportModal, visible: false });
-                            navigation.navigate('Events', { screen: 'EventDetails', params: { eventId: item.id }});
-                          }}
-                          activeOpacity={0.8}
                         >
                           <View style={styles.modalContentText}>
                             <Text style={[styles.modalLabel, { color: colors.text }]}>
@@ -515,7 +510,7 @@ export default function ReportsScreen() {
                             </Text>
                           </View>
                           <Ionicons name="alert-circle" size={18} color="#f59e0b" style={{ marginTop: 2 }} />
-                        </TouchableOpacity>
+                        </View>
                       )}
                     />
                   </View>
