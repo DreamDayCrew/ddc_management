@@ -243,7 +243,7 @@ export default function UserIdentificationScreen() {
           <Ionicons name="person-circle" size={48} color="#fff" />
         </View>
         <Text style={styles.appName}>Dream Day Crew</Text>
-        <Text style={[styles.footerSubtext, { color: colors.textSecondary }]}>Event Management System v1.0.27</Text>
+        <Text style={[styles.footerSubtext, { color: colors.textSecondary }]}>Event Management System v1.0.28</Text>
         <Text style={styles.subtitle}>
           {step === 'SELECT_USER' ? 'Select your name to continue' : 'Verify your identity'}
         </Text>

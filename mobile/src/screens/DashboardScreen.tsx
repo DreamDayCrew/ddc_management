@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, ImageBack
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import { useEvents, useExpenses, useAssets, useTeamMembers, useRepayments } from '../hooks/useApi';
 import { useQuery } from '@tanstack/react-query';
@@ -314,7 +314,17 @@ export default function DashboardScreen() {
         <View style={styles.resourceGrid}>
           <TouchableOpacity 
             style={[styles.resourceCard, styles.modernCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => navigation.navigate('More', { screen: 'Assets' })}
+            onPress={() => {
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 1,
+                  routes: [
+                    { name: 'More', state: { routes: [{ name: 'MoreMenu' }] } },
+                    { name: 'More', state: { routes: [{ name: 'MoreMenu' }, { name: 'Assets' }] } },
+                  ],
+                })
+              );
+            }}
             activeOpacity={0.8}
           >
             <View style={[styles.resourceIcon, styles.modernResourceIcon, { backgroundColor: isDark ? colors.surface : 'rgba(212, 175, 55, 0.2)' }]}>
@@ -327,7 +337,17 @@ export default function DashboardScreen() {
 
           <TouchableOpacity 
             style={[styles.resourceCard, styles.modernCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => navigation.navigate('More', { screen: 'Team' })}
+            onPress={() => {
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 1,
+                  routes: [
+                    { name: 'More', state: { routes: [{ name: 'MoreMenu' }] } },
+                    { name: 'More', state: { routes: [{ name: 'MoreMenu' }, { name: 'Team' }] } },
+                  ],
+                })
+              );
+            }}
             activeOpacity={0.8}
           >
             <View style={[styles.resourceIcon, styles.modernResourceIcon, { backgroundColor: isDark ? colors.surface : 'rgba(22, 33, 62, 0.2)' }]}>
