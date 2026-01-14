@@ -497,23 +497,61 @@ export default function RentalDetails() {
   };
 
   const handleDownloadPdf = async (type: 'quote' | 'invoice') => {
-    if (!rentalId) return;
+    if (!rentalId) {
+      toast({
+        title: "Error",
+        description: "No rental selected",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
-      const response = await fetch(`/api/rentals/${rentalId}/pdf?type=${type}`);
-      if (!response.ok) throw new Error("Failed to generate PDF");
+      console.log(`Downloading ${type} PDF for rental ${rentalId}`);
+      
+      const response = await fetch(`/api/rentals/${rentalId}/pdf?type=${type}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/pdf',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`Failed to generate PDF: ${response.status} - ${errorText}`);
+      }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/pdf')) {
+        throw new Error('Invalid response format - expected PDF');
+      }
+      
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `rental-${type}-${rentalId.slice(0, 8)}.pdf`;
+      a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      
+      // Clean up
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 100);
+      
+      toast({
+        title: "Success",
+        description: `${type.charAt(0).toUpperCase() + type.slice(1)} PDF downloaded successfully`,
+      });
+      
     } catch (error) {
+      console.error('PDF download error:', error);
       toast({
         title: "Error",
-        description: "Failed to download PDF",
+        description: `Failed to download PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
     }

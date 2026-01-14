@@ -1,5 +1,7 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import MoreScreen from '../screens/MoreScreen';
+import DashboardScreen from '../screens/DashboardScreen';
+import ExpensesScreen from '../screens/ExpensesScreen';
 import AssetsScreen from '../screens/AssetsScreen';
 import TeamScreen from '../screens/TeamScreen';
 import VendorsScreen from '../screens/VendorsScreen';
@@ -8,13 +10,15 @@ import GalleryScreen from '../screens/GalleryScreen';
 import ConfigurationScreen from '../screens/ConfigurationScreen';
 import AppConfigurationScreen from '../screens/AppConfigurationScreen';
 import RentalRatesScreen from '../screens/RentalRatesScreen';
-import { useTheme } from '../contexts';
+import { useTheme, useUser } from '../contexts';
 import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 
 export type MoreStackParamList = {
   MoreMenu: undefined;
+  Dashboard: undefined;
+  Expenses: undefined;
   Assets: undefined;
   RentalRates: undefined;
   Team: undefined;
@@ -31,6 +35,10 @@ const BRAND_MAROON = '#800020';
 
 export default function MoreStackNavigator() {
   const { colors, isDark } = useTheme();
+  const { user } = useUser();
+  
+  // Get first name from user
+  const firstName = user?.name?.split(' ')[0] || 'User';
   
   return (
     <Stack.Navigator
@@ -51,6 +59,16 @@ export default function MoreStackNavigator() {
         name="MoreMenu" 
         component={MoreScreen}
         options={{ title: 'More' }}
+      />
+      <Stack.Screen 
+        name="Dashboard" 
+        component={DashboardScreen}
+        options={{ title: `Hi ${firstName}, Welcome!` }}
+      />
+      <Stack.Screen 
+        name="Expenses" 
+        component={ExpensesScreen}
+        options={{ title: 'Expenses' }}
       />
       <Stack.Screen 
         name="Assets" 

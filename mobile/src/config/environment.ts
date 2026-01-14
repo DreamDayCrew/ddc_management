@@ -4,10 +4,8 @@ import { Platform } from "react-native";
 
 const PRODUCTION_API_URL = "https://ddc-management.onrender.com";
 // Use your computer's local IP address for development on physical devices
-// Server is running on port 5000
-const LOCAL_DEV_URL = "http://172.19.129.244:5000";
-// Replit dev domain for Expo web testing
-const REPLIT_DEV_URL = "https://bb12acae-60e8-4eae-9bde-1dd0cd160edf-00-2pci5166o6bfr.riker.replit.dev";
+// Server is running on port 5001
+const LOCAL_DEV_URL = "http://172.19.129.244:5001";
 
 // Determine the correct API URL based on platform and environment
 const getApiUrl = (): string => {
@@ -18,7 +16,7 @@ const getApiUrl = (): string => {
 
   // For Expo web mode (running in browser on Replit), use Replit dev domain
   if (Platform.OS === "web") {
-    return REPLIT_DEV_URL;
+    return LOCAL_DEV_URL;
   }
 
   // For native development (Android/iOS emulator or physical device)

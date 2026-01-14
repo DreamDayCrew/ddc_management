@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme, useUser } from "../contexts";
 import DashboardScreen from "../screens/DashboardScreen";
 import EventsStackNavigator from "./EventsStackNavigator";
+import RentalsStackNavigator from "./RentalsStackNavigator";
 import ExpensesScreen from "../screens/ExpensesScreen";
 import ReportsScreen from "../screens/ReportsScreen";
 import MoreStackNavigator from "./MoreStackNavigator";
@@ -29,8 +30,8 @@ export default function BottomTabNavigator() {
             iconName = focused ? "analytics" : "analytics-outline";
           } else if (route.name === "Events") {
             iconName = focused ? "calendar" : "calendar-outline";
-          } else if (route.name === "Expenses") {
-            iconName = focused ? "wallet" : "wallet-outline";
+          } else if (route.name === "Service") {
+            iconName = focused ? "briefcase" : "briefcase-outline";
           } else if (route.name === "Reports") {
             iconName = focused ? "bar-chart" : "bar-chart-outline";
           } else if (route.name === "More") {
@@ -79,9 +80,9 @@ export default function BottomTabNavigator() {
         options={{ headerShown: false }}
       />
       <Tab.Screen
-        name="Expenses"
-        component={ExpensesScreen}
-        options={{ headerTitle: "Expenses" }}
+        name="Service"
+        component={RentalsStackNavigator}
+        options={{ headerShown: false }}
       />
       <Tab.Screen
         name="Reports"

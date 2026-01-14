@@ -55,6 +55,17 @@ export default function DashboardScreen() {
   const { data: team } = useTeamMembers();
   const { data: repayments } = useRepayments();
 
+  // Debug: Log data types
+  useEffect(() => {
+    console.log('📊 Dashboard Data Types:', {
+      events: events ? `${typeof events} (isArray: ${Array.isArray(events)})` : 'null',
+      expenses: expenses ? `${typeof expenses} (isArray: ${Array.isArray(expenses)})` : 'null',
+      assets: assets ? `${typeof assets} (isArray: ${Array.isArray(assets)})` : 'null',
+      team: team ? `${typeof team} (isArray: ${Array.isArray(team)})` : 'null',
+      repayments: repayments ? `${typeof repayments} (isArray: ${Array.isArray(repayments)})` : 'null',
+    });
+  }, [events, expenses, assets, team, repayments]);
+
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const contentOffset = event.nativeEvent.contentOffset.x;
     const index = Math.round(contentOffset / CAROUSEL_PAGE_WIDTH);
@@ -76,13 +87,13 @@ export default function DashboardScreen() {
   const { data: requirements = [] } = useQuery({
     queryKey: ['all-requirements'],
     queryFn: async () => {
-      if (!events) return [];
+      if (!events || !Array.isArray(events) || events.length === 0) return [];
       const allReqs = await Promise.all(
         events.map(event => api.getEventRequirements(event.id))
       );
       return allReqs.flat();
     },
-    enabled: !!events,
+    enabled: !!events && Array.isArray(events) && events.length > 0,
   });
 
   if (eventsLoading) {
@@ -94,11 +105,11 @@ export default function DashboardScreen() {
     );
   }
 
-  // Fallback if no data
-  const safeEvents = events || [];
-  const safeExpenses = expenses || [];
-  const safeAssets = assets || [];
-  const safeTeam = team || [];
+  // Fallback if no data - ensure it's always an array
+  const safeEvents = Array.isArray(events) ? events : [];
+  const safeExpenses = Array.isArray(expenses) ? expenses : [];
+  const safeAssets = Array.isArray(assets) ? assets : [];
+  const safeTeam = Array.isArray(team) ? team : [];
   
   // Calculate total asset worth (sum of all purchasedAmount values)
   const totalAssetWorth = safeAssets.reduce((sum, asset) => {
@@ -137,11 +148,10 @@ export default function DashboardScreen() {
 
   // Calculate pending repayment
   let pendingRepayment = 0;
-  if (repayments) {
-    repayments.forEach((r) => {
-      pendingRepayment += parseFloat(r.pending_amount as any) || 0;
-    });
-  }
+  const safeRepayments = Array.isArray(repayments) ? repayments : [];
+  safeRepayments.forEach((r) => {
+    pendingRepayment += parseFloat(r.pending_amount as any) || 0;
+  });
 
   // Event statistics
   const totalEvents = safeEvents.length;

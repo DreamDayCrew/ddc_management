@@ -14,6 +14,16 @@ type MenuItem = {
   description: string;
 };
 
+const dashboardMenu: MenuItem[] = [
+  {
+    id: 'expenses',
+    title: 'Expenses',
+    icon: 'wallet',
+    screen: 'Expenses',
+    description: 'Track and manage expenses'
+  }
+];
+
 const resourcesMenu: MenuItem[] = [
   {
     id: 'assets',
@@ -21,13 +31,6 @@ const resourcesMenu: MenuItem[] = [
     icon: 'cube',
     screen: 'Assets',
     description: 'Manage equipment and resources'
-  },
-  {
-    id: 'rental-rates',
-    title: 'Rental Rates',
-    icon: 'pricetag',
-    screen: 'RentalRates',
-    description: 'Set pricing for asset rentals'
   },
   {
     id: 'team',
@@ -44,6 +47,16 @@ const resourcesMenu: MenuItem[] = [
     description: 'Manage vendor relationships'
   },
   {
+    id: 'gallery',
+    title: 'DDC Gallery',
+    icon: 'images',
+    screen: 'Gallery',
+    description: 'View all event images'
+  }
+];
+
+const catalogMenu: MenuItem[] = [
+  {
     id: 'catalog',
     title: 'Service Catalog',
     icon: 'book',
@@ -51,11 +64,11 @@ const resourcesMenu: MenuItem[] = [
     description: 'View and manage service packages'
   },
   {
-    id: 'gallery',
-    title: 'DDC Gallery',
-    icon: 'images',
-    screen: 'Gallery',
-    description: 'View all event images'
+    id: 'rental-rates',
+    title: 'Rental Rates',
+    icon: 'pricetag',
+    screen: 'RentalRates',
+    description: 'Set pricing for asset rentals'
   }
 ];
 
@@ -121,9 +134,23 @@ export default function MoreScreen({ navigation }: any) {
       </View> */}
 
       <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Quick Access</Text>
+        <View style={styles.menuList}>
+          {dashboardMenu.map(renderMenuItem)}
+        </View>
+      </View>
+
+      <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Resources</Text>
         <View style={styles.menuList}>
           {resourcesMenu.map(renderMenuItem)}
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Catalog</Text>
+        <View style={styles.menuList}>
+          {catalogMenu.map(renderMenuItem)}
         </View>
       </View>
 

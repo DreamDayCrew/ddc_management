@@ -260,7 +260,7 @@ interface CatalogTemplateProps {
   packages: string[];
   filterInfo?: {
     service: string | null;
-    package: string | null;
+    packages: string[] | null;
     totalItems: number;
   };
 }
@@ -278,6 +278,30 @@ export function ServerCatalogTemplate({ catalogItems, configuration, packages, f
   }, {} as Record<string, Record<string, CatalogItem[]>>);
 
   const services = Object.keys(groupedByService);
+
+  // Get packages that actually have items (globally or per service)
+  const getAvailablePackages = (serviceType?: string) => {
+    if (serviceType) {
+      // For a specific service, only return packages that have items
+      const serviceData = groupedByService[serviceType];
+      if (!serviceData) return [];
+      return packages.filter(pkg => serviceData[pkg] && serviceData[pkg].length > 0);
+    }
+    // Globally, return packages that have at least one item across all services
+    const usedPackages = new Set<string>();
+    Object.values(groupedByService).forEach(serviceData => {
+      Object.keys(serviceData).forEach(pkg => {
+        if (serviceData[pkg].length > 0) {
+          usedPackages.add(pkg);
+        }
+      });
+    });
+    // Return in the order defined in packages array
+    return packages.filter(pkg => usedPackages.has(pkg));
+  };
+
+  // Get packages to show in legend (only those with items)
+  const availablePackagesForLegend = getAvailablePackages();
 
   const getPackageHeaderStyle = (pkg: string) => {
     switch (pkg.toLowerCase()) {
@@ -345,37 +369,43 @@ export function ServerCatalogTemplate({ catalogItems, configuration, packages, f
 
         <View style={styles.introSection}>
           <Text style={styles.introTitle}>
-            {filterInfo?.service || filterInfo?.package 
-              ? `${filterInfo.service ? filterInfo.service + ' ' : ''}${filterInfo.package ? filterInfo.package + ' ' : ''}Service Catalog`
+            {filterInfo?.service || (filterInfo?.packages && filterInfo.packages.length > 0)
+              ? `${filterInfo.service ? filterInfo.service + ' ' : ''}${filterInfo.packages && filterInfo.packages.length > 0 ? filterInfo.packages.join(', ') + ' ' : ''}Service Catalog`
               : 'Welcome to Our Service Catalog'
             }
           </Text>
           <Text style={styles.introText}>
-            {filterInfo?.service || filterInfo?.package 
-              ? `Showing ${filterInfo.totalItems} items${filterInfo.service ? ` for ${filterInfo.service} service` : ''}${filterInfo.package ? ` in ${filterInfo.package} package` : ''}.`
+            {filterInfo?.service || (filterInfo?.packages && filterInfo.packages.length > 0)
+              ? `Showing ${filterInfo.totalItems} items${filterInfo.service ? ` for ${filterInfo.service} service` : ''}${filterInfo.packages && filterInfo.packages.length > 0 ? ` in ${filterInfo.packages.join(', ')} package${filterInfo.packages.length > 1 ? 's' : ''}` : ''}.`
               : 'We offer three distinct service packages to meet your needs and budget. Our Ultra package provides the most comprehensive service with premium materials and features. The Premium package offers excellent value with high-quality options. The Budget package delivers essential services at competitive rates.'
             }
           </Text>
         </View>
 
-        <View style={styles.packageLegend}>
-          {packages.map((pkg) => (
-            <View key={pkg} style={[styles.packageBadge, getPackageBadgeStyle(pkg)]}>
-              <Text style={styles.packageBadgeText}>{pkg}</Text>
-            </View>
-          ))}
-        </View>
+        {availablePackagesForLegend.length > 0 && (
+          <View style={styles.packageLegend}>
+            {availablePackagesForLegend.map((pkg) => (
+              <View key={pkg} style={[styles.packageBadge, getPackageBadgeStyle(pkg)]}>
+                <Text style={styles.packageBadgeText}>{pkg}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
-        {services.map((service) => (
-          <View key={service} style={styles.serviceSection} wrap={false}>
-            <View style={styles.serviceTitleRow}>
-              <Text style={styles.serviceTitle}>{service}</Text>
-            </View>
-            
-            <View style={styles.packageColumns}>
-              {packages.map((pkg, index) => {
-                const items = groupedByService[service][pkg] || [];
-                const isLast = index === packages.length - 1;
+        {services.map((service) => {
+          const availablePackagesForService = getAvailablePackages(service);
+          if (availablePackagesForService.length === 0) return null;
+
+          return (
+            <View key={service} style={styles.serviceSection} wrap={false}>
+              <View style={styles.serviceTitleRow}>
+                <Text style={styles.serviceTitle}>{service}</Text>
+              </View>
+              
+              <View style={styles.packageColumns}>
+                {availablePackagesForService.map((pkg, index) => {
+                  const items = groupedByService[service][pkg] || [];
+                  const isLast = index === availablePackagesForService.length - 1;
                 
                 return (
                   <View 
@@ -388,28 +418,25 @@ export function ServerCatalogTemplate({ catalogItems, configuration, packages, f
                       </Text>
                     </View>
                     <View style={styles.packageItems}>
-                      {items.length === 0 ? (
-                        <Text style={styles.noItems}>No items available</Text>
-                      ) : (
-                        items.map((item) => (
-                          <View key={item.id} style={styles.packageItem}>
-                            <Text style={styles.itemName}>{item.itemName}</Text>
-                            {item.description && (
-                              <Text style={styles.itemDescription}>{item.description}</Text>
-                            )}
-                            <Text style={styles.itemPrice}>
-                              {formatIndianCurrency(parseFloat(item.price || '0'))}
-                            </Text>
-                          </View>
-                        ))
-                      )}
+                      {items.map((item) => (
+                        <View key={item.id} style={styles.packageItem}>
+                          <Text style={styles.itemName}>{item.itemName}</Text>
+                          {item.description && (
+                            <Text style={styles.itemDescription}>{item.description}</Text>
+                          )}
+                          <Text style={styles.itemPrice}>
+                            {formatIndianCurrency(parseFloat(item.price || '0'))}
+                          </Text>
+                        </View>
+                      ))}
                     </View>
                   </View>
                 );
               })}
             </View>
           </View>
-        ))}
+        );
+        })}
 
         <View style={styles.footerSection}>
           <View style={styles.footerRow}>

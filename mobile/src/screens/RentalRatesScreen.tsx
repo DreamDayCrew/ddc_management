@@ -2,7 +2,6 @@ import { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Alert, Modal, RefreshControl, ScrollView, TextInput } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
 import { useRentalRates, useAssets, useCreateRentalRate, useUpdateRentalRate, useDeleteRentalRate } from '../hooks/useApi';
 import type { AssetRentalRate } from '../types';
 import { useTheme } from '../contexts';
@@ -29,6 +28,8 @@ export default function RentalRatesScreen() {
     timeUnit: 'hrs',
     amount: '',
   });
+  const [showAssetDropdown, setShowAssetDropdown] = useState(false);
+  const [showTimeUnitDropdown, setShowTimeUnitDropdown] = useState(false);
 
   const createMutation = useCreateRentalRate();
   const updateMutation = useUpdateRentalRate();
@@ -271,17 +272,27 @@ export default function RentalRatesScreen() {
 
             <ScrollView style={styles.modalBody}>
               <Text style={[styles.label, { color: colors.text }]}>Asset *</Text>
-              <View style={[styles.pickerContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Picker
-                  selectedValue={formData.assetId}
-                  onValueChange={(value: string) => setFormData({ ...formData, assetId: value })}
-                  style={{ color: colors.text }}
+              <View style={styles.dropdownContainer}>
+                <TouchableOpacity 
+                  style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => {
+                    setShowAssetDropdown(!showAssetDropdown);
+                    setShowTimeUnitDropdown(false);
+                  }}
                 >
-                  <Picker.Item label="Select Asset" value="" color={colors.textSecondary} />
-                  {activeAssets.map(a => (
-                    <Picker.Item key={a.id} label={`${a.name} (${a.category})`} value={a.id} color={colors.text} />
-                  ))}
-                </Picker>
+                  <Ionicons name="cube" size={20} color={colors.textSecondary} style={styles.dropdownIcon} />
+                  <Text style={[styles.dropdownText, { color: formData.assetId ? colors.text : colors.textSecondary }]}>
+                    {formData.assetId ? (() => {
+                      const asset = activeAssets.find(a => a.id === formData.assetId);
+                      return asset ? `${asset.name} (${asset.category})` : 'Select Asset';
+                    })() : 'Select Asset'}
+                  </Text>
+                  <Ionicons 
+                    name={showAssetDropdown ? "chevron-up" : "chevron-down"} 
+                    size={20} 
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.row}>
@@ -298,15 +309,24 @@ export default function RentalRatesScreen() {
                 </View>
                 <View style={styles.halfField}>
                   <Text style={[styles.label, { color: colors.text }]}>Time Unit *</Text>
-                  <View style={[styles.pickerContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <Picker
-                      selectedValue={formData.timeUnit}
-                      onValueChange={(value: string) => setFormData({ ...formData, timeUnit: value })}
-                      style={{ color: colors.text }}
+                  <View style={styles.dropdownContainer}>
+                    <TouchableOpacity 
+                      style={[styles.categoryDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => {
+                        setShowTimeUnitDropdown(!showTimeUnitDropdown);
+                        setShowAssetDropdown(false);
+                      }}
                     >
-                      <Picker.Item label="Hours" value="hrs" color={colors.text} />
-                      <Picker.Item label="Days" value="day" color={colors.text} />
-                    </Picker>
+                      <Ionicons name="time" size={20} color={colors.textSecondary} style={styles.dropdownIcon} />
+                      <Text style={[styles.dropdownText, { color: colors.text }]}>
+                        {formData.timeUnit === 'hrs' ? 'Hours' : 'Days'}
+                      </Text>
+                      <Ionicons 
+                        name={showTimeUnitDropdown ? "chevron-up" : "chevron-down"} 
+                        size={20} 
+                        color={colors.textSecondary}
+                      />
+                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
@@ -361,6 +381,88 @@ export default function RentalRatesScreen() {
               </TouchableOpacity>
             </View>
           </View>
+          
+          {/* Asset Dropdown List */}
+          {showAssetDropdown && (
+            <View style={[styles.fixedDropdownList, { backgroundColor: colors.card, borderColor: colors.border, top: 240 }]}>
+              <ScrollView 
+                nestedScrollEnabled={true}
+                showsVerticalScrollIndicator={true}
+                indicatorStyle={isDark ? "white" : "black"}
+                style={styles.dropdownScroll}
+              >
+                {activeAssets.map((asset) => (
+                  <TouchableOpacity 
+                    key={asset.id}
+                    style={[
+                      styles.dropdownItem, 
+                      { backgroundColor: colors.card, borderBottomColor: colors.border },
+                      formData.assetId === asset.id && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                    ]}
+                    onPress={() => {
+                      setFormData({ ...formData, assetId: asset.id });
+                      setShowAssetDropdown(false);
+                    }}
+                  >
+                    <Ionicons name="cube" size={18} color={formData.assetId === asset.id ? colors.primary : colors.textSecondary} style={styles.dropdownItemIcon} />
+                    <Text style={[styles.dropdownItemText, { color: colors.text }, formData.assetId === asset.id && [styles.selectedDropdownItemText, { color: isDark ? '#e2e8f0' : colors.primary }]]}>
+                      {asset.name} ({asset.category})
+                    </Text>
+                    {formData.assetId === asset.id && (
+                      <Ionicons name="checkmark" size={16} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+          
+          {/* Time Unit Dropdown List */}
+          {showTimeUnitDropdown && (
+            <View style={[styles.fixedDropdownList, { backgroundColor: colors.card, borderColor: colors.border, top: 360 }]}>
+              <ScrollView 
+                nestedScrollEnabled={true}
+                showsVerticalScrollIndicator={true}
+                indicatorStyle={isDark ? "white" : "black"}
+                style={styles.dropdownScroll}
+              >
+                {[{ label: 'Hours', value: 'hrs' }, { label: 'Days', value: 'day' }].map((unit) => (
+                  <TouchableOpacity 
+                    key={unit.value}
+                    style={[
+                      styles.dropdownItem, 
+                      { backgroundColor: colors.card, borderBottomColor: colors.border },
+                      formData.timeUnit === unit.value && [styles.selectedDropdownItem, { backgroundColor: colors.surface }]
+                    ]}
+                    onPress={() => {
+                      setFormData({ ...formData, timeUnit: unit.value });
+                      setShowTimeUnitDropdown(false);
+                    }}
+                  >
+                    <Ionicons name="time" size={18} color={formData.timeUnit === unit.value ? colors.primary : colors.textSecondary} style={styles.dropdownItemIcon} />
+                    <Text style={[styles.dropdownItemText, { color: colors.text }, formData.timeUnit === unit.value && [styles.selectedDropdownItemText, { color: isDark ? '#e2e8f0' : colors.primary }]]}>
+                      {unit.label}
+                    </Text>
+                    {formData.timeUnit === unit.value && (
+                      <Ionicons name="checkmark" size={16} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+          
+          {/* Overlay to close dropdowns */}
+          {(showAssetDropdown || showTimeUnitDropdown) && (
+            <TouchableOpacity 
+              style={styles.dropdownOverlay}
+              onPress={() => {
+                setShowAssetDropdown(false);
+                setShowTimeUnitDropdown(false);
+              }}
+              activeOpacity={1}
+            />
+          )}
         </View>
       </Modal>
     </View>
@@ -544,5 +646,69 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  dropdownContainer: {
+    position: 'relative',
+  },
+  categoryDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    minHeight: 50,
+  },
+  dropdownIcon: {
+    marginRight: 10,
+  },
+  dropdownText: {
+    flex: 1,
+    fontSize: 16,
+  },
+  fixedDropdownList: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    maxHeight: 200,
+    borderRadius: 8,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  dropdownScroll: {
+    maxHeight: 200,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+  },
+  selectedDropdownItem: {
+    // backgroundColor set dynamically
+  },
+  dropdownItemIcon: {
+    marginRight: 12,
+  },
+  dropdownItemText: {
+    flex: 1,
+    fontSize: 15,
+  },
+  selectedDropdownItemText: {
+    fontWeight: '600',
+  },
+  dropdownOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
   },
 });

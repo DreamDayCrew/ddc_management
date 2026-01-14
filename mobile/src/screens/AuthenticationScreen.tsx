@@ -31,7 +31,7 @@ export default function AuthenticationScreen() {
 
   const { colors, isDark } = useTheme();
   const { securitySettings, setAuthenticated, authenticate, updateSecuritySettings } = useSecurity();
-  const { user } = useUser();
+  const { user, clearUser } = useUser();
   const [enteredPin, setEnteredPin] = useState('');
   const [attempts, setAttempts] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
@@ -69,7 +69,7 @@ export default function AuthenticationScreen() {
   // Fetch user email when modal opens
   const fetchUserEmail = async () => {
     if (!user?.id) {
-      setErrorMessage('User not found. Please restart the app.');
+      setErrorMessage('User information not available. Please log out and sign in again.');
       return;
     }
 
@@ -80,11 +80,11 @@ export default function AuthenticationScreen() {
       if (teamMember?.email) {
         setUserEmail(teamMember.email);
       } else {
-        setErrorMessage('No email address found for your account. Please contact support.');
+        setErrorMessage('No email address found for your account. Please contact support to add an email.');
       }
     } catch (error) {
       console.error('Error fetching user email:', error);
-      setErrorMessage('Failed to fetch your email. Please try again.');
+      setErrorMessage('Failed to fetch your email. Please check your connection and try again.');
     } finally {
       setIsLoadingEmail(false);
     }
@@ -246,6 +246,28 @@ export default function AuthenticationScreen() {
     setOtpInput('');
     setOtpError('');
     fetchUserEmail();
+  };
+
+  const handleSignOutFromForgot = async () => {
+    try {
+      // Clear user data
+      await clearUser();
+      
+      // Clear security settings
+      await updateSecuritySettings({
+        biometricEnabled: false,
+        pinEnabled: false,
+        pinCode: ''
+      });
+      
+      // Close modal
+      setShowForgotPinModal(false);
+      
+      Alert.alert('Signed Out', 'Please identify yourself again to continue.');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      Alert.alert('Error', 'Failed to sign out. Please try again.');
+    }
   };
 
   const handleBiometricReset = async () => {
@@ -611,9 +633,17 @@ export default function AuthenticationScreen() {
                   </TouchableOpacity>
                 </>
               ) : (
-                <Text style={[styles.confirmText, { color: colors.textSecondary }]}>
-                  Unable to retrieve your email. Please contact support.
-                </Text>
+                <>
+                  <Text style={[styles.confirmText, { color: colors.textSecondary, marginBottom: 20 }]}>
+                    Unable to retrieve your email. Please contact support or sign out to start over.
+                  </Text>
+                  <TouchableOpacity 
+                    style={[styles.modalButton, { backgroundColor: '#ef4444', marginBottom: 10 }]} 
+                    onPress={handleSignOutFromForgot}
+                  >
+                    <Text style={{color: '#fff', fontWeight: 'bold'}}>Sign Out & Start Over</Text>
+                  </TouchableOpacity>
+                </>
               )}
             </>
           ) : (

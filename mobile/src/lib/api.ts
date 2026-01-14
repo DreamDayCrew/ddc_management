@@ -38,6 +38,10 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => {
         console.log(`✅ API Response: ${response.status} ${response.config.url}`);
+        // Debug: Log response data type
+        if (response.data) {
+          console.log(`  📦 Data type: ${typeof response.data}, isArray: ${Array.isArray(response.data)}`);
+        }
         return response;
       },
       (error: AxiosError) => {
@@ -67,21 +71,81 @@ class ApiClient {
   // Generic request methods
   async get<T>(url: string): Promise<T> {
     const response = await this.client.get<T>(url);
+    // Handle string responses that should be JSON (parse if needed)
+    if (typeof response.data === 'string') {
+      // Check if it's HTML error page
+      if (response.data.trim().startsWith('<!DOCTYPE') || response.data.trim().startsWith('<html')) {
+        console.error('❌ Server returned HTML instead of JSON. Response preview:', response.data.substring(0, 200));
+        throw new Error('Server returned an error page. Please check if the server is running correctly.');
+      }
+      try {
+        return JSON.parse(response.data);
+      } catch (e) {
+        console.error('❌ Failed to parse JSON response:', e);
+        console.error('Response data:', response.data.substring(0, 500));
+        throw new Error('Invalid JSON response from server');
+      }
+    }
     return response.data;
   }
 
   async post<T>(url: string, data?: any): Promise<T> {
     const response = await this.client.post<T>(url, data);
+    // Handle string responses that should be JSON (parse if needed)
+    if (typeof response.data === 'string') {
+      // Check if it's HTML error page
+      if (response.data.trim().startsWith('<!DOCTYPE') || response.data.trim().startsWith('<html')) {
+        console.error('❌ Server returned HTML instead of JSON. Response preview:', response.data.substring(0, 200));
+        throw new Error('Server returned an error page. Please check if the server is running correctly.');
+      }
+      try {
+        return JSON.parse(response.data);
+      } catch (e) {
+        console.error('❌ Failed to parse JSON response:', e);
+        console.error('Response data:', response.data.substring(0, 500));
+        throw new Error('Invalid JSON response from server');
+      }
+    }
     return response.data;
   }
 
   async patch<T>(url: string, data?: any): Promise<T> {
     const response = await this.client.patch<T>(url, data);
+    // Handle string responses that should be JSON (parse if needed)
+    if (typeof response.data === 'string') {
+      // Check if it's HTML error page
+      if (response.data.trim().startsWith('<!DOCTYPE') || response.data.trim().startsWith('<html')) {
+        console.error('❌ Server returned HTML instead of JSON. Response preview:', response.data.substring(0, 200));
+        throw new Error('Server returned an error page. Please check if the server is running correctly.');
+      }
+      try {
+        return JSON.parse(response.data);
+      } catch (e) {
+        console.error('❌ Failed to parse JSON response:', e);
+        console.error('Response data:', response.data.substring(0, 500));
+        throw new Error('Invalid JSON response from server');
+      }
+    }
     return response.data;
   }
 
   async delete<T>(url: string, data?: any): Promise<T> {
     const response = await this.client.delete<T>(url, { data });
+    // Handle string responses that should be JSON (parse if needed)
+    if (typeof response.data === 'string') {
+      // Check if it's HTML error page
+      if (response.data.trim().startsWith('<!DOCTYPE') || response.data.trim().startsWith('<html')) {
+        console.error('❌ Server returned HTML instead of JSON. Response preview:', response.data.substring(0, 200));
+        throw new Error('Server returned an error page. Please check if the server is running correctly.');
+      }
+      try {
+        return JSON.parse(response.data);
+      } catch (e) {
+        console.error('❌ Failed to parse JSON response:', e);
+        console.error('Response data:', response.data.substring(0, 500));
+        throw new Error('Invalid JSON response from server');
+      }
+    }
     return response.data;
   }
 
@@ -106,6 +170,9 @@ console.log('API Client initialized with base URL:', API_BASE_URL);
 
 // Export API methods with proper typing
 export const api = {
+  // Utility methods
+  getBaseURL: () => API_BASE_URL,
+  
   // Test connection
   testConnection: () => {
     console.log('Testing API connection to:', API_BASE_URL);

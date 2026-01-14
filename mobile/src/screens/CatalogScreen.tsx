@@ -72,10 +72,9 @@ export default function CatalogScreen() {
   const [viewMode, setViewMode] = useState<'grouped' | 'list'>('grouped');
   const [downloadModalVisible, setDownloadModalVisible] = useState(false);
   const [downloadServiceFilter, setDownloadServiceFilter] = useState<string>('');
-  const [downloadPackageFilter, setDownloadPackageFilter] = useState<string>('');
+  const [downloadPackageFilter, setDownloadPackageFilter] = useState<string[]>([]);
   const [downloadAvailabilityError, setDownloadAvailabilityError] = useState<string>('');
   const [showDownloadServiceDropdown, setShowDownloadServiceDropdown] = useState(false);
-  const [showDownloadPackageDropdown, setShowDownloadPackageDropdown] = useState(false);
   const [downloadMode, setDownloadMode] = useState<'download' | 'share'>('download');
   
   // Duplicate modals state
@@ -294,7 +293,7 @@ export default function CatalogScreen() {
   const openDownloadModal = (mode: 'download' | 'share') => {
     setDownloadMode(mode);
     setDownloadServiceFilter('');
-    setDownloadPackageFilter('');
+    setDownloadPackageFilter(packages); // Default to all packages
     setDownloadAvailabilityError('');
     setDownloadModalVisible(true);
   };
@@ -302,22 +301,22 @@ export default function CatalogScreen() {
   const getFilteredDownloadItems = () => {
     return catalogItems.filter((item) => {
       const matchesService = !downloadServiceFilter || item.serviceType === downloadServiceFilter;
-      const matchesPackage = !downloadPackageFilter || item.package === downloadPackageFilter;
+      const matchesPackage = downloadPackageFilter.length === 0 || downloadPackageFilter.includes(item.package);
       return matchesService && matchesPackage;
     });
   };
 
-  const checkAvailabilityForFilters = (serviceFilter: string, packageFilter: string): string => {
+  const checkAvailabilityForFilters = (serviceFilter: string, packageFilters: string[]): string => {
     const filtered = catalogItems.filter((item) => {
       const matchesService = !serviceFilter || item.serviceType === serviceFilter;
-      const matchesPackage = !packageFilter || item.package === packageFilter;
+      const matchesPackage = packageFilters.length === 0 || packageFilters.includes(item.package);
       return matchesService && matchesPackage;
     });
     
     if (filtered.length === 0) {
       const serviceText = serviceFilter ? `"${serviceFilter}"` : "selected";
-      const packageText = packageFilter ? `"${packageFilter}"` : "selected";
-      return `No catalog items found for ${serviceText} service and ${packageText} package. Please select different filters.`;
+      const packageText = packageFilters.length > 0 ? `"${packageFilters.join(', ')}"` : "selected";
+      return `No catalog items found for ${serviceText} service and ${packageText} package(s). Please select different filters.`;
     }
     return '';
   };
@@ -335,11 +334,32 @@ export default function CatalogScreen() {
     setShowDownloadServiceDropdown(false);
   };
 
-  const handleDownloadPackageChange = (pkg: string) => {
-    setDownloadPackageFilter(pkg);
-    const error = checkAvailabilityForFilters(downloadServiceFilter, pkg);
+  const handleTogglePackage = (pkg: string) => {
+    let newPackageFilter: string[];
+    if (downloadPackageFilter.includes(pkg)) {
+      // Remove package
+      newPackageFilter = downloadPackageFilter.filter(p => p !== pkg);
+    } else {
+      // Add package
+      newPackageFilter = [...downloadPackageFilter, pkg];
+    }
+    setDownloadPackageFilter(newPackageFilter);
+    const error = checkAvailabilityForFilters(downloadServiceFilter, newPackageFilter);
     setDownloadAvailabilityError(error);
-    setShowDownloadPackageDropdown(false);
+  };
+
+  const handleToggleAllPackages = () => {
+    let newPackageFilter: string[];
+    if (downloadPackageFilter.length === packages.length) {
+      // Deselect all
+      newPackageFilter = [];
+    } else {
+      // Select all
+      newPackageFilter = [...packages];
+    }
+    setDownloadPackageFilter(newPackageFilter);
+    const error = checkAvailabilityForFilters(downloadServiceFilter, newPackageFilter);
+    setDownloadAvailabilityError(error);
   };
 
   const handleDownloadPDF = async () => {
@@ -350,11 +370,12 @@ export default function CatalogScreen() {
     try {
       const params = new URLSearchParams();
       if (downloadServiceFilter) {
-        params.append('serviceType', downloadServiceFilter);
+        params.append('service', downloadServiceFilter);
       }
-      if (downloadPackageFilter) {
-        params.append('package', downloadPackageFilter);
-      }
+      // Add each package as a separate parameter
+      downloadPackageFilter.forEach(pkg => {
+        params.append('package', pkg);
+      });
       
       const pdfUrl = `${envConfig.API_URL}/api/catalog/pdf${params.toString() ? '?' + params.toString() : ''}`;
       
@@ -383,11 +404,12 @@ export default function CatalogScreen() {
     try {
       const params = new URLSearchParams();
       if (downloadServiceFilter) {
-        params.append('serviceType', downloadServiceFilter);
+        params.append('service', downloadServiceFilter);
       }
-      if (downloadPackageFilter) {
-        params.append('package', downloadPackageFilter);
-      }
+      // Add each package as a separate parameter
+      downloadPackageFilter.forEach(pkg => {
+        params.append('package', pkg);
+      });
       
       const pdfUrl = `${envConfig.API_URL}/api/catalog/pdf${params.toString() ? '?' + params.toString() : ''}`;
       
@@ -800,18 +822,64 @@ export default function CatalogScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Package Filter */}
+            {/* Package Filter - Multi-select Chips */}
             <View style={styles.downloadFilterGroup}>
-              <Text style={[styles.downloadFilterLabel, { color: colors.text }]}>Package Tier</Text>
-              <TouchableOpacity 
-                style={[styles.downloadFilterPicker, { backgroundColor: colors.background, borderColor: colors.border }]}
-                onPress={() => setShowDownloadPackageDropdown(true)}
-              >
-                <Text style={[styles.downloadFilterPickerText, { color: downloadPackageFilter ? colors.text : colors.textSecondary }]}>
-                  {downloadPackageFilter || 'All Packages'}
-                </Text>
-                <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
-              </TouchableOpacity>
+              <Text style={[styles.downloadFilterLabel, { color: colors.text }]}>Package Tiers</Text>
+              <View style={styles.packageChipsContainer}>
+                {/* All Packages Chip */}
+                <TouchableOpacity
+                  style={[
+                    styles.packageChip,
+                    {
+                      backgroundColor: downloadPackageFilter.length === packages.length ? accentColor : colors.surface,
+                      borderColor: downloadPackageFilter.length === packages.length ? accentColor : colors.border,
+                    }
+                  ]}
+                  onPress={handleToggleAllPackages}
+                >
+                  <Text style={[
+                    styles.packageChipText,
+                    { color: downloadPackageFilter.length === packages.length ? '#fff' : colors.text }
+                  ]}>
+                    All
+                  </Text>
+                </TouchableOpacity>
+                
+                {/* Individual Package Chips */}
+                {packages.map((pkg) => {
+                  const isSelected = downloadPackageFilter.includes(pkg);
+                  const pkgColors = getPackageColor(pkg, isDark);
+                  
+                  return (
+                    <TouchableOpacity
+                      key={pkg}
+                      style={[
+                        styles.packageChip,
+                        {
+                          backgroundColor: isSelected ? pkgColors.bg : colors.surface,
+                          borderColor: isSelected ? pkgColors.text : colors.border,
+                        }
+                      ]}
+                      onPress={() => handleTogglePackage(pkg)}
+                    >
+                      <Text style={[
+                        styles.packageChipText,
+                        { color: isSelected ? pkgColors.text : colors.text }
+                      ]}>
+                        {pkg}
+                      </Text>
+                      {isSelected && (
+                        <Ionicons name="checkmark-circle" size={14} color={pkgColors.text} style={{ marginLeft: 4 }} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={[styles.packageChipsHint, { color: colors.textSecondary }]}>
+                {downloadPackageFilter.length === 0 
+                  ? 'Select at least one package' 
+                  : `${downloadPackageFilter.length} package${downloadPackageFilter.length > 1 ? 's' : ''} selected`}
+              </Text>
             </View>
 
             {/* Availability Error */}
@@ -876,41 +944,6 @@ export default function CatalogScreen() {
               >
                 <Text style={[styles.dropdownItemText, { color: colors.text }]}>{service}</Text>
                 {downloadServiceFilter === service && <Ionicons name="checkmark" size={20} color={accentColor} />}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Download Package Dropdown Modal */}
-      <Modal
-        visible={showDownloadPackageDropdown}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowDownloadPackageDropdown(false)}
-      >
-        <TouchableOpacity 
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowDownloadPackageDropdown(false)}
-        >
-          <View style={[styles.dropdownContainer, { backgroundColor: colors.card }]}>
-            <Text style={[styles.dropdownTitle, { color: colors.text }]}>Select Package</Text>
-            <TouchableOpacity
-              style={styles.dropdownItem}
-              onPress={() => handleDownloadPackageChange('')}
-            >
-              <Text style={[styles.dropdownItemText, { color: colors.text }]}>All Packages</Text>
-              {!downloadPackageFilter && <Ionicons name="checkmark" size={20} color={accentColor} />}
-            </TouchableOpacity>
-            {packages.map((pkg) => (
-              <TouchableOpacity
-                key={pkg}
-                style={styles.dropdownItem}
-                onPress={() => handleDownloadPackageChange(pkg)}
-              >
-                <Text style={[styles.dropdownItemText, { color: colors.text }]}>{pkg}</Text>
-                {downloadPackageFilter === pkg && <Ionicons name="checkmark" size={20} color={accentColor} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -1763,5 +1796,28 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  packageChipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  packageChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+  },
+  packageChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  packageChipsHint: {
+    fontSize: 12,
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });

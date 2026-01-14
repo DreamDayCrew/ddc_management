@@ -2206,9 +2206,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/catalog/pdf", async (req, res) => {
     try {
-      const { service, package: packageType } = req.query;
+      const { service } = req.query;
+      // Support both single package param and array of packages
+      let packageTypes: string[] = [];
+      if (req.query.package) {
+        packageTypes = Array.isArray(req.query.package) 
+          ? req.query.package.filter(p => typeof p === 'string' && p.trim() !== '') as string[]
+          : [req.query.package as string].filter(p => p.trim() !== '');
+      }
       
-      console.log('[PDF] Received query parameters:', { service, package: packageType });
+      console.log('[PDF] Received query parameters:', { service, packages: packageTypes });
       
       const [allCatalogItems, configuration] = await Promise.all([
         storage.getCatalogItems(),
@@ -2229,11 +2236,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[PDF] Filtered by service "${service}": ${filteredCatalogItems.length} items`);
       }
       
-      if (packageType && typeof packageType === 'string' && packageType.trim() !== '') {
+      if (packageTypes.length > 0) {
         filteredCatalogItems = filteredCatalogItems.filter(item => 
-          item.package === packageType.trim()
+          packageTypes.includes(item.package)
         );
-        console.log(`[PDF] Filtered by package "${packageType}": ${filteredCatalogItems.length} items`);
+        console.log(`[PDF] Filtered by packages "${packageTypes.join(', ')}": ${filteredCatalogItems.length} items`);
       }
 
       console.log(`[PDF] Final filtered catalog items: ${filteredCatalogItems.length} items`);
@@ -2242,9 +2249,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate dynamic filename based on filters
       let filename = 'Dream_Day_Crew_Service_Catalog';
-      if (service || packageType) {
+      if (service || packageTypes.length > 0) {
         const servicePart = (typeof service === 'string' && service.trim() !== '') ? `_${service.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
-        const packagePart = (typeof packageType === 'string' && packageType.trim() !== '') ? `_${packageType.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+        const packagePart = packageTypes.length > 0 && packageTypes.length < packages.length
+          ? `_${packageTypes.join('_').replace(/[^a-zA-Z0-9_]/g, '_')}` 
+          : '';
         filename = `Dream_Day_Crew${servicePart}${packagePart}_Catalog`;
       }
 
@@ -2255,7 +2264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           packages,
           filterInfo: {
             service: service as string || null,
-            package: packageType as string || null,
+            packages: packageTypes.length > 0 ? packageTypes : null,
             totalItems: filteredCatalogItems.length
           }
         }) as React.ReactElement

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet, Svg, Path, Circle, G } from '@react-pdf/renderer';
 import type { Event, Configuration } from '@shared/schema';
 
 const BRAND_MAROON = '#800020';
@@ -124,8 +124,9 @@ const styles = StyleSheet.create({
   },
   
   statsSection: {
+    marginTop: 20,
     marginBottom: 15,
-    padding: 10,
+    padding: 15,
     backgroundColor: '#f0f7ff',
     borderRadius: 4,
   },
@@ -133,23 +134,38 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: 'bold',
     color: BRAND_MAROON,
-    marginBottom: 8,
+    marginBottom: 12,
+    textAlign: 'center',
   },
-  statsGrid: {
+  chartContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 20,
   },
-  statItem: {
-    width: '33%',
-    marginBottom: 6,
-    paddingRight: 8,
+  pieChartWrapper: {
+    alignItems: 'center',
   },
-  statService: {
-    fontSize: 8,
-    color: '#555',
+  legendContainer: {
+    flexDirection: 'column',
+    gap: 8,
   },
-  statCount: {
-    fontSize: 10,
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 2,
+  },
+  legendText: {
+    fontSize: 9,
+    color: '#333',
+  },
+  legendCount: {
+    fontSize: 9,
     fontWeight: 'bold',
     color: BRAND_MAROON,
   },
@@ -184,19 +200,6 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: '#333',
   },
-  
-  colSno: { width: '4%' },
-  colEventName: { width: '15%' },
-  colService: { width: '12%' },
-  colCustomerName: { width: '10%' },
-  colCustomerPhone: { width: '10%' },
-  colCustomerEmail: { width: '12%' },
-  colVenue: { width: '12%' },
-  colEventDate: { width: '8%' },
-  colStatus: { width: '8%' },
-  colInvoice: { width: '9%' },
-  colPaymentStatus: { width: '8%' },
-  colDdcSpent: { width: '9%' },
   
   footer: {
     position: 'absolute',
@@ -234,6 +237,63 @@ const formatCurrency = (amount: number | undefined) => {
   return `Rs.${amount.toLocaleString('en-IN')}`;
 };
 
+// Pie chart colors
+const PIE_COLORS = [
+  '#800020', // Maroon
+  '#4a90e2', // Blue
+  '#f5a623', // Orange
+  '#7ed321', // Green
+  '#bd10e0', // Purple
+  '#50e3c2', // Teal
+  '#ff6b6b', // Red
+  '#4ecdc4', // Cyan
+  '#ffe66d', // Yellow
+  '#a8e6cf', // Mint
+];
+
+const createPieChart = (data: ServiceStats[], size: number = 120) => {
+  const total = data.reduce((sum, item) => sum + item.count, 0);
+  if (total === 0) return null;
+
+  let currentAngle = -90; // Start from top
+  const centerX = size / 2;
+  const centerY = size / 2;
+  const radius = size / 2 - 5;
+
+  const slices = data.map((item, index) => {
+    const percentage = item.count / total;
+    const angle = percentage * 360;
+    const startAngle = (currentAngle * Math.PI) / 180;
+    const endAngle = ((currentAngle + angle) * Math.PI) / 180;
+
+    const x1 = centerX + radius * Math.cos(startAngle);
+    const y1 = centerY + radius * Math.sin(startAngle);
+    const x2 = centerX + radius * Math.cos(endAngle);
+    const y2 = centerY + radius * Math.sin(endAngle);
+
+    const largeArcFlag = angle > 180 ? 1 : 0;
+
+    const pathData = [
+      `M ${centerX} ${centerY}`,
+      `L ${x1} ${y1}`,
+      `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+      'Z',
+    ].join(' ');
+
+    currentAngle += angle;
+
+    return {
+      path: pathData,
+      color: PIE_COLORS[index % PIE_COLORS.length],
+      service: item.service,
+      count: item.count,
+      percentage: (percentage * 100).toFixed(1),
+    };
+  });
+
+  return slices;
+};
+
 export function EventListTemplate({
   events,
   config,
@@ -250,30 +310,39 @@ export function EventListTemplate({
   const partialEvents = events.filter(e => e.paymentStatus === 'Partial').length;
 
   const getTableColumns = () => {
-    const cols: { key: string; label: string; style: any }[] = [
-      { key: 'sno', label: '#', style: styles.colSno },
-      { key: 'eventName', label: 'Event Name', style: styles.colEventName },
-      { key: 'service', label: 'Service', style: styles.colService },
+    // Define base columns with relative weights (not percentages yet)
+    const colDefs: { key: string; label: string; weight: number }[] = [
+      { key: 'sno', label: '#', weight: 3 },
+      { key: 'eventName', label: 'Event Name', weight: 18 },
+      { key: 'service', label: 'Service', weight: 14 },
     ];
 
     if (options.includeCustomerInfo) {
-      cols.push({ key: 'customerName', label: 'Customer', style: styles.colCustomerName });
-      cols.push({ key: 'customerPhone', label: 'Phone', style: styles.colCustomerPhone });
+      colDefs.push({ key: 'customerName', label: 'Customer', weight: 12 });
+      colDefs.push({ key: 'customerPhone', label: 'Phone', weight: 11 });
     }
 
     if (options.includeEventInfo) {
-      cols.push({ key: 'venue', label: 'Venue', style: styles.colVenue });
-      cols.push({ key: 'eventDate', label: 'Date', style: styles.colEventDate });
-      cols.push({ key: 'status', label: 'Status', style: styles.colStatus });
+      colDefs.push({ key: 'venue', label: 'Venue', weight: 15 });
+      colDefs.push({ key: 'eventDate', label: 'Date', weight: 9 });
+      colDefs.push({ key: 'status', label: 'Status', weight: 9 });
     }
 
     if (options.includePaymentInfo) {
-      cols.push({ key: 'invoice', label: 'Invoice', style: styles.colInvoice });
-      cols.push({ key: 'paymentStatus', label: 'Payment', style: styles.colPaymentStatus });
-      cols.push({ key: 'ddcSpent', label: 'DDC Spent', style: styles.colDdcSpent });
+      colDefs.push({ key: 'invoice', label: 'Invoice', weight: 10 });
+      colDefs.push({ key: 'paymentStatus', label: 'Payment', weight: 9 });
+      colDefs.push({ key: 'ddcSpent', label: 'DDC Spent', weight: 10 });
     }
 
-    return cols;
+    // Calculate total weight
+    const totalWeight = colDefs.reduce((sum, col) => sum + col.weight, 0);
+
+    // Convert weights to percentages
+    return colDefs.map(col => ({
+      key: col.key,
+      label: col.label,
+      style: { width: `${(col.weight / totalWeight * 100).toFixed(2)}%` },
+    }));
   };
 
   const columns = getTableColumns();
@@ -291,7 +360,7 @@ export function EventListTemplate({
           </View>
           <View style={styles.documentTitleContainer}>
             <Text style={styles.documentTitle}>
-              {filters.eventStatus === 'all' ? 'ALL EVENTS' : `${filters.eventStatus.toUpperCase()} EVENTS`}
+              Events Report
             </Text>
             <Text style={styles.documentSubtitle}>Generated: {generatedDate}</Text>
             {(filters.serviceType !== 'all' || filters.paymentStatus !== 'all') && (
@@ -331,20 +400,6 @@ export function EventListTemplate({
           )}
         </View>
 
-        {options.includeStats && serviceStats.length > 0 && (
-          <View style={styles.statsSection}>
-            <Text style={styles.statsTitle}>Events by Service Type</Text>
-            <View style={styles.statsGrid}>
-              {serviceStats.map((stat, idx) => (
-                <View key={idx} style={styles.statItem}>
-                  <Text style={styles.statService}>{stat.service}</Text>
-                  <Text style={styles.statCount}>{stat.count} events</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
         <View style={styles.table}>
           <View style={styles.tableHeader}>
             {columns.map((col) => (
@@ -359,57 +414,88 @@ export function EventListTemplate({
               key={event.id}
               style={[styles.tableRow, index % 2 === 1 ? styles.tableRowAlt : {}]}
             >
-              <View style={styles.colSno}>
-                <Text style={styles.tableCell}>{index + 1}</Text>
-              </View>
-              <View style={styles.colEventName}>
-                <Text style={styles.tableCell}>{event.eventName}</Text>
-              </View>
-              <View style={styles.colService}>
-                <Text style={styles.tableCell}>{event.providedService}</Text>
-              </View>
+              {columns.map((col) => {
+                let content = '-';
+                
+                switch (col.key) {
+                  case 'sno':
+                    content = String(index + 1);
+                    break;
+                  case 'eventName':
+                    content = event.eventName;
+                    break;
+                  case 'service':
+                    content = event.providedService;
+                    break;
+                  case 'customerName':
+                    content = event.clientName || '-';
+                    break;
+                  case 'customerPhone':
+                    content = event.clientPhone || '-';
+                    break;
+                  case 'venue':
+                    content = event.venue;
+                    break;
+                  case 'eventDate':
+                    content = formatDate(event.eventDate);
+                    break;
+                  case 'status':
+                    content = event.eventStatus;
+                    break;
+                  case 'invoice':
+                    content = formatCurrency(event.invoiceValue);
+                    break;
+                  case 'paymentStatus':
+                    content = event.paymentStatus;
+                    break;
+                  case 'ddcSpent':
+                    content = formatCurrency(event.ddcSpent);
+                    break;
+                }
 
-              {options.includeCustomerInfo && (
-                <>
-                  <View style={styles.colCustomerName}>
-                    <Text style={styles.tableCell}>{event.clientName || '-'}</Text>
+                return (
+                  <View key={col.key} style={col.style}>
+                    <Text style={styles.tableCell}>{content}</Text>
                   </View>
-                  <View style={styles.colCustomerPhone}>
-                    <Text style={styles.tableCell}>{event.clientPhone || '-'}</Text>
-                  </View>
-                </>
-              )}
-
-              {options.includeEventInfo && (
-                <>
-                  <View style={styles.colVenue}>
-                    <Text style={styles.tableCell}>{event.venue}</Text>
-                  </View>
-                  <View style={styles.colEventDate}>
-                    <Text style={styles.tableCell}>{formatDate(event.eventDate)}</Text>
-                  </View>
-                  <View style={styles.colStatus}>
-                    <Text style={styles.tableCell}>{event.eventStatus}</Text>
-                  </View>
-                </>
-              )}
-
-              {options.includePaymentInfo && (
-                <>
-                  <View style={styles.colInvoice}>
-                    <Text style={styles.tableCell}>{formatCurrency(event.invoiceValue)}</Text>
-                  </View>
-                  <View style={styles.colPaymentStatus}>
-                    <Text style={styles.tableCell}>{event.paymentStatus}</Text>
-                  </View>
-                  <View style={styles.colDdcSpent}>
-                    <Text style={styles.tableCell}>{formatCurrency(event.ddcSpent)}</Text>
-                  </View>
-                </>
-              )}
+                );
+              })}
             </View>
           ))}
         </View>
+
+        {options.includeStats && serviceStats.length > 0 && (
+          <View style={styles.statsSection}>
+            <Text style={styles.statsTitle}>Events by Service Type</Text>
+            <View style={styles.chartContainer}>
+              <View style={styles.pieChartWrapper}>
+                <Svg width={120} height={120}>
+                  {createPieChart(serviceStats, 120)?.map((slice, index) => (
+                    <Path
+                      key={index}
+                      d={slice.path}
+                      fill={slice.color}
+                      stroke="#ffffff"
+                      strokeWidth={2}
+                    />
+                  ))}
+                </Svg>
+              </View>
+              <View style={styles.legendContainer}>
+                {createPieChart(serviceStats, 120)?.map((slice, index) => (
+                  <View key={index} style={styles.legendItem}>
+                    <View style={[styles.legendColor, { backgroundColor: slice.color }]} />
+                    <Text style={styles.legendText}>
+                      {slice.service.length > 20 ? slice.service.substring(0, 20) + '...' : slice.service}:
+                    </Text>
+                    <Text style={styles.legendCount}>
+                      {slice.count} ({slice.percentage}%)
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
 
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>{config.businessName || 'Dream Day Crew'}</Text>
