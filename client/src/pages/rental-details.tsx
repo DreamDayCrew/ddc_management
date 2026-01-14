@@ -419,6 +419,21 @@ export default function RentalDetails() {
       return;
     }
 
+    const isDuplicateItem = items.some(
+      item => item.assetId === newItem.assetId && 
+              item.duration === newItem.duration && 
+              item.timeUnit === newItem.timeUnit
+    );
+
+    if (isDuplicateItem) {
+      toast({
+        title: "Error",
+        description: "This asset with the same duration is already added. Please edit the existing item or choose a different duration.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (isNew) {
       setItems([...items, { ...newItem }]);
     } else {
