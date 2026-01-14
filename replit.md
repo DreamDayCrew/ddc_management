@@ -22,6 +22,20 @@ The backend is an Express.js API with TypeScript, supporting CORS and JSON body 
 
 The system manages an event workflow from "Inquired" to "Completed" status. Requirements are added to events, and FulfillmentPlans link these to resources, tracking actual costs. Invoice generation is server-side using `@react-pdf/renderer`, integrating event details, requirements, and configuration data for dynamic PDF creation with branding, GST calculation, and currency formatting. Budget reporting for completed events compares quoted values against actual costs from fulfillment plans to calculate variances.
 
+### Event List PDF Download
+
+The Events page includes a "Download" button to generate a PDF of all completed events with configurable options:
+- **Always Included**: Event Name, Service Provided
+- **Optional Sections** (user selectable):
+  - Customer Info: Name, Phone, Email, Address
+  - Event Info: Venue, Event Date, Status
+  - Payment Info: Invoice Value, Payment Status, DDC Spent
+  - Service Statistics: Count of events by service type
+
+**API Endpoint**: `GET /api/events/completed/pdf?customerInfo=true&eventInfo=true&paymentInfo=true&stats=true`
+**Template**: `server/event-list-template.tsx` - Landscape A4 PDF with summary section, optional stats grid, and event table
+**Calculations**: Invoice value = sum(price × quantity - discount) for non-dropped requirements; DDC spent = sum(payment) from fulfillment plans
+
 ### Dropped Requirements Handling
 
 Requirements can be marked as "Dropped" to exclude them from financial calculations while maintaining visibility in reports:
