@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { type Event, type Requirement } from "@shared/schema";
+import { type Event, type Requirement, type Configuration } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, Download, Loader2 } from "lucide-react";
@@ -16,6 +16,13 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EventForm } from "@/components/forms/event-form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -28,6 +35,9 @@ const getLast3MonthsRange = () => {
   return threeMonthsAgo;
 };
 
+const EVENT_STATUSES = ["Inquired", "In Progress", "Completed"];
+const PAYMENT_STATUSES = ["Pending", "Partial", "Paid"];
+
 export default function Events() {
   const [searchQuery, setSearchQuery] = useState("");
   const [addEventOpen, setAddEventOpen] = useState(false);
@@ -39,10 +49,19 @@ export default function Events() {
     paymentInfo: true,
     stats: true,
   });
+  const [downloadFilters, setDownloadFilters] = useState({
+    serviceType: "all",
+    eventStatus: "all",
+    paymentStatus: "all",
+  });
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
   const threeMonthsAgo = useMemo(getLast3MonthsRange, []);
+
+  const { data: configuration } = useQuery<Configuration>({
+    queryKey: ["/api/configuration"],
+  });
 
   const { data: events = [], isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
@@ -100,9 +119,12 @@ export default function Events() {
         eventInfo: downloadOptions.eventInfo.toString(),
         paymentInfo: downloadOptions.paymentInfo.toString(),
         stats: downloadOptions.stats.toString(),
+        serviceType: downloadFilters.serviceType,
+        eventStatus: downloadFilters.eventStatus,
+        paymentStatus: downloadFilters.paymentStatus,
       });
 
-      const response = await fetch(`/api/events/completed/pdf?${params.toString()}`);
+      const response = await fetch(`/api/events/pdf?${params.toString()}`);
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -113,7 +135,8 @@ export default function Events() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Completed_Events_${new Date().toISOString().split('T')[0]}.pdf`;
+      const statusLabel = downloadFilters.eventStatus === "all" ? "All" : downloadFilters.eventStatus;
+      a.download = `Events_${statusLabel}_${new Date().toISOString().split('T')[0]}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -121,7 +144,7 @@ export default function Events() {
 
       toast({
         title: "Download Complete",
-        description: "Completed events list has been downloaded.",
+        description: "Events list has been downloaded.",
       });
       setDownloadOpen(false);
     } catch (error: any) {
@@ -160,69 +183,129 @@ export default function Events() {
                 Download
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Download Completed Events</DialogTitle>
+                <DialogTitle>Download Events Report</DialogTitle>
                 <DialogDescription>
-                  Select what information to include in the PDF download
+                  Filter events and select what information to include
                 </DialogDescription>
               </DialogHeader>
               <div className="py-4 space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Event Name and Service Provided are always included.
-                </p>
                 <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="customerInfo"
-                      checked={downloadOptions.customerInfo}
-                      onCheckedChange={(checked) =>
-                        setDownloadOptions((prev) => ({ ...prev, customerInfo: !!checked }))
-                      }
-                      data-testid="checkbox-customer-info"
-                    />
-                    <Label htmlFor="customerInfo" className="text-sm font-medium cursor-pointer">
-                      Customer Info (Name, Phone, Email, Address)
-                    </Label>
+                  <Label className="text-sm font-medium">Filter Events</Label>
+                  <div className="grid grid-cols-1 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="serviceType" className="text-xs text-muted-foreground">Service Type</Label>
+                      <Select
+                        value={downloadFilters.serviceType}
+                        onValueChange={(value) => setDownloadFilters(prev => ({ ...prev, serviceType: value }))}
+                      >
+                        <SelectTrigger data-testid="select-service-type">
+                          <SelectValue placeholder="Select service type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Services</SelectItem>
+                          {configuration?.servicesProvided?.map((service) => (
+                            <SelectItem key={service} value={service}>{service}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="eventStatus" className="text-xs text-muted-foreground">Event Status</Label>
+                      <Select
+                        value={downloadFilters.eventStatus}
+                        onValueChange={(value) => setDownloadFilters(prev => ({ ...prev, eventStatus: value }))}
+                      >
+                        <SelectTrigger data-testid="select-event-status">
+                          <SelectValue placeholder="Select event status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Statuses</SelectItem>
+                          {EVENT_STATUSES.map((status) => (
+                            <SelectItem key={status} value={status}>{status}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="paymentStatus" className="text-xs text-muted-foreground">Payment Status</Label>
+                      <Select
+                        value={downloadFilters.paymentStatus}
+                        onValueChange={(value) => setDownloadFilters(prev => ({ ...prev, paymentStatus: value }))}
+                      >
+                        <SelectTrigger data-testid="select-payment-status">
+                          <SelectValue placeholder="Select payment status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Payment Statuses</SelectItem>
+                          {PAYMENT_STATUSES.map((status) => (
+                            <SelectItem key={status} value={status}>{status}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="eventInfo"
-                      checked={downloadOptions.eventInfo}
-                      onCheckedChange={(checked) =>
-                        setDownloadOptions((prev) => ({ ...prev, eventInfo: !!checked }))
-                      }
-                      data-testid="checkbox-event-info"
-                    />
-                    <Label htmlFor="eventInfo" className="text-sm font-medium cursor-pointer">
-                      Event Info (Venue, Event Date, Status)
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="paymentInfo"
-                      checked={downloadOptions.paymentInfo}
-                      onCheckedChange={(checked) =>
-                        setDownloadOptions((prev) => ({ ...prev, paymentInfo: !!checked }))
-                      }
-                      data-testid="checkbox-payment-info"
-                    />
-                    <Label htmlFor="paymentInfo" className="text-sm font-medium cursor-pointer">
-                      Payment Info (Invoice Value, Payment Status, DDC Spent)
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="stats"
-                      checked={downloadOptions.stats}
-                      onCheckedChange={(checked) =>
-                        setDownloadOptions((prev) => ({ ...prev, stats: !!checked }))
-                      }
-                      data-testid="checkbox-stats"
-                    />
-                    <Label htmlFor="stats" className="text-sm font-medium cursor-pointer">
-                      Service Statistics (Count by service type)
-                    </Label>
+                </div>
+                
+                <div className="border-t pt-4 space-y-3">
+                  <Label className="text-sm font-medium">Include Information</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Event Name and Service Provided are always included.
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="customerInfo"
+                        checked={downloadOptions.customerInfo}
+                        onCheckedChange={(checked) =>
+                          setDownloadOptions((prev) => ({ ...prev, customerInfo: !!checked }))
+                        }
+                        data-testid="checkbox-customer-info"
+                      />
+                      <Label htmlFor="customerInfo" className="text-sm cursor-pointer">
+                        Customer Info (Name, Phone, Email, Address)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="eventInfo"
+                        checked={downloadOptions.eventInfo}
+                        onCheckedChange={(checked) =>
+                          setDownloadOptions((prev) => ({ ...prev, eventInfo: !!checked }))
+                        }
+                        data-testid="checkbox-event-info"
+                      />
+                      <Label htmlFor="eventInfo" className="text-sm cursor-pointer">
+                        Event Info (Venue, Event Date, Status)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="paymentInfo"
+                        checked={downloadOptions.paymentInfo}
+                        onCheckedChange={(checked) =>
+                          setDownloadOptions((prev) => ({ ...prev, paymentInfo: !!checked }))
+                        }
+                        data-testid="checkbox-payment-info"
+                      />
+                      <Label htmlFor="paymentInfo" className="text-sm cursor-pointer">
+                        Payment Info (Invoice Value, Payment Status, DDC Spent)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="stats"
+                        checked={downloadOptions.stats}
+                        onCheckedChange={(checked) =>
+                          setDownloadOptions((prev) => ({ ...prev, stats: !!checked }))
+                        }
+                        data-testid="checkbox-stats"
+                      />
+                      <Label htmlFor="stats" className="text-sm cursor-pointer">
+                        Service Statistics (Count by service type)
+                      </Label>
+                    </div>
                   </div>
                 </div>
               </div>

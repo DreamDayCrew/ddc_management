@@ -2565,7 +2565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // EVENT LIST PDF DOWNLOAD
   // ============================================
   
-  app.get("/api/events/completed/pdf", async (req, res) => {
+  app.get("/api/events/pdf", async (req, res) => {
     console.log('📄 Event List PDF API called');
     
     try {
@@ -2577,16 +2577,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         includeStats: req.query.stats === 'true',
       };
       
+      // Parse filter parameters
+      const filters = {
+        serviceType: (req.query.serviceType as string) || 'all',
+        eventStatus: (req.query.eventStatus as string) || 'all',
+        paymentStatus: (req.query.paymentStatus as string) || 'all',
+      };
+      
       console.log('📋 PDF options:', options);
+      console.log('🔍 Filters:', filters);
       
-      // Get all completed events
+      // Get all events and apply filters
       const allEvents = await storage.getEvents();
-      const completedEvents = allEvents.filter(e => e.eventStatus === 'Completed');
+      let filteredEvents = allEvents;
       
-      console.log(`✅ Found ${completedEvents.length} completed events`);
+      // Apply service type filter
+      if (filters.serviceType !== 'all') {
+        filteredEvents = filteredEvents.filter(e => e.providedService === filters.serviceType);
+      }
       
-      if (completedEvents.length === 0) {
-        return res.status(400).json({ error: "No completed events to download" });
+      // Apply event status filter
+      if (filters.eventStatus !== 'all') {
+        filteredEvents = filteredEvents.filter(e => e.eventStatus === filters.eventStatus);
+      }
+      
+      // Apply payment status filter
+      if (filters.paymentStatus !== 'all') {
+        filteredEvents = filteredEvents.filter(e => e.paymentStatus === filters.paymentStatus);
+      }
+      
+      console.log(`✅ Found ${filteredEvents.length} matching events`);
+      
+      if (filteredEvents.length === 0) {
+        return res.status(400).json({ error: "No events match the selected filters" });
       }
       
       // Get configuration
@@ -2597,7 +2620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Calculate invoice value and DDC spent for each event
       const eventsWithFinancials = await Promise.all(
-        completedEvents.map(async (event) => {
+        filteredEvents.map(async (event) => {
           // Get requirements for this event (excluding dropped)
           const requirements = await storage.getRequirements(event.id);
           const activeRequirements = requirements.filter(r => r.requirementStatus !== 'Dropped');
@@ -2626,7 +2649,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Calculate service statistics
       const serviceStatsMap = new Map<string, number>();
-      for (const event of completedEvents) {
+      for (const event of filteredEvents) {
         const count = serviceStatsMap.get(event.providedService) || 0;
         serviceStatsMap.set(event.providedService, count + 1);
       }
@@ -2654,6 +2677,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         events: eventsWithFinancials,
         config,
         options,
+        filters,
         serviceStats,
         generatedDate,
       });
@@ -2662,7 +2686,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('✅ PDF buffer generated, size:', pdfBuffer.length, 'bytes');
       
       // Set response headers for PDF download
-      const fileName = `Completed_Events_${new Date().toISOString().split('T')[0]}.pdf`;
+      const statusLabel = filters.eventStatus === 'all' ? 'All' : filters.eventStatus.replace(' ', '_');
+      const fileName = `Events_${statusLabel}_${new Date().toISOString().split('T')[0]}.pdf`;
       
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);

@@ -21,10 +21,17 @@ interface EventListPdfOptions {
   includeStats: boolean;
 }
 
+interface EventListFilters {
+  serviceType: string;
+  eventStatus: string;
+  paymentStatus: string;
+}
+
 interface EventListTemplateProps {
   events: EventWithFinancials[];
   config: Configuration;
   options: EventListPdfOptions;
+  filters: EventListFilters;
   serviceStats: ServiceStats[];
   generatedDate: string;
 }
@@ -231,6 +238,7 @@ export function EventListTemplate({
   events,
   config,
   options,
+  filters,
   serviceStats,
   generatedDate,
 }: EventListTemplateProps) {
@@ -282,8 +290,16 @@ export function EventListTemplate({
             <Text style={styles.businessAddress}>{config.address}</Text>
           </View>
           <View style={styles.documentTitleContainer}>
-            <Text style={styles.documentTitle}>COMPLETED EVENTS</Text>
+            <Text style={styles.documentTitle}>
+              {filters.eventStatus === 'all' ? 'ALL EVENTS' : `${filters.eventStatus.toUpperCase()} EVENTS`}
+            </Text>
             <Text style={styles.documentSubtitle}>Generated: {generatedDate}</Text>
+            {(filters.serviceType !== 'all' || filters.paymentStatus !== 'all') && (
+              <Text style={styles.documentSubtitle}>
+                {filters.serviceType !== 'all' ? `Service: ${filters.serviceType.substring(0, 20)}...` : ''}
+                {filters.paymentStatus !== 'all' ? ` | Payment: ${filters.paymentStatus}` : ''}
+              </Text>
+            )}
           </View>
         </View>
         
@@ -292,7 +308,7 @@ export function EventListTemplate({
         <View style={styles.summarySection}>
           <Text style={styles.summaryTitle}>Summary</Text>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Total Completed Events:</Text>
+            <Text style={styles.summaryLabel}>Total Events:</Text>
             <Text style={styles.summaryValue}>{totalEvents}</Text>
           </View>
           {options.includePaymentInfo && (

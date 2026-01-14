@@ -24,17 +24,25 @@ The system manages an event workflow from "Inquired" to "Completed" status. Requ
 
 ### Event List PDF Download
 
-The Events page includes a "Download" button to generate a PDF of all completed events with configurable options:
-- **Always Included**: Event Name, Service Provided
-- **Optional Sections** (user selectable):
+The Events page includes a "Download" button to generate a PDF of events with dynamic filtering and configurable options:
+
+**Filter Dropdowns** (all default to "All"):
+- Service Type: Filter by service provided (from configuration)
+- Event Status: All, Inquired, In Progress, Completed
+- Payment Status: All, Pending, Partial, Paid
+
+**Always Included**: Event Name, Service Provided
+**Optional Sections** (user selectable):
   - Customer Info: Name, Phone, Email, Address
   - Event Info: Venue, Event Date, Status
   - Payment Info: Invoice Value, Payment Status, DDC Spent
   - Service Statistics: Count of events by service type
 
-**API Endpoint**: `GET /api/events/completed/pdf?customerInfo=true&eventInfo=true&paymentInfo=true&stats=true`
-**Template**: `server/event-list-template.tsx` - Landscape A4 PDF with summary section, optional stats grid, and event table
+**API Endpoint**: `GET /api/events/pdf?serviceType=all&eventStatus=all&paymentStatus=all&customerInfo=true&eventInfo=true&paymentInfo=true&stats=true`
+**Template**: `server/event-list-template.tsx` - Landscape A4 PDF with dynamic title based on filters, summary section, optional stats grid, and event table
 **Calculations**: Invoice value = sum(price × quantity - discount) for non-dropped requirements; DDC spent = sum(payment) from fulfillment plans
+
+**Mobile Implementation**: Download icon button next to filter button in Events screen, with modal for selecting filters and options, PDF shared via device share sheet
 
 ### Dropped Requirements Handling
 

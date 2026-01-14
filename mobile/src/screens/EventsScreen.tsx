@@ -1,16 +1,18 @@
 import { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Modal, Alert, RefreshControl, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Modal, Alert, RefreshControl, TextInput, ScrollView, Platform, Share } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
-import { useEvents, useExpenses } from '../hooks/useApi';
+import { useEvents, useExpenses, useConfiguration } from '../hooks/useApi';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type { Event } from '../types';
 import AddEventModal from '../components/AddEventModal';
 import { EventsStackParamList } from '../navigation/EventsStackNavigator';
 import { useTheme } from '../contexts';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 type Props = NativeStackScreenProps<EventsStackParamList, 'EventsList'>;
 
@@ -28,11 +30,15 @@ const getLast3MonthsRange = () => {
   };
 };
 
+const EVENT_STATUSES = ["Inquired", "In Progress", "Completed"];
+const PAYMENT_STATUSES = ["Pending", "Partial", "Paid"];
+
 export default function EventsScreen({ navigation }: Props) {
   const { colors, isDark } = useTheme();
   const last3MonthsRange = useMemo(getLast3MonthsRange, []);
   const { data: events, isLoading, error, refetch } = useEvents(last3MonthsRange);
   const { data: expenses } = useExpenses();
+  const { data: configuration } = useConfiguration();
   
   // Create a Set of eventIds that have linked expenses (for showing checkmarks)
   const eventsWithLinkedExpenses = useMemo(() => {
@@ -76,6 +82,21 @@ export default function EventsScreen({ navigation }: Props) {
   const [startDateObj, setStartDateObj] = useState(new Date());
   const [endDateObj, setEndDateObj] = useState(new Date());
   const [filtersExpanded, setFiltersExpanded] = useState(false);
+  
+  // Download modal states
+  const [downloadModalVisible, setDownloadModalVisible] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadFilters, setDownloadFilters] = useState({
+    serviceType: 'all',
+    eventStatus: 'all',
+    paymentStatus: 'all',
+  });
+  const [downloadOptions, setDownloadOptions] = useState({
+    customerInfo: true,
+    eventInfo: true,
+    paymentInfo: true,
+    stats: true,
+  });
   
   const queryClient = useQueryClient();
 
@@ -213,6 +234,60 @@ export default function EventsScreen({ navigation }: Props) {
     setSelectedEvent(null);
   };
 
+  const handleDownloadPdf = async () => {
+    setDownloading(true);
+    try {
+      const params = new URLSearchParams({
+        customerInfo: downloadOptions.customerInfo.toString(),
+        eventInfo: downloadOptions.eventInfo.toString(),
+        paymentInfo: downloadOptions.paymentInfo.toString(),
+        stats: downloadOptions.stats.toString(),
+        serviceType: downloadFilters.serviceType,
+        eventStatus: downloadFilters.eventStatus,
+        paymentStatus: downloadFilters.paymentStatus,
+      });
+
+      const response = await api.downloadEventsPdf(params.toString());
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      const blob = await response.blob();
+      const statusLabel = downloadFilters.eventStatus === 'all' ? 'All' : downloadFilters.eventStatus.replace(' ', '_');
+      const fileName = `Events_${statusLabel}_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      // Read blob as base64
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = async () => {
+        const base64data = reader.result as string;
+        const base64 = base64data.split(',')[1];
+        
+        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+        await FileSystem.writeAsStringAsync(fileUri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'application/pdf',
+            dialogTitle: 'Share Events Report',
+          });
+        } else {
+          Alert.alert('Success', `PDF saved to ${fileName}`);
+        }
+        
+        setDownloadModalVisible(false);
+      };
+    } catch (error: any) {
+      Alert.alert('Download Failed', error.message || 'Failed to download event list');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
 
   const renderEventItem = ({ item }: { item: Event }) => (
 
@@ -339,6 +414,19 @@ export default function EventsScreen({ navigation }: Props) {
             )}
           </View>
         </View>
+
+        {/* Download Button */}
+        <TouchableOpacity
+          style={[styles.filterButton, { backgroundColor: colors.surface, marginRight: 8 }]}
+          onPress={() => setDownloadModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons 
+            name="download-outline" 
+            size={20} 
+            color={isDark ? '#6366f1' : BRAND_MAROON} 
+          />
+        </TouchableOpacity>
 
         {/* Filter Toggle Button */}
         <TouchableOpacity
@@ -537,6 +625,200 @@ export default function EventsScreen({ navigation }: Props) {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.deleteButtonText}>Delete Event</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Download Events Modal */}
+      <Modal
+        visible={downloadModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setDownloadModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.downloadModalBox, { backgroundColor: colors.card }]}>
+            <Text style={[styles.downloadModalTitle, { color: colors.text }]}>Download Events Report</Text>
+            <Text style={[styles.downloadModalSubtitle, { color: colors.textSecondary }]}>
+              Filter events and select what to include
+            </Text>
+            
+            <ScrollView style={styles.downloadModalScroll} showsVerticalScrollIndicator={false}>
+              {/* Filter Section */}
+              <Text style={[styles.downloadSectionTitle, { color: colors.text }]}>Filter Events</Text>
+              
+              {/* Service Type Picker */}
+              <Text style={[styles.downloadPickerLabel, { color: colors.textSecondary }]}>Service Type</Text>
+              <View style={[styles.downloadPickerContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <TouchableOpacity
+                    style={[
+                      styles.downloadPickerOption,
+                      downloadFilters.serviceType === 'all' && { backgroundColor: isDark ? '#6366f1' : BRAND_MAROON }
+                    ]}
+                    onPress={() => setDownloadFilters(prev => ({ ...prev, serviceType: 'all' }))}
+                  >
+                    <Text style={[
+                      styles.downloadPickerOptionText,
+                      { color: downloadFilters.serviceType === 'all' ? '#fff' : colors.text }
+                    ]}>All</Text>
+                  </TouchableOpacity>
+                  {configuration?.servicesProvided?.map((service) => (
+                    <TouchableOpacity
+                      key={service}
+                      style={[
+                        styles.downloadPickerOption,
+                        downloadFilters.serviceType === service && { backgroundColor: isDark ? '#6366f1' : BRAND_MAROON }
+                      ]}
+                      onPress={() => setDownloadFilters(prev => ({ ...prev, serviceType: service }))}
+                    >
+                      <Text style={[
+                        styles.downloadPickerOptionText,
+                        { color: downloadFilters.serviceType === service ? '#fff' : colors.text }
+                      ]}>{service.length > 15 ? service.substring(0, 15) + '...' : service}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Event Status Picker */}
+              <Text style={[styles.downloadPickerLabel, { color: colors.textSecondary }]}>Event Status</Text>
+              <View style={[styles.downloadPickerContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <TouchableOpacity
+                    style={[
+                      styles.downloadPickerOption,
+                      downloadFilters.eventStatus === 'all' && { backgroundColor: isDark ? '#6366f1' : BRAND_MAROON }
+                    ]}
+                    onPress={() => setDownloadFilters(prev => ({ ...prev, eventStatus: 'all' }))}
+                  >
+                    <Text style={[
+                      styles.downloadPickerOptionText,
+                      { color: downloadFilters.eventStatus === 'all' ? '#fff' : colors.text }
+                    ]}>All</Text>
+                  </TouchableOpacity>
+                  {EVENT_STATUSES.map((status) => (
+                    <TouchableOpacity
+                      key={status}
+                      style={[
+                        styles.downloadPickerOption,
+                        downloadFilters.eventStatus === status && { backgroundColor: isDark ? '#6366f1' : BRAND_MAROON }
+                      ]}
+                      onPress={() => setDownloadFilters(prev => ({ ...prev, eventStatus: status }))}
+                    >
+                      <Text style={[
+                        styles.downloadPickerOptionText,
+                        { color: downloadFilters.eventStatus === status ? '#fff' : colors.text }
+                      ]}>{status}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Payment Status Picker */}
+              <Text style={[styles.downloadPickerLabel, { color: colors.textSecondary }]}>Payment Status</Text>
+              <View style={[styles.downloadPickerContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <TouchableOpacity
+                    style={[
+                      styles.downloadPickerOption,
+                      downloadFilters.paymentStatus === 'all' && { backgroundColor: isDark ? '#6366f1' : BRAND_MAROON }
+                    ]}
+                    onPress={() => setDownloadFilters(prev => ({ ...prev, paymentStatus: 'all' }))}
+                  >
+                    <Text style={[
+                      styles.downloadPickerOptionText,
+                      { color: downloadFilters.paymentStatus === 'all' ? '#fff' : colors.text }
+                    ]}>All</Text>
+                  </TouchableOpacity>
+                  {PAYMENT_STATUSES.map((status) => (
+                    <TouchableOpacity
+                      key={status}
+                      style={[
+                        styles.downloadPickerOption,
+                        downloadFilters.paymentStatus === status && { backgroundColor: isDark ? '#6366f1' : BRAND_MAROON }
+                      ]}
+                      onPress={() => setDownloadFilters(prev => ({ ...prev, paymentStatus: status }))}
+                    >
+                      <Text style={[
+                        styles.downloadPickerOptionText,
+                        { color: downloadFilters.paymentStatus === status ? '#fff' : colors.text }
+                      ]}>{status}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Include Options */}
+              <Text style={[styles.downloadSectionTitle, { color: colors.text, marginTop: 16 }]}>Include Information</Text>
+              <Text style={[styles.downloadHelperText, { color: colors.textSecondary }]}>
+                Event Name and Service are always included.
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.downloadCheckboxRow]}
+                onPress={() => setDownloadOptions(prev => ({ ...prev, customerInfo: !prev.customerInfo }))}
+              >
+                <View style={[styles.downloadCheckbox, { borderColor: colors.border }, downloadOptions.customerInfo && { backgroundColor: isDark ? '#6366f1' : BRAND_MAROON, borderColor: isDark ? '#6366f1' : BRAND_MAROON }]}>
+                  {downloadOptions.customerInfo && <Ionicons name="checkmark" size={14} color="#fff" />}
+                </View>
+                <Text style={[styles.downloadCheckboxLabel, { color: colors.text }]}>Customer Info (Name, Phone, Email)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.downloadCheckboxRow]}
+                onPress={() => setDownloadOptions(prev => ({ ...prev, eventInfo: !prev.eventInfo }))}
+              >
+                <View style={[styles.downloadCheckbox, { borderColor: colors.border }, downloadOptions.eventInfo && { backgroundColor: isDark ? '#6366f1' : BRAND_MAROON, borderColor: isDark ? '#6366f1' : BRAND_MAROON }]}>
+                  {downloadOptions.eventInfo && <Ionicons name="checkmark" size={14} color="#fff" />}
+                </View>
+                <Text style={[styles.downloadCheckboxLabel, { color: colors.text }]}>Event Info (Venue, Date, Status)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.downloadCheckboxRow]}
+                onPress={() => setDownloadOptions(prev => ({ ...prev, paymentInfo: !prev.paymentInfo }))}
+              >
+                <View style={[styles.downloadCheckbox, { borderColor: colors.border }, downloadOptions.paymentInfo && { backgroundColor: isDark ? '#6366f1' : BRAND_MAROON, borderColor: isDark ? '#6366f1' : BRAND_MAROON }]}>
+                  {downloadOptions.paymentInfo && <Ionicons name="checkmark" size={14} color="#fff" />}
+                </View>
+                <Text style={[styles.downloadCheckboxLabel, { color: colors.text }]}>Payment Info (Invoice, Payment Status)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.downloadCheckboxRow]}
+                onPress={() => setDownloadOptions(prev => ({ ...prev, stats: !prev.stats }))}
+              >
+                <View style={[styles.downloadCheckbox, { borderColor: colors.border }, downloadOptions.stats && { backgroundColor: isDark ? '#6366f1' : BRAND_MAROON, borderColor: isDark ? '#6366f1' : BRAND_MAROON }]}>
+                  {downloadOptions.stats && <Ionicons name="checkmark" size={14} color="#fff" />}
+                </View>
+                <Text style={[styles.downloadCheckboxLabel, { color: colors.text }]}>Service Statistics</Text>
+              </TouchableOpacity>
+            </ScrollView>
+
+            <View style={styles.downloadModalButtons}>
+              <TouchableOpacity 
+                style={[styles.downloadCancelButton, { backgroundColor: colors.surface }]}
+                onPress={() => setDownloadModalVisible(false)}
+                disabled={downloading}
+              >
+                <Text style={[styles.downloadCancelButtonText, { color: colors.textSecondary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.downloadConfirmButton, { backgroundColor: isDark ? '#6366f1' : BRAND_MAROON }]}
+                onPress={handleDownloadPdf}
+                disabled={downloading}
+              >
+                {downloading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="download" size={18} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={styles.downloadConfirmButtonText}>Download PDF</Text>
+                  </>
                 )}
               </TouchableOpacity>
             </View>
@@ -948,5 +1230,107 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 6,
+  },
+
+  // Download Modal Styles
+  downloadModalBox: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  downloadModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  downloadModalSubtitle: {
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  downloadModalScroll: {
+    maxHeight: 400,
+  },
+  downloadSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  downloadPickerLabel: {
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  downloadPickerContainer: {
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 4,
+    marginBottom: 12,
+  },
+  downloadPickerOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  downloadPickerOptionText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  downloadHelperText: {
+    fontSize: 12,
+    marginBottom: 12,
+  },
+  downloadCheckboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  downloadCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  downloadCheckboxLabel: {
+    fontSize: 14,
+    flex: 1,
+  },
+  downloadModalButtons: {
+    flexDirection: 'row',
+    marginTop: 20,
+    gap: 12,
+  },
+  downloadCancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  downloadCancelButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  downloadConfirmButton: {
+    flex: 2,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  downloadConfirmButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

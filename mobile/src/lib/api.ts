@@ -124,6 +124,8 @@ export const api = {
   createEvent: (data: InsertEvent) => apiClient.post<Event>('/api/events', data),
   updateEvent: (id: string, data: Partial<InsertEvent>) => apiClient.patch<Event>(`/api/events/${id}`, data),
   deleteEvent: (id: string) => apiClient.delete<void>(`/api/events/${id}`),
+  downloadEventsPdf: (queryParams: string) => 
+    fetch(`${API_BASE_URL}/api/events/pdf?${queryParams}`),
   
   // Requirements
   getEventRequirements: (eventId: string) => 
