@@ -62,6 +62,39 @@ The mobile application is built with React Native and Expo, sharing TypeScript t
 
 Both web and mobile applications adopt a consistent maroon color scheme. The web app supports dark mode and features responsive sidebar navigation. The mobile app uses bottom tab navigation, professional Ionicons, and floating action buttons (FABs). Specific UI elements like StarRating components for reviews and dynamic column rendering in invoices based on data presence (e.g., DISCOUNT column) enhance user experience. Configuration screens allow for branding customization including logo, signature, and terms & conditions.
 
+### Asset Rental System
+
+The Asset Rental System provides standalone equipment rental functionality, separate from event management:
+
+**Data Model:**
+- **AssetRentalRates**: Pricing tiers per asset (e.g., "4 hrs - Rs.500", "1 day - Rs.1000")
+  - Flexible numeric duration with fixed time units (hrs/day)
+  - Links to existing Assets via assetId
+- **Rentals**: Customer rental orders with status tracking (Quote/Invoice/Paid/Returned)
+  - Customer details: name, phone, email, address
+  - Payment tracking: status (Pending/Partial/Paid), mode, discount
+  - Cascade delete: deleting rental removes all items
+- **RentalItems**: Line items linking assets to rentals
+  - Quantity, duration, time unit, rate per unit, total amount
+
+**Web Pages:**
+- `/rental-rates` - Manage pricing tiers per asset
+- `/rentals` - List and filter rental orders
+- `/rentals/:id` - Create/edit rental with line items
+
+**PDF Generation:**
+- `/api/rentals/:id/pdf?type=quote` - Generate rental quote PDF
+- `/api/rentals/:id/pdf?type=invoice` - Generate rental invoice PDF
+- Uses same branding/layout as event invoices via RentalTemplate component
+
+**API Routes:**
+- `GET/POST /api/rental-rates` - List/create rental rates
+- `GET/PATCH/DELETE /api/rental-rates/:id` - Single rate operations
+- `GET/POST /api/rentals` - List/create rentals
+- `GET/PATCH/DELETE /api/rentals/:id` - Single rental operations
+- `GET /api/rentals/:rentalId/items` - Get items for a rental
+- `GET/POST/PATCH/DELETE /api/rental-items/:id` - Rental item operations
+
 ### Image Management
 
 Requirement images are available only for completed events. Key features:
