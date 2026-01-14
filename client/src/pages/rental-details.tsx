@@ -14,6 +14,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -39,6 +47,7 @@ interface RentalItemFormData {
   timeUnit: string;
   ratePerUnit: string;
   totalAmount: string;
+  calculatePerQuantity: boolean;
 }
 
 export default function RentalDetails() {
@@ -71,6 +80,14 @@ export default function RentalDetails() {
     timeUnit: "hrs",
     ratePerUnit: "0",
     totalAmount: "0",
+    calculatePerQuantity: true,
+  });
+
+  const [showAddRateDialog, setShowAddRateDialog] = useState(false);
+  const [newRateForm, setNewRateForm] = useState({
+    duration: 1,
+    timeUnit: "hrs",
+    amount: "",
   });
 
   const { data: rental, isLoading: rentalLoading } = useQuery<Rental>({
@@ -130,6 +147,7 @@ export default function RentalDetails() {
         timeUnit: item.timeUnit,
         ratePerUnit: item.ratePerUnit || "0",
         totalAmount: item.totalAmount || "0",
+        calculatePerQuantity: true,
       })));
     }
   }, [rentalItems]);
@@ -141,14 +159,10 @@ export default function RentalDetails() {
     },
     onSuccess: async (newRental) => {
       for (const item of items) {
+        const { calculatePerQuantity: _, ...itemData } = item;
         await apiRequest("POST", "/api/rental-items", {
           rentalId: newRental.id,
-          assetId: item.assetId,
-          quantity: item.quantity,
-          duration: item.duration,
-          timeUnit: item.timeUnit,
-          ratePerUnit: item.ratePerUnit,
-          totalAmount: item.totalAmount,
+          ...itemData,
         });
       }
       queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
@@ -221,15 +235,23 @@ export default function RentalDetails() {
     return rentalRates.filter(r => r.assetId === assetId);
   };
 
-  const calculateItemTotal = (quantity: number, duration: number, rate: string) => {
-    return (quantity * duration * Number(rate)).toString();
+  const calculateItemTotal = (quantity: number, rate: string, calculatePerQuantity: boolean) => {
+    if (calculatePerQuantity) {
+      return (quantity * Number(rate)).toString();
+    }
+    return rate;
+  };
+
+  const getAssetQuantity = (assetId: string) => {
+    const asset = assets.find(a => a.id === assetId);
+    return asset?.quantity || 1;
   };
 
   const handleAssetSelect = (assetId: string) => {
     const rates = getRatesForAsset(assetId);
     if (rates.length > 0) {
       const firstRate = rates[0];
-      const total = calculateItemTotal(1, firstRate.duration, firstRate.amount);
+      const total = calculateItemTotal(1, firstRate.amount, true);
       setNewItem({
         assetId,
         quantity: 1,
@@ -237,6 +259,7 @@ export default function RentalDetails() {
         timeUnit: firstRate.timeUnit,
         ratePerUnit: firstRate.amount,
         totalAmount: total,
+        calculatePerQuantity: true,
       });
     } else {
       setNewItem({
@@ -249,9 +272,13 @@ export default function RentalDetails() {
   };
 
   const handleRateSelect = (rateId: string) => {
+    if (rateId === "add-new-rate") {
+      setShowAddRateDialog(true);
+      return;
+    }
     const rate = rentalRates.find(r => r.id === rateId);
     if (rate) {
-      const total = calculateItemTotal(newItem.quantity, rate.duration, rate.amount);
+      const total = calculateItemTotal(newItem.quantity, rate.amount, newItem.calculatePerQuantity);
       setNewItem({
         ...newItem,
         duration: rate.duration,
@@ -263,11 +290,79 @@ export default function RentalDetails() {
   };
 
   const handleQuantityChange = (quantity: number) => {
-    const total = calculateItemTotal(quantity, newItem.duration, newItem.ratePerUnit);
+    const maxQty = getAssetQuantity(newItem.assetId);
+    const validQty = Math.min(Math.max(1, quantity), maxQty);
+    const total = calculateItemTotal(validQty, newItem.ratePerUnit, newItem.calculatePerQuantity);
     setNewItem({
       ...newItem,
-      quantity,
+      quantity: validQty,
       totalAmount: total,
+    });
+  };
+
+  const handleCalculatePerQuantityChange = (checked: boolean | "indeterminate") => {
+    const isChecked = checked === true;
+    const total = calculateItemTotal(newItem.quantity, newItem.ratePerUnit, isChecked);
+    setNewItem({
+      ...newItem,
+      calculatePerQuantity: isChecked,
+      totalAmount: total,
+    });
+  };
+
+  const createRateMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/rental-rates", data);
+      return response.json();
+    },
+    onSuccess: async (newRate) => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/rental-rates"] });
+      const total = calculateItemTotal(newItem.quantity, newRate.amount, newItem.calculatePerQuantity);
+      setNewItem({
+        ...newItem,
+        duration: newRate.duration,
+        timeUnit: newRate.timeUnit,
+        ratePerUnit: newRate.amount,
+        totalAmount: total,
+      });
+      setShowAddRateDialog(false);
+      setNewRateForm({ duration: 1, timeUnit: "hrs", amount: "" });
+      toast({
+        title: "Success",
+        description: "Rental rate added successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAddRate = () => {
+    if (!newItem.assetId) {
+      toast({
+        title: "Error",
+        description: "Please select an asset first",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!newRateForm.amount || Number(newRateForm.amount) <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid amount",
+        variant: "destructive",
+      });
+      return;
+    }
+    createRateMutation.mutate({
+      assetId: newItem.assetId,
+      duration: newRateForm.duration,
+      timeUnit: newRateForm.timeUnit,
+      amount: newRateForm.amount,
     });
   };
 
@@ -284,9 +379,10 @@ export default function RentalDetails() {
     if (isNew) {
       setItems([...items, { ...newItem }]);
     } else {
+      const { calculatePerQuantity: _, ...itemData } = newItem;
       await createItemMutation.mutateAsync({
         rentalId,
-        ...newItem,
+        ...itemData,
       });
     }
 
@@ -297,6 +393,7 @@ export default function RentalDetails() {
       timeUnit: "hrs",
       ratePerUnit: "0",
       totalAmount: "0",
+      calculatePerQuantity: true,
     });
   };
 
@@ -487,6 +584,7 @@ export default function RentalDetails() {
                     id="returnDate"
                     type="date"
                     value={formData.returnDate}
+                    min={formData.rentalDate}
                     onChange={(e) => setFormData({ ...formData, returnDate: e.target.value })}
                     data-testid="input-return-date"
                   />
@@ -545,7 +643,7 @@ export default function RentalDetails() {
               <CardDescription>Add assets to this rental</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 p-4 bg-muted/50 rounded-lg sm:grid-cols-5">
+              <div className="grid gap-4 p-4 bg-muted/50 rounded-lg sm:grid-cols-6">
                 <div className="sm:col-span-2 space-y-2">
                   <Label>Asset</Label>
                   <Select value={newItem.assetId} onValueChange={handleAssetSelect}>
@@ -581,18 +679,32 @@ export default function RentalDetails() {
                           {rate.duration} {rate.timeUnit} - {formatIndianCurrency(Number(rate.amount))}
                         </SelectItem>
                       ))}
+                      <SelectItem value="add-new-rate" className="text-primary font-medium">
+                        <Plus className="h-3 w-3 inline mr-1" />
+                        Add Rental Rate
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Qty</Label>
+                  <Label>Qty (max: {getAssetQuantity(newItem.assetId)})</Label>
                   <Input
                     type="number"
                     min="1"
+                    max={getAssetQuantity(newItem.assetId)}
                     value={newItem.quantity}
                     onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
                     data-testid="input-new-quantity"
                   />
+                </div>
+                <div className="flex items-center gap-2 pt-6">
+                  <Checkbox
+                    id="calculatePerQuantity"
+                    checked={newItem.calculatePerQuantity}
+                    onCheckedChange={handleCalculatePerQuantityChange}
+                    data-testid="checkbox-per-quantity"
+                  />
+                  <Label htmlFor="calculatePerQuantity" className="text-xs">Per Qty</Label>
                 </div>
                 <div className="flex items-end">
                   <Button onClick={addItem} className="w-full" data-testid="button-add-item">
@@ -759,6 +871,69 @@ export default function RentalDetails() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={showAddRateDialog} onOpenChange={setShowAddRateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Rental Rate</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Adding rate for: <strong>{getAssetName(newItem.assetId)}</strong>
+            </p>
+            <div className="grid gap-4 grid-cols-2">
+              <div className="space-y-2">
+                <Label>Duration</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={newRateForm.duration}
+                  onChange={(e) => setNewRateForm({ ...newRateForm, duration: parseInt(e.target.value) || 1 })}
+                  data-testid="input-new-rate-duration"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Time Unit</Label>
+                <Select
+                  value={newRateForm.timeUnit}
+                  onValueChange={(value) => setNewRateForm({ ...newRateForm, timeUnit: value })}
+                >
+                  <SelectTrigger data-testid="select-new-rate-time-unit">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hrs">Hours</SelectItem>
+                    <SelectItem value="day">Days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Amount (Rs.)</Label>
+              <Input
+                type="number"
+                min="0"
+                value={newRateForm.amount}
+                onChange={(e) => setNewRateForm({ ...newRateForm, amount: e.target.value })}
+                placeholder="Enter amount"
+                data-testid="input-new-rate-amount"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddRateDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAddRate}
+              disabled={createRateMutation.isPending}
+              data-testid="button-save-rate"
+            >
+              {createRateMutation.isPending ? "Saving..." : "Save Rate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
