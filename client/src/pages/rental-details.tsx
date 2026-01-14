@@ -341,6 +341,41 @@ export default function RentalDetails() {
     },
   });
 
+  const existingRatesForAsset = useMemo(() => {
+    return getRatesForAsset(newItem.assetId);
+  }, [newItem.assetId, rentalRates]);
+
+  const isDuplicateRate = useMemo(() => {
+    return existingRatesForAsset.some(
+      r => r.duration === newRateForm.duration && r.timeUnit === newRateForm.timeUnit
+    );
+  }, [existingRatesForAsset, newRateForm.duration, newRateForm.timeUnit]);
+
+  const rateAmountWarning = useMemo(() => {
+    if (!newRateForm.amount || Number(newRateForm.amount) <= 0) return null;
+    const currentAmount = Number(newRateForm.amount);
+    const currentDuration = newRateForm.duration;
+    const currentUnit = newRateForm.timeUnit;
+    
+    const lowerDurationRates = existingRatesForAsset.filter(r => {
+      if (r.timeUnit === currentUnit) {
+        return r.duration < currentDuration;
+      }
+      if (currentUnit === "day" && r.timeUnit === "hrs") {
+        return true;
+      }
+      return false;
+    });
+
+    for (const rate of lowerDurationRates) {
+      const rateAmount = Number(rate.amount);
+      if (currentAmount <= rateAmount) {
+        return `You already have ${rate.duration} ${rate.timeUnit} configured at Rs.${rateAmount}. Consider setting a higher amount for ${currentDuration} ${currentUnit}.`;
+      }
+    }
+    return null;
+  }, [existingRatesForAsset, newRateForm.amount, newRateForm.duration, newRateForm.timeUnit]);
+
   const handleAddRate = () => {
     if (!newItem.assetId) {
       toast({
@@ -354,6 +389,14 @@ export default function RentalDetails() {
       toast({
         title: "Error",
         description: "Please enter a valid amount",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (isDuplicateRate) {
+      toast({
+        title: "Error",
+        description: `A rate for ${newRateForm.duration} ${newRateForm.timeUnit} already exists for this asset`,
         variant: "destructive",
       });
       return;
@@ -908,6 +951,11 @@ export default function RentalDetails() {
                 </Select>
               </div>
             </div>
+            {isDuplicateRate && (
+              <p className="text-sm text-destructive">
+                A rate for {newRateForm.duration} {newRateForm.timeUnit} already exists for this asset.
+              </p>
+            )}
             <div className="space-y-2">
               <Label>Amount (Rs.)</Label>
               <Input
@@ -918,7 +966,22 @@ export default function RentalDetails() {
                 placeholder="Enter amount"
                 data-testid="input-new-rate-amount"
               />
+              {rateAmountWarning && (
+                <p className="text-sm text-amber-600 dark:text-amber-400">
+                  {rateAmountWarning}
+                </p>
+              )}
             </div>
+            {existingRatesForAsset.length > 0 && (
+              <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                <p className="font-medium mb-1">Existing rates for this asset:</p>
+                {existingRatesForAsset.map(rate => (
+                  <span key={rate.id} className="inline-block mr-2">
+                    {rate.duration} {rate.timeUnit} - Rs.{rate.amount}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddRateDialog(false)}>
@@ -926,7 +989,7 @@ export default function RentalDetails() {
             </Button>
             <Button 
               onClick={handleAddRate}
-              disabled={createRateMutation.isPending}
+              disabled={createRateMutation.isPending || isDuplicateRate}
               data-testid="button-save-rate"
             >
               {createRateMutation.isPending ? "Saving..." : "Save Rate"}
