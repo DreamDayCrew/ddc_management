@@ -22,6 +22,12 @@ export type {
   InsertRepayment,
   CatalogItem,
   InsertCatalogItem,
+  AssetRentalRate,
+  InsertAssetRentalRate,
+  Rental,
+  InsertRental,
+  RentalItem,
+  InsertRentalItem,
 } from '../../../shared/schema';
 
 // API Response types

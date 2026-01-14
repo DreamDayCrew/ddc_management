@@ -23,6 +23,13 @@ const resourcesMenu: MenuItem[] = [
     description: 'Manage equipment and resources'
   },
   {
+    id: 'rental-rates',
+    title: 'Rental Rates',
+    icon: 'pricetag',
+    screen: 'RentalRates',
+    description: 'Set pricing for asset rentals'
+  },
+  {
     id: 'team',
     title: 'Team Members',
     icon: 'people',

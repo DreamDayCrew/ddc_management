@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import type { ApiError, Event, Expense, TeamMember, Asset, Requirement, Configuration, Vendor, FulfillmentPlan, AccountBalance, Repayment, InsertEvent, InsertExpense, InsertTeamMember, InsertAsset, InsertRequirement, InsertFulfillmentPlan, InsertVendor, CatalogItem, InsertCatalogItem } from '../types';
+import type { ApiError, Event, Expense, TeamMember, Asset, Requirement, Configuration, Vendor, FulfillmentPlan, AccountBalance, Repayment, InsertEvent, InsertExpense, InsertTeamMember, InsertAsset, InsertRequirement, InsertFulfillmentPlan, InsertVendor, CatalogItem, InsertCatalogItem, AssetRentalRate, InsertAssetRentalRate, Rental, InsertRental, RentalItem, InsertRentalItem } from '../types';
 import { config } from '../config/environment';
 
 // API Configuration from environment
@@ -260,6 +260,33 @@ export const api = {
     apiClient.post<CatalogItem>(`/api/catalog/${id}/duplicate`, overrides || {}),
   duplicateCatalogService: (data: { sourceService: string; targetService: string; packageFilter?: string }) => 
     apiClient.post<{ message: string; items: CatalogItem[] }>('/api/catalog/duplicate-service', data),
+
+  // Rental Rates
+  getRentalRates: () => apiClient.get<AssetRentalRate[]>('/api/rental-rates'),
+  createRentalRate: (data: InsertAssetRentalRate) => 
+    apiClient.post<AssetRentalRate>('/api/rental-rates', data),
+  updateRentalRate: (id: string, data: Partial<InsertAssetRentalRate>) => 
+    apiClient.patch<AssetRentalRate>(`/api/rental-rates/${id}`, data),
+  deleteRentalRate: (id: string) => 
+    apiClient.delete<void>(`/api/rental-rates/${id}`),
+
+  // Rentals
+  getRentals: () => apiClient.get<Rental[]>('/api/rentals'),
+  getRental: (id: string) => apiClient.get<Rental>(`/api/rentals/${id}`),
+  createRental: (data: InsertRental) => apiClient.post<Rental>('/api/rentals', data),
+  updateRental: (id: string, data: Partial<InsertRental>) => 
+    apiClient.patch<Rental>(`/api/rentals/${id}`, data),
+  deleteRental: (id: string) => apiClient.delete<void>(`/api/rentals/${id}`),
+
+  // Rental Items
+  getRentalItems: (rentalId: string) => 
+    apiClient.get<RentalItem[]>(`/api/rentals/${rentalId}/items`),
+  createRentalItem: (data: InsertRentalItem) => 
+    apiClient.post<RentalItem>('/api/rental-items', data),
+  updateRentalItem: (id: string, data: Partial<InsertRentalItem>) => 
+    apiClient.patch<RentalItem>(`/api/rental-items/${id}`, data),
+  deleteRentalItem: (id: string) => 
+    apiClient.delete<void>(`/api/rental-items/${id}`),
 };
 
 // Log final API client configuration

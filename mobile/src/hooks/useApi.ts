@@ -207,3 +207,66 @@ export function useConfiguration() {
     queryFn: api.getConfiguration,
   });
 }
+
+// Rental Rates hooks
+export function useRentalRates() {
+  return useQuery({
+    queryKey: ['/api/rental-rates'],
+    queryFn: api.getRentalRates,
+  });
+}
+
+export function useCreateRentalRate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.createRentalRate,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/rental-rates'] });
+    },
+  });
+}
+
+export function useUpdateRentalRate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<import('../types').InsertAssetRentalRate> }) => 
+      api.updateRentalRate(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/rental-rates'] });
+    },
+  });
+}
+
+export function useDeleteRentalRate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.deleteRentalRate,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/rental-rates'] });
+    },
+  });
+}
+
+// Rentals hooks
+export function useRentals() {
+  return useQuery({
+    queryKey: ['/api/rentals'],
+    queryFn: api.getRentals,
+  });
+}
+
+export function useRental(id: string) {
+  return useQuery({
+    queryKey: ['/api/rentals', id],
+    queryFn: () => api.getRental(id),
+    enabled: !!id,
+  });
+}
+
+export function useRentalItems(rentalId: string) {
+  return useQuery({
+    queryKey: ['/api/rentals', rentalId, 'items'],
+    queryFn: () => api.getRentalItems(rentalId),
+    enabled: !!rentalId,
+  });
+}

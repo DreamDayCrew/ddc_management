@@ -7,6 +7,7 @@ import CatalogScreen from '../screens/CatalogScreen';
 import GalleryScreen from '../screens/GalleryScreen';
 import ConfigurationScreen from '../screens/ConfigurationScreen';
 import AppConfigurationScreen from '../screens/AppConfigurationScreen';
+import RentalRatesScreen from '../screens/RentalRatesScreen';
 import { useTheme } from '../contexts';
 import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +16,7 @@ import { useNavigation, CommonActions } from '@react-navigation/native';
 export type MoreStackParamList = {
   MoreMenu: undefined;
   Assets: undefined;
+  RentalRates: undefined;
   Team: undefined;
   Vendors: undefined;
   Catalog: undefined;
@@ -122,6 +124,11 @@ export default function MoreStackNavigator() {
         name="AppConfiguration" 
         component={AppConfigurationScreen}
         options={{ title: 'App Configuration' }}
+      />
+      <Stack.Screen 
+        name="RentalRates" 
+        component={RentalRatesScreen}
+        options={{ title: 'Rental Rates' }}
       />
     </Stack.Navigator>
   );
