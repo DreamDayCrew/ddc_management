@@ -47,7 +47,7 @@ Before building, update the API URL to point to your production backend:
 ```typescript
 export const config = {
   API_URL: __DEV__ 
-    ? 'http://10.0.2.2:5000'  // Development
+    ? 'http://10.0.2.2:5001'  // Development
     : 'https://YOUR-REPLIT-APP.repl.co',  // 👈 Update this!
   // ... rest of config
 };

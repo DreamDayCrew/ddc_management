@@ -8,7 +8,6 @@ Storage initialization: {
   storageType: 'DatabaseStorage'
 }
 9:58:34 AM [express] Database seeding disabled - ready for production data
-9:58:34 AM [express] 🚀 Server running on port 5000
 9:58:34 AM [express] 🌍 Environment: development
 Database connection test successful with HTTP
 9:58:35 AM [express] 💾 Database: Connected (Neon)
