@@ -250,14 +250,29 @@ export default function EventsScreen({ navigation }: Props) {
       const response = await api.downloadEventsPdf(params.toString());
       
       if (!response.ok) {
-        throw new Error('Failed to generate PDF');
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Failed to generate PDF');
       }
 
       const blob = await response.blob();
       const statusLabel = downloadFilters.eventStatus === 'all' ? 'All' : downloadFilters.eventStatus.replace(' ', '_');
       const fileName = `Events_${statusLabel}_${new Date().toISOString().split('T')[0]}.pdf`;
       
-      // Read blob as base64
+      // Handle web platform differently
+      if (Platform.OS === 'web') {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        setDownloadModalVisible(false);
+        return;
+      }
+      
+      // Native platform: Read blob as base64
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = async () => {
