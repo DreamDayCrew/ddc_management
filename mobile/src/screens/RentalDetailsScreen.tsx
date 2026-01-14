@@ -459,76 +459,74 @@ export default function RentalDetailsScreen({ navigation, route }: any) {
       const blob = await response.blob();
       
       // Check if we're in a native environment or web
-      const isNative = Platform.OS !== 'web' && FileSystem && FileSystem.EncodingType;
+      const isNative = Platform.OS !== 'web' && FileSystem?.documentDirectory && FileSystem?.EncodingType;
       
       if (isNative) {
         // Native mobile handling
         try {
+          // Define file path
+          const fileName = `rental-${type}-${rentalId.slice(0, 8)}.pdf`;
+          const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+          
           // Convert blob to base64
-          const reader = new FileReader();
-          reader.onload = async () => {
-            try {
-              const base64Data = (reader.result as string).split(',')[1];
-              
-              // Define file path
-              const fileName = `rental-${type}-${rentalId.slice(0, 8)}.pdf`;
-              const fileUri = FileSystem.documentDirectory + fileName;
-              
-              // Write the file
-              await FileSystem.writeAsStringAsync(fileUri, base64Data, {
-                encoding: FileSystem.EncodingType.Base64,
-              });
-              
-              // Check if sharing is available
-              const sharingAvailable = await Sharing.isAvailableAsync();
-              if (sharingAvailable) {
-                await Sharing.shareAsync(fileUri, {
-                  mimeType: 'application/pdf',
-                  dialogTitle: `Share ${type}`,
-                });
-              } else {
-                Alert.alert('Success', `${type} downloaded to ${fileName}`);
-              }
-            } catch (fileError) {
-              console.error('File operation error:', fileError);
-              Alert.alert('Error', 'Failed to save PDF file');
-            }
-          };
+          const arrayBuffer = await blob.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          const binaryString = uint8Array.reduce((data, byte) => data + String.fromCharCode(byte), '');
+          const base64Data = btoa(binaryString);
           
-          reader.onerror = () => {
-            Alert.alert('Error', 'Failed to process PDF data');
-          };
+          // Write the file
+          await FileSystem.writeAsStringAsync(fileUri, base64Data, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
           
-          reader.readAsDataURL(blob);
-          
+          // Check if sharing is available
+          const sharingAvailable = await Sharing.isAvailableAsync();
+          if (sharingAvailable) {
+            await Sharing.shareAsync(fileUri, {
+              mimeType: 'application/pdf',
+              dialogTitle: `Share ${type}`,
+              UTI: 'com.adobe.pdf',
+            });
+            Alert.alert('Success', `${type} PDF shared successfully`);
+          } else {
+            Alert.alert('Success', `${type} PDF saved to ${fileName}`);
+          }
         } catch (error) {
           console.error('Native file handling error:', error);
-          Alert.alert('Error', 'Failed to process PDF in native mode');
+          Alert.alert('Error', `Failed to process PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       } else {
         // Web environment handling
         try {
-          const url = window.URL.createObjectURL(blob);
-          const fileName = `rental-${type}-${rentalId.slice(0, 8)}.pdf`;
-          
-          // Create a temporary link and trigger download
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = fileName;
-          link.style.display = 'none';
-          document.body.appendChild(link);
-          link.click();
-          
-          // Clean up
-          setTimeout(() => {
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(link);
-          }, 100);
-          
-          Alert.alert('Success', `${type} PDF downloaded successfully`);
+          // Check if we have access to the DOM (web environment)
+          if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+            const url = window.URL.createObjectURL(blob);
+            const fileName = `rental-${type}-${rentalId.slice(0, 8)}.pdf`;
+            
+            // Create a temporary link and trigger download
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            
+            // Clean up
+            setTimeout(() => {
+              window.URL.revokeObjectURL(url);
+              if (document.body.contains(link)) {
+                document.body.removeChild(link);
+              }
+            }, 100);
+            
+            Alert.alert('Success', `${type} PDF downloaded successfully`);
+          } else {
+            // Fallback for environments where DOM is not available
+            Alert.alert('Info', `${type} PDF is ready but download is not supported in this environment`);
+          }
         } catch (webError) {
           console.error('Web download error:', webError);
-          Alert.alert('Error', 'Failed to download PDF in web mode');
+          Alert.alert('Error', `Failed to download PDF: ${webError instanceof Error ? webError.message : 'Unknown error'}`);
         }
       }
       

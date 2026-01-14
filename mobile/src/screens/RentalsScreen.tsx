@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 
 const BRAND_MAROON = '#800020';
 
+
 function formatIndianCurrency(amount: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
