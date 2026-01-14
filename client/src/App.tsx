@@ -18,6 +18,9 @@ import Team from "@/pages/team";
 import Expenses from "@/pages/expenses";
 import Reports from "@/pages/reports";
 import Catalog from "@/pages/catalog";
+import RentalRates from "@/pages/rental-rates";
+import Rentals from "@/pages/rentals";
+import RentalDetails from "@/pages/rental-details";
 import Configuration from "@/pages/configuration";
 import LoginPage from "@/pages/login";
 import NotFound from "@/pages/not-found";
@@ -35,6 +38,9 @@ function Router() {
       <Route path="/expenses" component={Expenses} />
       <Route path="/reports" component={Reports} />
       <Route path="/catalog" component={Catalog} />
+      <Route path="/rental-rates" component={RentalRates} />
+      <Route path="/rentals" component={Rentals} />
+      <Route path="/rentals/:id" component={RentalDetails} />
       <Route path="/configuration" component={Configuration} />
       <Route component={NotFound} />
     </Switch>

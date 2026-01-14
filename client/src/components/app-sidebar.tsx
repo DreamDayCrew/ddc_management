@@ -11,6 +11,8 @@ import {
   BookOpen,
   BarChart3,
   LogOut,
+  Truck,
+  Clock,
 } from "lucide-react";
 import {
   Sidebar,
@@ -75,6 +77,18 @@ const menuItems = [
     url: "/catalog",
     icon: BookOpen,
     testId: "nav-catalog",
+  },
+  {
+    title: "Rental Rates",
+    url: "/rental-rates",
+    icon: Clock,
+    testId: "nav-rental-rates",
+  },
+  {
+    title: "Rentals",
+    url: "/rentals",
+    icon: Truck,
+    testId: "nav-rentals",
   },
   {
     title: "Reports",
