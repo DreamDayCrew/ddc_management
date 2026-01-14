@@ -2299,6 +2299,187 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // ASSET RENTAL RATES ROUTES
+  // ============================================
+
+  // Get all rental rates
+  app.get("/api/rental-rates", async (req, res) => {
+    try {
+      const rates = await storage.getAssetRentalRates();
+      res.json(rates);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get rental rates for a specific asset
+  app.get("/api/rental-rates/asset/:assetId", async (req, res) => {
+    try {
+      const rates = await storage.getAssetRentalRatesByAsset(req.params.assetId);
+      res.json(rates);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get single rental rate
+  app.get("/api/rental-rates/:id", async (req, res) => {
+    try {
+      const rate = await storage.getAssetRentalRate(req.params.id);
+      if (!rate) return res.status(404).json({ error: "Rental rate not found" });
+      res.json(rate);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create rental rate
+  app.post("/api/rental-rates", async (req, res) => {
+    try {
+      const rate = await storage.createAssetRentalRate(req.body);
+      res.status(201).json(rate);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update rental rate
+  app.patch("/api/rental-rates/:id", async (req, res) => {
+    try {
+      const rate = await storage.updateAssetRentalRate(req.params.id, req.body);
+      if (!rate) return res.status(404).json({ error: "Rental rate not found" });
+      res.json(rate);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete rental rate
+  app.delete("/api/rental-rates/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteAssetRentalRate(req.params.id);
+      if (!success) return res.status(404).json({ error: "Rental rate not found" });
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================
+  // RENTALS ROUTES
+  // ============================================
+
+  // Get all rentals
+  app.get("/api/rentals", async (req, res) => {
+    try {
+      const rentals = await storage.getRentals();
+      res.json(rentals);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get single rental
+  app.get("/api/rentals/:id", async (req, res) => {
+    try {
+      const rental = await storage.getRental(req.params.id);
+      if (!rental) return res.status(404).json({ error: "Rental not found" });
+      res.json(rental);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create rental
+  app.post("/api/rentals", async (req, res) => {
+    try {
+      const rental = await storage.createRental(req.body);
+      res.status(201).json(rental);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update rental
+  app.patch("/api/rentals/:id", async (req, res) => {
+    try {
+      const rental = await storage.updateRental(req.params.id, req.body);
+      if (!rental) return res.status(404).json({ error: "Rental not found" });
+      res.json(rental);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete rental
+  app.delete("/api/rentals/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteRental(req.params.id);
+      if (!success) return res.status(404).json({ error: "Rental not found" });
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================
+  // RENTAL ITEMS ROUTES
+  // ============================================
+
+  // Get rental items for a rental
+  app.get("/api/rentals/:rentalId/items", async (req, res) => {
+    try {
+      const items = await storage.getRentalItems(req.params.rentalId);
+      res.json(items);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get single rental item
+  app.get("/api/rental-items/:id", async (req, res) => {
+    try {
+      const item = await storage.getRentalItem(req.params.id);
+      if (!item) return res.status(404).json({ error: "Rental item not found" });
+      res.json(item);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create rental item
+  app.post("/api/rental-items", async (req, res) => {
+    try {
+      const item = await storage.createRentalItem(req.body);
+      res.status(201).json(item);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update rental item
+  app.patch("/api/rental-items/:id", async (req, res) => {
+    try {
+      const item = await storage.updateRentalItem(req.params.id, req.body);
+      if (!item) return res.status(404).json({ error: "Rental item not found" });
+      res.json(item);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete rental item
+  app.delete("/api/rental-items/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteRentalItem(req.params.id);
+      if (!success) return res.status(404).json({ error: "Rental item not found" });
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
