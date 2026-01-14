@@ -379,3 +379,97 @@ export const insertCatalogItemSchema = createInsertSchema(catalogItems).omit({
 
 export type CatalogItem = typeof catalogItems.$inferSelect;
 export type InsertCatalogItem = z.infer<typeof insertCatalogItemSchema>;
+
+// Asset Rental Rates Schema - pricing tiers per asset
+export const assetRentalRates = pgTable("asset_rental_rates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assetId: varchar("asset_id").notNull().references(() => assets.id, { onDelete: 'cascade' }),
+  duration: integer("duration").notNull(), // numeric value like 4, 6, 12, etc.
+  timeUnit: text("time_unit").notNull(), // 'hrs' or 'day'
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Rentals Schema - rental orders (similar to events structure)
+export const rentals = pgTable("rentals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerName: text("customer_name").notNull(),
+  customerPhone: text("customer_phone"),
+  customerEmail: text("customer_email"),
+  customerAddress: text("customer_address"),
+  rentalDate: date("rental_date").notNull(),
+  returnDate: date("return_date"),
+  status: text("status").notNull().default("Quote"), // Quote, Invoice, Paid, Returned
+  paymentStatus: text("payment_status").notNull().default("Pending"), // Pending, Partial, Paid
+  paymentMode: text("payment_mode"),
+  notes: text("notes"),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).default("0"),
+  discount: text("discount").default("false"),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Rental Items Schema - line items for each rental
+export const rentalItems = pgTable("rental_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  rentalId: varchar("rental_id").notNull().references(() => rentals.id, { onDelete: 'cascade' }),
+  assetId: varchar("asset_id").notNull().references(() => assets.id),
+  quantity: integer("quantity").notNull().default(1),
+  duration: integer("duration").notNull(), // numeric value
+  timeUnit: text("time_unit").notNull(), // 'hrs' or 'day'
+  ratePerUnit: decimal("rate_per_unit", { precision: 10, scale: 2 }).notNull(),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Insert Schemas for Rentals
+export const insertAssetRentalRateSchema = createInsertSchema(assetRentalRates).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+}).extend({
+  amount: z.union([z.string(), z.number()])
+    .transform(val => val === "" ? "0" : String(val)),
+});
+
+export const insertRentalSchema = createInsertSchema(rentals).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+}).extend({
+  totalAmount: z.union([z.string(), z.number()])
+    .transform(val => val === "" ? "0" : String(val))
+    .optional(),
+  discountAmount: z.union([z.string(), z.number()])
+    .transform(val => val === "" ? "0" : String(val))
+    .optional(),
+  rentalDate: z.union([z.string(), z.date()])
+    .transform((val) => val instanceof Date ? val : new Date(val)),
+  returnDate: z.union([z.string(), z.date(), z.null()])
+    .transform((val) => {
+      if (val === null || val === '') return null;
+      return val instanceof Date ? val : new Date(val);
+    })
+    .optional()
+    .nullable(),
+});
+
+export const insertRentalItemSchema = createInsertSchema(rentalItems).omit({ 
+  id: true, 
+  createdAt: true 
+}).extend({
+  ratePerUnit: z.union([z.string(), z.number()])
+    .transform(val => val === "" ? "0" : String(val)),
+  totalAmount: z.union([z.string(), z.number()])
+    .transform(val => val === "" ? "0" : String(val)),
+});
+
+// Types for Rentals
+export type AssetRentalRate = typeof assetRentalRates.$inferSelect;
+export type InsertAssetRentalRate = z.infer<typeof insertAssetRentalRateSchema>;
+export type Rental = typeof rentals.$inferSelect;
+export type InsertRental = z.infer<typeof insertRentalSchema>;
+export type RentalItem = typeof rentalItems.$inferSelect;
+export type InsertRentalItem = z.infer<typeof insertRentalItemSchema>;

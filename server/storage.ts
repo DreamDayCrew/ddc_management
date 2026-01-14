@@ -21,6 +21,12 @@ import {
   type InsertRepayment,
   type CatalogItem,
   type InsertCatalogItem,
+  type AssetRentalRate,
+  type InsertAssetRentalRate,
+  type Rental,
+  type InsertRental,
+  type RentalItem,
+  type InsertRentalItem,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -105,6 +111,28 @@ export interface IStorage {
   createCatalogItem(item: InsertCatalogItem): Promise<CatalogItem>;
   updateCatalogItem(id: string, item: Partial<InsertCatalogItem>): Promise<CatalogItem | undefined>;
   deleteCatalogItem(id: string): Promise<boolean>;
+
+  // Asset Rental Rates
+  getAssetRentalRates(): Promise<AssetRentalRate[]>;
+  getAssetRentalRate(id: string): Promise<AssetRentalRate | undefined>;
+  getAssetRentalRatesByAsset(assetId: string): Promise<AssetRentalRate[]>;
+  createAssetRentalRate(rate: InsertAssetRentalRate): Promise<AssetRentalRate>;
+  updateAssetRentalRate(id: string, rate: Partial<InsertAssetRentalRate>): Promise<AssetRentalRate | undefined>;
+  deleteAssetRentalRate(id: string): Promise<boolean>;
+
+  // Rentals
+  getRentals(): Promise<Rental[]>;
+  getRental(id: string): Promise<Rental | undefined>;
+  createRental(rental: InsertRental): Promise<Rental>;
+  updateRental(id: string, rental: Partial<InsertRental>): Promise<Rental | undefined>;
+  deleteRental(id: string): Promise<boolean>;
+
+  // Rental Items
+  getRentalItems(rentalId: string): Promise<RentalItem[]>;
+  getRentalItem(id: string): Promise<RentalItem | undefined>;
+  createRentalItem(item: InsertRentalItem): Promise<RentalItem>;
+  updateRentalItem(id: string, item: Partial<InsertRentalItem>): Promise<RentalItem | undefined>;
+  deleteRentalItem(id: string): Promise<boolean>;
   
   // Debug method
   getStorageType(): string;
@@ -122,6 +150,9 @@ export class MemStorage implements IStorage {
   private accountBalance: Map<number, AccountBalance> = new Map();
   private repayments: Map<number, Repayment> = new Map();
   private catalogItems: Map<string, CatalogItem> = new Map();
+  private assetRentalRates: Map<string, AssetRentalRate> = new Map();
+  private rentals: Map<string, Rental> = new Map();
+  private rentalItems: Map<string, RentalItem> = new Map();
   private currentAccountBalanceId: number = 1;
   private currentRepaymentId: number = 1;
 
@@ -1020,6 +1051,172 @@ export class MemStorage implements IStorage {
 
   async deleteCatalogItem(id: string): Promise<boolean> {
     return this.catalogItems.delete(id);
+  }
+
+  // Asset Rental Rates
+  async getAssetRentalRates(): Promise<AssetRentalRate[]> {
+    return Array.from(this.assetRentalRates.values());
+  }
+
+  async getAssetRentalRate(id: string): Promise<AssetRentalRate | undefined> {
+    return this.assetRentalRates.get(id);
+  }
+
+  async getAssetRentalRatesByAsset(assetId: string): Promise<AssetRentalRate[]> {
+    return Array.from(this.assetRentalRates.values()).filter(r => r.assetId === assetId);
+  }
+
+  async createAssetRentalRate(rate: InsertAssetRentalRate): Promise<AssetRentalRate> {
+    const now = new Date();
+    const newRate: AssetRentalRate = {
+      id: randomUUID(),
+      assetId: rate.assetId,
+      duration: rate.duration,
+      timeUnit: rate.timeUnit,
+      amount: rate.amount || '0',
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.assetRentalRates.set(newRate.id, newRate);
+    return newRate;
+  }
+
+  async updateAssetRentalRate(id: string, rate: Partial<InsertAssetRentalRate>): Promise<AssetRentalRate | undefined> {
+    const existing = this.assetRentalRates.get(id);
+    if (!existing) return undefined;
+    
+    const updated: AssetRentalRate = {
+      ...existing,
+      ...(rate.assetId !== undefined && { assetId: rate.assetId }),
+      ...(rate.duration !== undefined && { duration: rate.duration }),
+      ...(rate.timeUnit !== undefined && { timeUnit: rate.timeUnit }),
+      ...(rate.amount !== undefined && { amount: rate.amount }),
+      updatedAt: new Date(),
+    };
+    this.assetRentalRates.set(id, updated);
+    return updated;
+  }
+
+  async deleteAssetRentalRate(id: string): Promise<boolean> {
+    return this.assetRentalRates.delete(id);
+  }
+
+  // Rentals
+  async getRentals(): Promise<Rental[]> {
+    return Array.from(this.rentals.values());
+  }
+
+  async getRental(id: string): Promise<Rental | undefined> {
+    return this.rentals.get(id);
+  }
+
+  async createRental(rental: InsertRental): Promise<Rental> {
+    const now = new Date();
+    const newRental: Rental = {
+      id: randomUUID(),
+      customerName: rental.customerName,
+      customerPhone: rental.customerPhone || null,
+      customerEmail: rental.customerEmail || null,
+      customerAddress: rental.customerAddress || null,
+      rentalDate: rental.rentalDate instanceof Date ? rental.rentalDate.toISOString().split('T')[0] : rental.rentalDate,
+      returnDate: rental.returnDate instanceof Date ? rental.returnDate.toISOString().split('T')[0] : rental.returnDate || null,
+      status: rental.status || 'Quote',
+      paymentStatus: rental.paymentStatus || 'Pending',
+      paymentMode: rental.paymentMode || null,
+      notes: rental.notes || null,
+      totalAmount: rental.totalAmount || '0',
+      discount: rental.discount || 'false',
+      discountAmount: rental.discountAmount || '0',
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.rentals.set(newRental.id, newRental);
+    return newRental;
+  }
+
+  async updateRental(id: string, rental: Partial<InsertRental>): Promise<Rental | undefined> {
+    const existing = this.rentals.get(id);
+    if (!existing) return undefined;
+    
+    const updated: Rental = {
+      ...existing,
+      ...(rental.customerName !== undefined && { customerName: rental.customerName }),
+      ...(rental.customerPhone !== undefined && { customerPhone: rental.customerPhone }),
+      ...(rental.customerEmail !== undefined && { customerEmail: rental.customerEmail }),
+      ...(rental.customerAddress !== undefined && { customerAddress: rental.customerAddress }),
+      ...(rental.rentalDate !== undefined && { 
+        rentalDate: rental.rentalDate instanceof Date ? rental.rentalDate.toISOString().split('T')[0] : rental.rentalDate 
+      }),
+      ...(rental.returnDate !== undefined && { 
+        returnDate: rental.returnDate instanceof Date ? rental.returnDate.toISOString().split('T')[0] : rental.returnDate 
+      }),
+      ...(rental.status !== undefined && { status: rental.status }),
+      ...(rental.paymentStatus !== undefined && { paymentStatus: rental.paymentStatus }),
+      ...(rental.paymentMode !== undefined && { paymentMode: rental.paymentMode }),
+      ...(rental.notes !== undefined && { notes: rental.notes }),
+      ...(rental.totalAmount !== undefined && { totalAmount: rental.totalAmount }),
+      ...(rental.discount !== undefined && { discount: rental.discount }),
+      ...(rental.discountAmount !== undefined && { discountAmount: rental.discountAmount }),
+      updatedAt: new Date(),
+    };
+    this.rentals.set(id, updated);
+    return updated;
+  }
+
+  async deleteRental(id: string): Promise<boolean> {
+    // Also delete associated rental items
+    for (const [itemId, item] of this.rentalItems) {
+      if (item.rentalId === id) {
+        this.rentalItems.delete(itemId);
+      }
+    }
+    return this.rentals.delete(id);
+  }
+
+  // Rental Items
+  async getRentalItems(rentalId: string): Promise<RentalItem[]> {
+    return Array.from(this.rentalItems.values()).filter(i => i.rentalId === rentalId);
+  }
+
+  async getRentalItem(id: string): Promise<RentalItem | undefined> {
+    return this.rentalItems.get(id);
+  }
+
+  async createRentalItem(item: InsertRentalItem): Promise<RentalItem> {
+    const newItem: RentalItem = {
+      id: randomUUID(),
+      rentalId: item.rentalId,
+      assetId: item.assetId,
+      quantity: item.quantity || 1,
+      duration: item.duration,
+      timeUnit: item.timeUnit,
+      ratePerUnit: item.ratePerUnit || '0',
+      totalAmount: item.totalAmount || '0',
+      createdAt: new Date(),
+    };
+    this.rentalItems.set(newItem.id, newItem);
+    return newItem;
+  }
+
+  async updateRentalItem(id: string, item: Partial<InsertRentalItem>): Promise<RentalItem | undefined> {
+    const existing = this.rentalItems.get(id);
+    if (!existing) return undefined;
+    
+    const updated: RentalItem = {
+      ...existing,
+      ...(item.assetId !== undefined && { assetId: item.assetId }),
+      ...(item.quantity !== undefined && { quantity: item.quantity }),
+      ...(item.duration !== undefined && { duration: item.duration }),
+      ...(item.timeUnit !== undefined && { timeUnit: item.timeUnit }),
+      ...(item.ratePerUnit !== undefined && { ratePerUnit: item.ratePerUnit }),
+      ...(item.totalAmount !== undefined && { totalAmount: item.totalAmount }),
+    };
+    this.rentalItems.set(id, updated);
+    return updated;
+  }
+
+  async deleteRentalItem(id: string): Promise<boolean> {
+    return this.rentalItems.delete(id);
   }
   
   getStorageType(): string {

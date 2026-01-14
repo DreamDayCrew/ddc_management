@@ -14,6 +14,9 @@ import {
   requirements,
   fulfillmentPlans,
   catalogItems,
+  assetRentalRates,
+  rentals,
+  rentalItems,
   type Configuration,
   type InsertConfiguration,
   type Asset,
@@ -36,6 +39,12 @@ import {
   type InsertFulfillmentPlan,
   type CatalogItem,
   type InsertCatalogItem,
+  type AssetRentalRate,
+  type InsertAssetRentalRate,
+  type Rental,
+  type InsertRental,
+  type RentalItem,
+  type InsertRentalItem,
 } from "@shared/schema";
 import { eq } from 'drizzle-orm';
 import { type IStorage } from './storage';
@@ -1255,6 +1264,154 @@ export class DatabaseStorage implements IStorage {
       return result.length > 0;
     } catch (error) {
       console.error('[DB] Error deleting catalog item:', error);
+      return false;
+    }
+  }
+
+  // Asset Rental Rates
+  async getAssetRentalRates(): Promise<AssetRentalRate[]> {
+    return await db.select().from(assetRentalRates);
+  }
+
+  async getAssetRentalRate(id: string): Promise<AssetRentalRate | undefined> {
+    const result = await db.select().from(assetRentalRates).where(eq(assetRentalRates.id, id));
+    return result[0];
+  }
+
+  async getAssetRentalRatesByAsset(assetId: string): Promise<AssetRentalRate[]> {
+    return await db.select().from(assetRentalRates).where(eq(assetRentalRates.assetId, assetId));
+  }
+
+  async createAssetRentalRate(rate: InsertAssetRentalRate): Promise<AssetRentalRate> {
+    const result = await db.insert(assetRentalRates).values({
+      assetId: rate.assetId,
+      duration: rate.duration,
+      timeUnit: rate.timeUnit,
+      amount: rate.amount || '0',
+    }).returning();
+    return result[0];
+  }
+
+  async updateAssetRentalRate(id: string, rate: Partial<InsertAssetRentalRate>): Promise<AssetRentalRate | undefined> {
+    const updateData: Record<string, any> = { ...rate, updatedAt: new Date() };
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) delete updateData[key];
+    });
+    const result = await db.update(assetRentalRates).set(updateData).where(eq(assetRentalRates.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteAssetRentalRate(id: string): Promise<boolean> {
+    try {
+      const result = await db.delete(assetRentalRates).where(eq(assetRentalRates.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('[DB] Error deleting asset rental rate:', error);
+      return false;
+    }
+  }
+
+  // Rentals
+  async getRentals(): Promise<Rental[]> {
+    return await db.select().from(rentals).orderBy(desc(rentals.createdAt));
+  }
+
+  async getRental(id: string): Promise<Rental | undefined> {
+    const result = await db.select().from(rentals).where(eq(rentals.id, id));
+    return result[0];
+  }
+
+  async createRental(rental: InsertRental): Promise<Rental> {
+    const result = await db.insert(rentals).values({
+      customerName: rental.customerName,
+      customerPhone: rental.customerPhone || null,
+      customerEmail: rental.customerEmail || null,
+      customerAddress: rental.customerAddress || null,
+      rentalDate: rental.rentalDate instanceof Date ? rental.rentalDate.toISOString().split('T')[0] : rental.rentalDate,
+      returnDate: rental.returnDate instanceof Date ? rental.returnDate.toISOString().split('T')[0] : rental.returnDate || null,
+      status: rental.status || 'Quote',
+      paymentStatus: rental.paymentStatus || 'Pending',
+      paymentMode: rental.paymentMode || null,
+      notes: rental.notes || null,
+      totalAmount: rental.totalAmount || '0',
+      discount: rental.discount || 'false',
+      discountAmount: rental.discountAmount || '0',
+    }).returning();
+    return result[0];
+  }
+
+  async updateRental(id: string, rental: Partial<InsertRental>): Promise<Rental | undefined> {
+    const updateData: Record<string, any> = { ...rental, updatedAt: new Date() };
+    
+    // Handle date conversions
+    if (rental.rentalDate) {
+      updateData.rentalDate = rental.rentalDate instanceof Date 
+        ? rental.rentalDate.toISOString().split('T')[0] 
+        : rental.rentalDate;
+    }
+    if (rental.returnDate !== undefined) {
+      updateData.returnDate = rental.returnDate instanceof Date 
+        ? rental.returnDate.toISOString().split('T')[0] 
+        : rental.returnDate;
+    }
+    
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) delete updateData[key];
+    });
+    
+    const result = await db.update(rentals).set(updateData).where(eq(rentals.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteRental(id: string): Promise<boolean> {
+    try {
+      // Cascade will delete rental items automatically
+      const result = await db.delete(rentals).where(eq(rentals.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('[DB] Error deleting rental:', error);
+      return false;
+    }
+  }
+
+  // Rental Items
+  async getRentalItems(rentalId: string): Promise<RentalItem[]> {
+    return await db.select().from(rentalItems).where(eq(rentalItems.rentalId, rentalId));
+  }
+
+  async getRentalItem(id: string): Promise<RentalItem | undefined> {
+    const result = await db.select().from(rentalItems).where(eq(rentalItems.id, id));
+    return result[0];
+  }
+
+  async createRentalItem(item: InsertRentalItem): Promise<RentalItem> {
+    const result = await db.insert(rentalItems).values({
+      rentalId: item.rentalId,
+      assetId: item.assetId,
+      quantity: item.quantity || 1,
+      duration: item.duration,
+      timeUnit: item.timeUnit,
+      ratePerUnit: item.ratePerUnit || '0',
+      totalAmount: item.totalAmount || '0',
+    }).returning();
+    return result[0];
+  }
+
+  async updateRentalItem(id: string, item: Partial<InsertRentalItem>): Promise<RentalItem | undefined> {
+    const updateData: Record<string, any> = { ...item };
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) delete updateData[key];
+    });
+    const result = await db.update(rentalItems).set(updateData).where(eq(rentalItems.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteRentalItem(id: string): Promise<boolean> {
+    try {
+      const result = await db.delete(rentalItems).where(eq(rentalItems.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('[DB] Error deleting rental item:', error);
       return false;
     }
   }
