@@ -937,6 +937,147 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(events);
   });
 
+  // Event List PDF Download - MUST be before /api/events/:id to prevent route conflict
+  app.get("/api/events/pdf", async (req, res) => {
+    console.log('📄 Event List PDF API called');
+    
+    try {
+      // Parse options from query parameters
+      const options = {
+        includeCustomerInfo: req.query.customerInfo === 'true',
+        includeEventInfo: req.query.eventInfo === 'true',
+        includePaymentInfo: req.query.paymentInfo === 'true',
+        includeStats: req.query.stats === 'true',
+      };
+      
+      // Parse filter parameters
+      const filters = {
+        serviceType: (req.query.serviceType as string) || 'all',
+        eventStatus: (req.query.eventStatus as string) || 'all',
+        paymentStatus: (req.query.paymentStatus as string) || 'all',
+      };
+      
+      console.log('📋 PDF options:', options);
+      console.log('🔍 Filters:', filters);
+      
+      // Get all events and apply filters
+      const allEvents = await storage.getEvents();
+      let filteredEvents = allEvents;
+      
+      // Apply service type filter
+      if (filters.serviceType !== 'all') {
+        filteredEvents = filteredEvents.filter(e => e.providedService === filters.serviceType);
+      }
+      
+      // Apply event status filter
+      if (filters.eventStatus !== 'all') {
+        filteredEvents = filteredEvents.filter(e => e.eventStatus === filters.eventStatus);
+      }
+      
+      // Apply payment status filter
+      if (filters.paymentStatus !== 'all') {
+        filteredEvents = filteredEvents.filter(e => e.paymentStatus === filters.paymentStatus);
+      }
+      
+      console.log(`✅ Found ${filteredEvents.length} matching events`);
+      
+      if (filteredEvents.length === 0) {
+        return res.status(400).json({ error: "No events match the selected filters" });
+      }
+      
+      // Get configuration
+      const config = await storage.getConfiguration();
+      if (!config) {
+        return res.status(400).json({ error: "Configuration not found" });
+      }
+      
+      // Calculate invoice value and DDC spent for each event
+      const eventsWithFinancials = await Promise.all(
+        filteredEvents.map(async (event) => {
+          // Get requirements for this event (excluding dropped)
+          const requirements = await storage.getRequirements(event.id);
+          const activeRequirements = requirements.filter(r => r.requirementStatus !== 'Dropped');
+          
+          // Calculate invoice value from active requirements (price * quantity - discount)
+          const invoiceValue = activeRequirements.reduce((sum, req) => {
+            const baseAmount = req.price * req.quantity;
+            const discount = parseFloat(req.req_discount_amount || '0');
+            return sum + baseAmount - discount;
+          }, 0);
+          
+          // Calculate DDC spent from fulfillment plans of active requirements
+          let ddcSpent = 0;
+          for (const req of activeRequirements) {
+            const plans = await storage.getFulfillmentPlans(req.id);
+            ddcSpent += plans.reduce((sum, plan) => sum + parseFloat(plan.payment || '0'), 0);
+          }
+          
+          return {
+            ...event,
+            invoiceValue,
+            ddcSpent,
+          };
+        })
+      );
+      
+      // Calculate service statistics
+      const serviceStatsMap = new Map<string, number>();
+      for (const event of filteredEvents) {
+        const count = serviceStatsMap.get(event.providedService) || 0;
+        serviceStatsMap.set(event.providedService, count + 1);
+      }
+      
+      const serviceStats = Array.from(serviceStatsMap.entries())
+        .map(([service, count]) => ({ service, count }))
+        .sort((a, b) => b.count - a.count);
+      
+      console.log('📊 Service stats:', serviceStats);
+      
+      // Sort events by date (latest first)
+      eventsWithFinancials.sort((a, b) => {
+        return new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime();
+      });
+      
+      // Generate PDF
+      const generatedDate = new Date().toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+      
+      console.log('🎨 Starting Event List PDF generation...');
+      const pdfElement = EventListTemplate({
+        events: eventsWithFinancials,
+        config,
+        options,
+        filters,
+        serviceStats,
+        generatedDate,
+      });
+      
+      const pdfBuffer = await renderToBuffer(pdfElement as React.ReactElement);
+      console.log('✅ PDF buffer generated, size:', pdfBuffer.length, 'bytes');
+      
+      // Set response headers for PDF download
+      const statusLabel = filters.eventStatus === 'all' ? 'All' : filters.eventStatus.replace(' ', '_');
+      const fileName = `Events_${statusLabel}_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      
+      console.log('✅ Sending Event List PDF to client');
+      res.send(pdfBuffer);
+      
+    } catch (error: any) {
+      console.error('💥 Event List PDF generation error:', error.message);
+      res.status(500).json({ 
+        error: "Failed to generate event list PDF",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
   app.get("/api/events/:id", async (req, res) => {
     const event = await storage.getEvent(req.params.id);
     if (!event) {
@@ -2558,150 +2699,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ error: error.message });
-    }
-  });
-
-  // ============================================
-  // EVENT LIST PDF DOWNLOAD
-  // ============================================
-  
-  app.get("/api/events/pdf", async (req, res) => {
-    console.log('📄 Event List PDF API called');
-    
-    try {
-      // Parse options from query parameters
-      const options = {
-        includeCustomerInfo: req.query.customerInfo === 'true',
-        includeEventInfo: req.query.eventInfo === 'true',
-        includePaymentInfo: req.query.paymentInfo === 'true',
-        includeStats: req.query.stats === 'true',
-      };
-      
-      // Parse filter parameters
-      const filters = {
-        serviceType: (req.query.serviceType as string) || 'all',
-        eventStatus: (req.query.eventStatus as string) || 'all',
-        paymentStatus: (req.query.paymentStatus as string) || 'all',
-      };
-      
-      console.log('📋 PDF options:', options);
-      console.log('🔍 Filters:', filters);
-      
-      // Get all events and apply filters
-      const allEvents = await storage.getEvents();
-      let filteredEvents = allEvents;
-      
-      // Apply service type filter
-      if (filters.serviceType !== 'all') {
-        filteredEvents = filteredEvents.filter(e => e.providedService === filters.serviceType);
-      }
-      
-      // Apply event status filter
-      if (filters.eventStatus !== 'all') {
-        filteredEvents = filteredEvents.filter(e => e.eventStatus === filters.eventStatus);
-      }
-      
-      // Apply payment status filter
-      if (filters.paymentStatus !== 'all') {
-        filteredEvents = filteredEvents.filter(e => e.paymentStatus === filters.paymentStatus);
-      }
-      
-      console.log(`✅ Found ${filteredEvents.length} matching events`);
-      
-      if (filteredEvents.length === 0) {
-        return res.status(400).json({ error: "No events match the selected filters" });
-      }
-      
-      // Get configuration
-      const config = await storage.getConfiguration();
-      if (!config) {
-        return res.status(400).json({ error: "Configuration not found" });
-      }
-      
-      // Calculate invoice value and DDC spent for each event
-      const eventsWithFinancials = await Promise.all(
-        filteredEvents.map(async (event) => {
-          // Get requirements for this event (excluding dropped)
-          const requirements = await storage.getRequirements(event.id);
-          const activeRequirements = requirements.filter(r => r.requirementStatus !== 'Dropped');
-          
-          // Calculate invoice value from active requirements (price * quantity - discount)
-          const invoiceValue = activeRequirements.reduce((sum, req) => {
-            const baseAmount = req.price * req.quantity;
-            const discount = parseFloat(req.req_discount_amount || '0');
-            return sum + baseAmount - discount;
-          }, 0);
-          
-          // Calculate DDC spent from fulfillment plans of active requirements
-          let ddcSpent = 0;
-          for (const req of activeRequirements) {
-            const plans = await storage.getFulfillmentPlans(req.id);
-            ddcSpent += plans.reduce((sum, plan) => sum + parseFloat(plan.payment || '0'), 0);
-          }
-          
-          return {
-            ...event,
-            invoiceValue,
-            ddcSpent,
-          };
-        })
-      );
-      
-      // Calculate service statistics
-      const serviceStatsMap = new Map<string, number>();
-      for (const event of filteredEvents) {
-        const count = serviceStatsMap.get(event.providedService) || 0;
-        serviceStatsMap.set(event.providedService, count + 1);
-      }
-      
-      const serviceStats = Array.from(serviceStatsMap.entries())
-        .map(([service, count]) => ({ service, count }))
-        .sort((a, b) => b.count - a.count);
-      
-      console.log('📊 Service stats:', serviceStats);
-      
-      // Sort events by date (latest first)
-      eventsWithFinancials.sort((a, b) => {
-        return new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime();
-      });
-      
-      // Generate PDF
-      const generatedDate = new Date().toLocaleDateString('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      });
-      
-      console.log('🎨 Starting Event List PDF generation...');
-      const pdfElement = EventListTemplate({
-        events: eventsWithFinancials,
-        config,
-        options,
-        filters,
-        serviceStats,
-        generatedDate,
-      });
-      
-      const pdfBuffer = await renderToBuffer(pdfElement as React.ReactElement);
-      console.log('✅ PDF buffer generated, size:', pdfBuffer.length, 'bytes');
-      
-      // Set response headers for PDF download
-      const statusLabel = filters.eventStatus === 'all' ? 'All' : filters.eventStatus.replace(' ', '_');
-      const fileName = `Events_${statusLabel}_${new Date().toISOString().split('T')[0]}.pdf`;
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      res.setHeader('Content-Length', pdfBuffer.length);
-      
-      console.log('✅ Sending Event List PDF to client');
-      res.send(pdfBuffer);
-      
-    } catch (error: any) {
-      console.error('💥 Event List PDF generation error:', error.message);
-      res.status(500).json({ 
-        error: "Failed to generate event list PDF",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
     }
   });
 
