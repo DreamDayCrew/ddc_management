@@ -7,6 +7,7 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import { ServerInvoiceTemplate } from './invoice-template';
 import { ServerCatalogTemplate } from './catalog-template';
 import { ServerEventReportTemplate } from './event-report-template';
+import { RentalTemplate } from './rental-template';
 import React from 'react';
 import multer from 'multer';
 import path from 'path';
@@ -2420,6 +2421,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Generate Rental PDF (Quote or Invoice)
+  app.get("/api/rentals/:id/pdf", async (req, res) => {
+    console.log('📄 Rental PDF API called');
+    console.log('  Rental ID:', req.params.id);
+    console.log('  Type:', req.query.type);
+    
+    try {
+      const { id } = req.params;
+      const documentType = (req.query.type as string) === 'invoice' ? 'invoice' : 'quote';
+      
+      // Fetch rental data
+      const rental = await storage.getRental(id);
+      if (!rental) {
+        console.error('❌ Rental not found:', id);
+        return res.status(404).json({ error: "Rental not found" });
+      }
+      
+      console.log('✅ Rental found for:', rental.customerName);
+      
+      // Fetch rental items
+      const items = await storage.getRentalItems(id);
+      console.log('✅ Rental items found:', items.length);
+      
+      // Fetch assets for names
+      const assets = await storage.getAssets();
+      console.log('✅ Assets loaded:', assets.length);
+      
+      // Fetch configuration
+      const config = await storage.getConfiguration();
+      if (!config) {
+        console.error('❌ Configuration not found');
+        return res.status(400).json({ error: "Configuration not found" });
+      }
+      
+      console.log('✅ Configuration loaded');
+      
+      // Generate PDF
+      console.log('🎨 Starting Rental PDF generation...');
+      const pdfElement = RentalTemplate({
+        rental,
+        items,
+        assets,
+        config,
+        documentType
+      });
+      
+      if (!pdfElement) {
+        console.error('❌ Failed to generate rental PDF template');
+        return res.status(500).json({ error: "Failed to generate rental PDF template" });
+      }
+      
+      console.log('✅ Rental PDF template generated successfully');
+      
+      const pdfBuffer = await renderToBuffer(pdfElement as React.ReactElement);
+      console.log('✅ PDF buffer generated, size:', pdfBuffer.length, 'bytes');
+      
+      // Set response headers for PDF download
+      const typeLabel = documentType === 'quote' ? 'Quote' : 'Invoice';
+      const fileName = `Rental_${typeLabel}_${rental.customerName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      console.log('📁 Setting response headers for file:', fileName);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      
+      console.log('✅ Sending Rental PDF buffer to client');
+      res.send(pdfBuffer);
+      
+    } catch (error: any) {
+      console.error('💥 Rental PDF generation error:');
+      console.error('  Error message:', error.message);
+      console.error('  Error stack:', error.stack);
+      res.status(500).json({ 
+        error: "Failed to generate rental PDF",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   });
 
