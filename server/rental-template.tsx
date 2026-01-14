@@ -476,39 +476,41 @@ export const RentalTemplate: React.FC<RentalTemplateProps> = ({
                 '4. Full payment required before equipment release.'}
             </Text>
           </View>
-          <View style={styles.paymentColumn}>
-            <Text style={styles.sectionTitle}>Payment Information:</Text>
-            {config?.accountHolderName && (
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>Account Name:</Text>
-                <Text style={styles.paymentValue}>{config.accountHolderName}</Text>
-              </View>
-            )}
-            {config?.bankName && (
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>Bank:</Text>
-                <Text style={styles.paymentValue}>{config.bankName}</Text>
-              </View>
-            )}
-            {config?.accountNumber && (
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>Account No:</Text>
-                <Text style={styles.paymentValue}>{config.accountNumber}</Text>
-              </View>
-            )}
-            {config?.ifscCode && (
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>IFSC:</Text>
-                <Text style={styles.paymentValue}>{config.ifscCode}</Text>
-              </View>
-            )}
-            {config?.upiId && (
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>UPI:</Text>
-                <Text style={styles.paymentValue}>{config.upiId}</Text>
-              </View>
-            )}
-          </View>
+          {documentType === 'invoice' && (
+            <View style={styles.paymentColumn}>
+              <Text style={styles.sectionTitle}>Payment Information:</Text>
+              {config?.accountHolderName && (
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Account Name:</Text>
+                  <Text style={styles.paymentValue}>{config.accountHolderName}</Text>
+                </View>
+              )}
+              {config?.bankName && (
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Bank:</Text>
+                  <Text style={styles.paymentValue}>{config.bankName}</Text>
+                </View>
+              )}
+              {config?.accountNumber && (
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Account No:</Text>
+                  <Text style={styles.paymentValue}>{config.accountNumber}</Text>
+                </View>
+              )}
+              {config?.ifscCode && (
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>IFSC:</Text>
+                  <Text style={styles.paymentValue}>{config.ifscCode}</Text>
+                </View>
+              )}
+              {config?.upiId && (
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>UPI:</Text>
+                  <Text style={styles.paymentValue}>{config.upiId}</Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
         
         <View style={styles.signatureSection}>
