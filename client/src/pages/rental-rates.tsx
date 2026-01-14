@@ -163,12 +163,61 @@ export default function RentalRates() {
     }
   };
 
+  const isDuplicateRate = useMemo(() => {
+    if (!formData.assetId || !formData.duration || !formData.timeUnit) return false;
+    const duration = parseInt(formData.duration);
+    return rentalRates.some(rate => 
+      rate.assetId === formData.assetId && 
+      rate.duration === duration && 
+      rate.timeUnit === formData.timeUnit &&
+      (!editingRate || rate.id !== editingRate.id)
+    );
+  }, [formData.assetId, formData.duration, formData.timeUnit, rentalRates, editingRate]);
+
+  const existingRatesForAsset = useMemo(() => {
+    if (!formData.assetId) return [];
+    return rentalRates.filter(r => r.assetId === formData.assetId && (!editingRate || r.id !== editingRate.id));
+  }, [formData.assetId, rentalRates, editingRate]);
+
+  const rateAmountWarning = useMemo(() => {
+    if (!formData.amount || Number(formData.amount) <= 0 || !formData.duration) return null;
+    const currentAmount = Number(formData.amount);
+    const currentDuration = parseInt(formData.duration);
+    const currentUnit = formData.timeUnit;
+    
+    const lowerDurationRates = existingRatesForAsset.filter(r => {
+      if (r.timeUnit === currentUnit) {
+        return r.duration < currentDuration;
+      }
+      if (currentUnit === "day" && r.timeUnit === "hrs") {
+        return true;
+      }
+      return false;
+    });
+
+    for (const rate of lowerDurationRates) {
+      const rateAmount = Number(rate.amount);
+      if (currentAmount <= rateAmount) {
+        return `You already have ${rate.duration} ${rate.timeUnit} configured at Rs.${rateAmount}. Consider setting a higher amount for ${currentDuration} ${currentUnit}.`;
+      }
+    }
+    return null;
+  }, [existingRatesForAsset, formData.amount, formData.duration, formData.timeUnit]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.assetId || !formData.duration || !formData.amount) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (isDuplicateRate) {
+      toast({
+        title: "Duplicate Rate",
+        description: `A rate for ${formData.duration} ${formData.timeUnit} already exists for this asset`,
         variant: "destructive",
       });
       return;
@@ -391,6 +440,12 @@ export default function RentalRates() {
               </div>
             </div>
 
+            {isDuplicateRate && (
+              <p className="text-sm text-destructive">
+                A rate for {formData.duration} {formData.timeUnit} already exists for this asset.
+              </p>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="amount">Amount (₹) *</Label>
               <Input
@@ -402,7 +457,23 @@ export default function RentalRates() {
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 data-testid="input-amount"
               />
+              {rateAmountWarning && (
+                <p className="text-sm text-amber-600 dark:text-amber-400">
+                  {rateAmountWarning}
+                </p>
+              )}
             </div>
+
+            {existingRatesForAsset.length > 0 && (
+              <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                <p className="font-medium mb-1">Existing rates for this asset:</p>
+                {existingRatesForAsset.map(rate => (
+                  <span key={rate.id} className="inline-block mr-2">
+                    {rate.duration} {rate.timeUnit} - Rs.{rate.amount}
+                  </span>
+                ))}
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={handleDialogClose}>
@@ -410,7 +481,7 @@ export default function RentalRates() {
               </Button>
               <Button
                 type="submit"
-                disabled={createMutation.isPending || updateMutation.isPending}
+                disabled={createMutation.isPending || updateMutation.isPending || isDuplicateRate}
                 data-testid="button-submit"
               >
                 {createMutation.isPending || updateMutation.isPending ? "Saving..." : editingRate ? "Update" : "Create"}
