@@ -1,14 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Modal, Platform, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { config as envConfig } from '../config/environment';
 import type { Rental, RentalItem, Asset, AssetRentalRate, Configuration } from '../types';
 import { useTheme } from '../contexts';
 import { format, parseISO } from 'date-fns';
 import { DatePicker } from '../components/DatePicker';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 
 const BRAND_MAROON = '#800020';
 
@@ -411,127 +410,32 @@ export default function RentalDetailsScreen({ navigation, route }: any) {
   };
 
   const handleDownloadPdf = async (type: 'quote' | 'invoice') => {
+    console.log(`📋 Starting ${type} download process for rental:`, rentalId);
+    
     if (!rentalId) {
       Alert.alert('Error', 'No rental ID found');
       return;
     }
     
     try {
-      Alert.alert('Download', `Preparing ${type}...`);
-      
-      console.log('Downloading PDF from:', `${api.getBaseURL()}/api/rentals/${rentalId}/pdf?type=${type}`);
-      
-      // Use the API client to download the PDF
-      const response = await fetch(`${api.getBaseURL()}/api/rentals/${rentalId}/pdf?type=${type}`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/pdf',
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        const contentType = response.headers.get('content-type');
-        let errorMessage = `HTTP ${response.status}`;
-        
-        if (contentType && contentType.includes('application/json')) {
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorMessage;
-          } catch {
-            // Failed to parse JSON, use default message
-          }
-        } else {
-          const errorText = await response.text();
-          errorMessage = errorText || errorMessage;
-        }
-        
-        throw new Error(errorMessage);
-      }
-      
-      // Verify we got a PDF
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/pdf')) {
-        throw new Error('Invalid response format - expected PDF');
-      }
-      
-      // Get the PDF blob
-      const blob = await response.blob();
-      
-      // Check if we're in a native environment or web
-      const isNative = Platform.OS !== 'web' && FileSystem?.documentDirectory && FileSystem?.EncodingType;
-      
-      if (isNative) {
-        // Native mobile handling
-        try {
-          // Define file path
-          const fileName = `rental-${type}-${rentalId.slice(0, 8)}.pdf`;
-          const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-          
-          // Convert blob to base64
-          const arrayBuffer = await blob.arrayBuffer();
-          const uint8Array = new Uint8Array(arrayBuffer);
-          const binaryString = uint8Array.reduce((data, byte) => data + String.fromCharCode(byte), '');
-          const base64Data = btoa(binaryString);
-          
-          // Write the file
-          await FileSystem.writeAsStringAsync(fileUri, base64Data, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          
-          // Check if sharing is available
-          const sharingAvailable = await Sharing.isAvailableAsync();
-          if (sharingAvailable) {
-            await Sharing.shareAsync(fileUri, {
-              mimeType: 'application/pdf',
-              dialogTitle: `Share ${type}`,
-              UTI: 'com.adobe.pdf',
-            });
-            Alert.alert('Success', `${type} PDF shared successfully`);
-          } else {
-            Alert.alert('Success', `${type} PDF saved to ${fileName}`);
-          }
-        } catch (error) {
-          console.error('Native file handling error:', error);
-          Alert.alert('Error', `Failed to process PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
+      // Create download URL for the rental PDF
+      const baseUrl = envConfig.API_URL;
+      const downloadUrl = `${baseUrl}/api/rentals/${rentalId}/pdf?type=${type}`;
+            
+      // Download PDF directly using browser
+      if (Platform.OS === 'web') {
+        window.open(downloadUrl, '_blank');
       } else {
-        // Web environment handling
-        try {
-          // Check if we have access to the DOM (web environment)
-          if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-            const url = window.URL.createObjectURL(blob);
-            const fileName = `rental-${type}-${rentalId.slice(0, 8)}.pdf`;
-            
-            // Create a temporary link and trigger download
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = fileName;
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            
-            // Clean up
-            setTimeout(() => {
-              window.URL.revokeObjectURL(url);
-              if (document.body.contains(link)) {
-                document.body.removeChild(link);
-              }
-            }, 100);
-            
-            Alert.alert('Success', `${type} PDF downloaded successfully`);
-          } else {
-            // Fallback for environments where DOM is not available
-            Alert.alert('Info', `${type} PDF is ready but download is not supported in this environment`);
-          }
-        } catch (webError) {
-          console.error('Web download error:', webError);
-          Alert.alert('Error', `Failed to download PDF: ${webError instanceof Error ? webError.message : 'Unknown error'}`);
-        }
+        console.log(`🔗 Opening ${type} PDF URL:`, downloadUrl);
+        Linking.openURL(downloadUrl)
+          .then(() => console.log(`✅ Opened ${type} PDF URL in browser`))
+          .catch((error) => {
+            console.error(`❌ Failed to open ${type} PDF URL:`, error);
+            Alert.alert('Error', 'Cannot open browser');
+          });
       }
-      
     } catch (error) {
-      console.error('PDF download error:', error);
+      console.error(`💥 ${type} PDF download error:`, error);
       Alert.alert('Error', `Failed to download ${type}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };

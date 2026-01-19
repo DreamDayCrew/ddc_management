@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
-import { useEvents, useExpenses, useAssets, useTeamMembers, useRepayments } from '../hooks/useApi';
+import { useEvents, useExpenses, useAssets, useTeamMembers, useRepayments, useConfiguration, useRentals } from '../hooks/useApi';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useTheme } from '../contexts';
@@ -54,6 +54,8 @@ export default function DashboardScreen() {
   const { data: assets } = useAssets();
   const { data: team } = useTeamMembers();
   const { data: repayments } = useRepayments();
+  const { data: configuration } = useConfiguration();
+  const { data: rentals } = useRentals();
 
   // Debug: Log data types
   useEffect(() => {
@@ -63,8 +65,9 @@ export default function DashboardScreen() {
       assets: assets ? `${typeof assets} (isArray: ${Array.isArray(assets)})` : 'null',
       team: team ? `${typeof team} (isArray: ${Array.isArray(team)})` : 'null',
       repayments: repayments ? `${typeof repayments} (isArray: ${Array.isArray(repayments)})` : 'null',
+      rentals: rentals ? `${typeof rentals} (isArray: ${Array.isArray(rentals)})` : 'null',
     });
-  }, [events, expenses, assets, team, repayments]);
+  }, [events, expenses, assets, team, repayments, rentals]);
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const contentOffset = event.nativeEvent.contentOffset.x;
@@ -170,6 +173,14 @@ export default function DashboardScreen() {
   const completedRequirements = requirements.filter(r => r.requirementStatus === 'Completed').length;
   const droppedRequirements = requirements.filter(r => r.requirementStatus === 'Dropped').length;
   const totalRequirements = requirements.length;
+
+  // Rental Service statistics
+  const safeRentals = Array.isArray(rentals) ? rentals : [];
+  const totalRentals = safeRentals.length;
+  const quotedRentals = safeRentals.filter(r => r.status === 'Quoted').length;
+  const confirmedRentals = safeRentals.filter(r => r.status === 'Confirmed').length;
+  const completedRentals = safeRentals.filter(r => r.status === 'Completed').length;
+  const cancelledRentals = safeRentals.filter(r => r.status === 'Cancelled').length;
 
   // Upcoming events for timeline
   const upcoming = safeEvents
@@ -562,6 +573,68 @@ export default function DashboardScreen() {
           )}
         </View>
         
+      </TouchableOpacity>
+
+      {/* Rental Service Statistics */}
+      <TouchableOpacity 
+        style={styles.section}
+        onPress={() => {
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 1,
+              routes: [
+                { name: 'More', state: { routes: [{ name: 'MoreMenu' }] } },
+                { name: 'More', state: { routes: [{ name: 'MoreMenu' }, { name: 'Rentals' }] } },
+              ],
+            })
+          );
+        }}
+        activeOpacity={0.8}
+      >
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Rental Service Statistics</Text>
+        <View style={styles.statsGrid}>
+          <View style={[styles.statCard, styles.modernStatCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: colors.primary, borderLeftWidth: 4 }]}>
+            <View style={[styles.statIconContainer, { backgroundColor: `${colors.primary}20` }]}>
+              <Ionicons name="briefcase-outline" size={28} color={colors.primary} />
+            </View>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{totalRentals}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Services</Text>
+          </View>
+
+          <View style={[styles.statCard, styles.modernStatCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: '#6b7280', borderLeftWidth: 4 }]}>
+            <View style={[styles.statIconContainer, { backgroundColor: '#6b728020' }]}>
+              <Ionicons name="document-outline" size={28} color="#6b7280" />
+            </View>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{quotedRentals}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Quoted</Text>
+          </View>
+
+          <View style={[styles.statCard, styles.modernStatCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: '#fbbf24', borderLeftWidth: 4 }]}>
+            <View style={[styles.statIconContainer, { backgroundColor: '#fbbf2420' }]}>
+              <Ionicons name="checkmark-outline" size={28} color="#fbbf24" />
+            </View>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{confirmedRentals}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Confirmed</Text>
+          </View>
+
+          <View style={[styles.statCard, styles.modernStatCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: '#10b981', borderLeftWidth: 4 }]}>
+            <View style={[styles.statIconContainer, { backgroundColor: '#10b98120' }]}>
+              <Ionicons name="checkmark-done-outline" size={28} color="#10b981" />
+            </View>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{completedRentals}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Completed</Text>
+          </View>
+
+          {cancelledRentals > 0 && (
+            <View style={[styles.statCard, styles.modernStatCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: '#ef4444', borderLeftWidth: 4 }]}>
+              <View style={[styles.statIconContainer, { backgroundColor: '#ef444420' }]}>
+                <Ionicons name="close-outline" size={28} color="#ef4444" />
+              </View>
+              <Text style={[styles.statNumber, { color: colors.text }]}>{cancelledRentals}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Cancelled</Text>
+            </View>
+          )}
+        </View>
       </TouchableOpacity>
 
       <View style={{ height: 40 }} />

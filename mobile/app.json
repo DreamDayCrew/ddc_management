@@ -23,7 +23,9 @@
       "package": "com.dreamdaycrew.mobile",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "permissions": ["INTERNET"]
+      "permissions": [
+        "INTERNET"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -31,12 +33,12 @@
     },
     "extra": {
       "eas": {
-        "projectId": "551d8fc9-0a2e-4842-9ac1-84cfe48e46ea"
+        "projectId": "018e5a2f-08f3-4268-9fbd-005334759957"
       }
     },
     "plugins": [
       "expo-font"
     ],
-    "owner": "kumudhaglory94"
+    "owner": "glorykumudha"
   }
 }

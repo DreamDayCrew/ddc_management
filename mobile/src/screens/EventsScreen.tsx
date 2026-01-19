@@ -1,18 +1,17 @@
 import { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Modal, Alert, RefreshControl, TextInput, ScrollView, Platform, Share } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Modal, Alert, RefreshControl, TextInput, ScrollView, Platform, Linking } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { useEvents, useExpenses, useConfiguration } from '../hooks/useApi';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import type { Event } from '../types';
+import { config as envConfig } from '../config/environment';
+import type { Event, Requirement } from '../types';
 import AddEventModal from '../components/AddEventModal';
 import { EventsStackParamList } from '../navigation/EventsStackNavigator';
 import { useTheme } from '../contexts';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 
 type Props = NativeStackScreenProps<EventsStackParamList, 'EventsList'>;
 
@@ -229,14 +228,72 @@ export default function EventsScreen({ navigation }: Props) {
     deleteMutation.mutate(eventToDelete.id);
   };
 
+
+
+  const handleDownloadQuote = async (event: Event) => {
+    console.log('📋 Starting quote download process for event:', event.id);
+    
+    try {
+      // Fetch requirements for this event
+      const requirements = await api.getEventRequirements(event.id);
+      
+      if (!requirements || requirements.length === 0) {
+        Alert.alert('Cannot Generate Quote', 'No requirements found for this event');
+        return;
+      }
+
+      // Calculate quote value (sum of all requirement invoice values)
+      const quoteValue = requirements.reduce(
+        (sum: number, req) => sum + Number(req.order || 0),
+        0
+      );
+      
+      // Apply event-level discount if any
+      const eventDiscount = Number(event.eventDiscount || 0);
+      const finalQuoteValue = quoteValue - eventDiscount;
+      
+      if (finalQuoteValue <= 0) {
+        Alert.alert('Cannot Generate Quote', 'Final quote amount must be greater than zero');
+        return;
+      }
+
+      // Generate quotation number
+      const quotationNumber = `QTN${event.id.slice(-5).toUpperCase()}${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      
+      // Create download URL for the quotation
+      const baseUrl = envConfig.API_URL;
+      const downloadUrl = `${baseUrl}/api/events/${event.id}/quotation?quotation_number=${quotationNumber}`;
+            
+      // Download quote directly
+      if (Platform.OS === 'web') {
+        window.open(downloadUrl, '_blank');
+      } else {
+        console.log('🔗 Opening quotation URL:', downloadUrl);
+        Linking.openURL(downloadUrl)
+          .then(() => console.log('✅ Opened URL in browser'))
+          .catch((error) => {
+            console.error('❌ Failed to open URL:', error);
+            Alert.alert('Error', 'Cannot open browser');
+          });
+      }
+    } catch (error) {
+      console.error('💥 Quote download error:', error);
+      Alert.alert('Error', `Failed to download quote: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   const handleCloseModal = () => {
     setModalVisible(false);
     setSelectedEvent(null);
   };
 
   const handleDownloadPdf = async () => {
-    setDownloading(true);
+    console.log('📋 Starting events list PDF download process');
+    
     try {
+      setDownloading(true);
+      
+      // Create URL parameters
       const params = new URLSearchParams({
         customerInfo: downloadOptions.customerInfo.toString(),
         eventInfo: downloadOptions.eventInfo.toString(),
@@ -247,57 +304,27 @@ export default function EventsScreen({ navigation }: Props) {
         paymentStatus: downloadFilters.paymentStatus,
       });
 
-      const response = await api.downloadEventsPdf(params.toString());
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.error || 'Failed to generate PDF');
-      }
-
-      const blob = await response.blob();
-      const statusLabel = downloadFilters.eventStatus === 'all' ? 'All' : downloadFilters.eventStatus.replace(' ', '_');
-      const fileName = `Events_${statusLabel}_${new Date().toISOString().split('T')[0]}.pdf`;
-      
-      // Handle web platform differently
+      // Create download URL for the events list PDF
+      const baseUrl = envConfig.API_URL;
+      const downloadUrl = `${baseUrl}/api/events/pdf?${params.toString()}`;
+            
+      // Download PDF directly using browser
       if (Platform.OS === 'web') {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        setDownloadModalVisible(false);
-        return;
+        window.open(downloadUrl, '_blank');
+      } else {
+        console.log('🔗 Opening events PDF URL:', downloadUrl);
+        Linking.openURL(downloadUrl)
+          .then(() => console.log('✅ Opened PDF URL in browser'))
+          .catch((error) => {
+            console.error('❌ Failed to open PDF URL:', error);
+            Alert.alert('Error', 'Cannot open browser');
+          });
       }
       
-      // Native platform: Read blob as base64
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = async () => {
-        const base64data = reader.result as string;
-        const base64 = base64data.split(',')[1];
-        
-        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-        await FileSystem.writeAsStringAsync(fileUri, base64, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (isAvailable) {
-          await Sharing.shareAsync(fileUri, {
-            mimeType: 'application/pdf',
-            dialogTitle: 'Share Events Report',
-          });
-        } else {
-          Alert.alert('Success', `PDF saved to ${fileName}`);
-        }
-        
-        setDownloadModalVisible(false);
-      };
-    } catch (error: any) {
-      Alert.alert('Download Failed', error.message || 'Failed to download event list');
+      setDownloadModalVisible(false);
+    } catch (error) {
+      console.error('💥 Events PDF download error:', error);
+      Alert.alert('Error', `Failed to download events PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setDownloading(false);
     }
@@ -342,6 +369,18 @@ export default function EventsScreen({ navigation }: Props) {
             })()}
           </View>
           <View style={styles.actionButtons}>
+            <TouchableOpacity 
+              style={[styles.downloadButton, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.1)' : 'rgba(16, 185, 129, 0.1)' }]}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleDownloadQuote(item);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Download quote for ${item.eventName}`}
+            >
+              <Ionicons name="document-text-outline" size={20} color={isDark ? '#22c55e' : '#10b981'} />
+            </TouchableOpacity>
+            
             <TouchableOpacity 
               style={[styles.editButton, { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.1)' : 'rgba(128, 0, 32, 0.1)' }]}
               onPress={(e) => {
@@ -996,6 +1035,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 6,
     gap: 8,
+  },
+  downloadButton: {
+    padding: 8,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   editButton: {
     padding: 8,

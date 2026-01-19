@@ -10,7 +10,9 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "migrate:expense-categories": "tsx run-migration.ts",
-    "migrate:expense-category-field": "tsx run-expense-category-migration.ts"
+    "migrate:expense-category-field": "tsx run-expense-category-migration.ts",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
@@ -93,7 +95,9 @@
     "wouter": "^3.3.5",
     "ws": "^8.18.0",
     "zod": "^3.24.2",
-    "zod-validation-error": "^3.4.0"
+    "zod-validation-error": "^3.4.0",
+    "expo": "~50.0.17",
+    "react-native": "0.73.6"
   },
   "devDependencies": {
     "@replit/vite-plugin-cartographer": "^0.3.1",
