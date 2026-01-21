@@ -209,7 +209,7 @@ export default function RentalsScreen({ navigation }: any) {
       {/* Search and Filter */}
       <View style={[styles.searchFilterContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.searchContainer}>
-          <View style={[styles.searchInputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.searchInputContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
             <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
