@@ -45,7 +45,7 @@ export default function RentalDetailsScreen({ navigation, route }: any) {
     customerAddress: '',
     rentalDate: new Date(),
     returnDate: new Date(),
-    status: 'Quote',
+    status: 'Inquired',
     paymentStatus: 'Pending',
     paymentMode: '',
     notes: '',
@@ -78,6 +78,32 @@ export default function RentalDetailsScreen({ navigation, route }: any) {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showPaymentStatusDropdown, setShowPaymentStatusDropdown] = useState(false);
   const [showPaymentModeDropdown, setShowPaymentModeDropdown] = useState(false);
+  
+  // Expense linking states
+  const [showExpenseLinkModal, setShowExpenseLinkModal] = useState(false);
+  const [pendingPaymentStatus, setPendingPaymentStatus] = useState('');
+  const [expenseFormData, setExpenseFormData] = useState({
+    amount: '',
+    date: new Date(),
+  });
+  const [isCreatingExpense, setIsCreatingExpense] = useState(false);
+
+  const getExpenseIndicator = (paymentStatus: 'Paid' | 'Partial' | 'Pending' | string) => {
+    switch (paymentStatus) {
+      case 'Paid':
+        return {
+          icon: 'checkmark-done-circle-sharp',
+          color: '#16a34a',
+        };
+      case 'Partial':
+        return {
+          icon: 'checkmark-circle',
+          color: '#eab308',
+        };
+      default:
+        return null;
+    }
+  };
 
   const { data: rental, isLoading: rentalLoading } = useQuery({
     queryKey: ['rental', rentalId],
@@ -106,6 +132,17 @@ export default function RentalDetailsScreen({ navigation, route }: any) {
     queryFn: () => api.getConfiguration(),
   });
 
+  // Fetch linked expense for rental
+  const { data: rentalLinkedExpense } = useQuery({
+    queryKey: ['/api/expenses/by-rental', rentalId],
+    queryFn: async () => {
+      const res = await fetch(`${envConfig.API_URL}/api/expenses/by-rental/${rentalId}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!rentalId,
+  });
+
   useEffect(() => {
     if (rental) {
       setFormData({
@@ -115,7 +152,7 @@ export default function RentalDetailsScreen({ navigation, route }: any) {
         customerAddress: rental.customerAddress || '',
         rentalDate: rental.rentalDate ? parseISO(rental.rentalDate) : new Date(),
         returnDate: rental.returnDate ? parseISO(rental.returnDate) : new Date(),
-        status: rental.status || 'Quote',
+        status: rental.status || 'Inquired',
         paymentStatus: rental.paymentStatus || 'Pending',
         paymentMode: rental.paymentMode || '',
         notes: rental.notes || '',
@@ -211,6 +248,35 @@ export default function RentalDetailsScreen({ navigation, route }: any) {
     },
     onError: (error: Error) => {
       Alert.alert('Error', error.message);
+    },
+  });
+
+  const createExpenseMutation = useMutation({
+    mutationFn: (data: any) => api.createExpense(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/account-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses/by-rental', rentalId] });
+      setShowExpenseLinkModal(false);
+      setIsCreatingExpense(false);
+      Alert.alert('Success', 'Expense linked successfully');
+    },
+    onError: (error: Error) => {
+      setIsCreatingExpense(false);
+      Alert.alert('Error', 'Failed to link expense: ' + error.message);
+    },
+  });
+
+  const deleteExpenseMutation = useMutation({
+    mutationFn: (expenseId: string) => api.deleteExpense(expenseId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/account-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses/by-rental', rentalId] });
+      Alert.alert('Success', 'Linked expense deleted and account balance reverted');
+    },
+    onError: (error: Error) => {
+      Alert.alert('Error', 'Failed to delete expense: ' + error.message);
     },
   });
 
@@ -388,6 +454,97 @@ export default function RentalDetailsScreen({ navigation, route }: any) {
   const discountValue = formData.discount ? Number(formData.discountAmount || 0) : 0;
   const total = subtotal - discountValue;
 
+  // Create expense and link to rental
+  const createExpenseForRental = async (amount: string, status: string, dateStr?: string) => {
+    if (!rentalId) {
+      Alert.alert('Error', 'Cannot create expense: rental ID is required');
+      return;
+    }
+
+    const paymentAmount = parseFloat(amount);
+    if (isNaN(paymentAmount) || paymentAmount <= 0) {
+      Alert.alert('Error', 'Please enter a valid payment amount');
+      return;
+    }
+
+    setIsCreatingExpense(true);
+    try {
+      const expenseData = {
+        type: 'Credit',
+        category: 'Rental Service',
+        from_account: 'Client Payment',
+        to_account: 'DDC Fund',
+        description: `Payment received for Service Order - ${formData.customerName}`,
+        amount: String(paymentAmount),
+        date: dateStr ? new Date(dateStr) : new Date(),
+        status: 'Paid',
+        rentalId: rentalId, // Link to rental via rentalId field
+        contributor: [],
+        contribution: [],
+        contribution_status: [],
+      };
+
+      await createExpenseMutation.mutateAsync(expenseData);
+
+      // Update rental with new payment status
+      await updateMutation.mutateAsync({ paymentStatus: status });
+    } catch (error: any) {
+      setIsCreatingExpense(false);
+      Alert.alert('Error', 'Failed to create expense: ' + (error.message || 'Unknown error'));
+    }
+  };
+
+  const handlePaymentStatusChange = (status: string) => {
+    if (status === 'Partial' || status === 'Paid') {
+      // Check if expense already exists for this rental
+      const hasLinkedExpense = rentalLinkedExpense && rentalLinkedExpense.id;
+      
+      if (!hasLinkedExpense) {
+        setPendingPaymentStatus(status);
+        setExpenseFormData({
+          amount: status === 'Paid' ? total.toString() : '',
+          date: new Date(),
+        });
+        setShowExpenseLinkModal(true);
+      } else {
+        // Just update the payment status without creating expense
+        setFormData({ ...formData, paymentStatus: status });
+      }
+    } else {
+      // For 'Pending' status, just update without expense linking
+      setFormData({ ...formData, paymentStatus: status });
+    }
+    setShowPaymentStatusDropdown(false);
+  };
+
+  const handleExpenseLinkConfirm = () => {
+    const amount = pendingPaymentStatus === 'Paid' ? total.toString() : expenseFormData.amount;
+    const dateStr = format(expenseFormData.date, 'yyyy-MM-dd');
+    
+    createExpenseForRental(amount, pendingPaymentStatus, dateStr);
+  };
+
+  const handleDeleteExpense = () => {
+    if (rentalLinkedExpense && rentalLinkedExpense.id && !deleteExpenseMutation.isPending) {
+      Alert.alert(
+        'Delete Linked Expense',
+        'This will delete the expense record and revert the account balance. Are you sure?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Delete', 
+            style: 'destructive',
+            onPress: () => {
+              if (!deleteExpenseMutation.isPending) {
+                deleteExpenseMutation.mutate(rentalLinkedExpense.id);
+              }
+            }
+          },
+        ]
+      );
+    }
+  };
+
   const handleSave = () => {
     if (!formData.customerName) {
       Alert.alert('Validation Error', 'Customer name is required');
@@ -440,6 +597,37 @@ export default function RentalDetailsScreen({ navigation, route }: any) {
     }
   };
 
+  const handleDownloadReport = async () => {
+    console.log('📊 Starting rental report download process for rental:', rentalId);
+    
+    if (!rentalId) {
+      Alert.alert('Error', 'No rental ID found');
+      return;
+    }
+    
+    try {
+      const baseUrl = envConfig.API_URL;
+      const downloadUrl = `${baseUrl}/api/rentals/${rentalId}/report`;
+      
+      console.log('🔗 Opening rental report URL:', downloadUrl);
+      
+      if (Platform.OS === 'web') {
+        window.open(downloadUrl, '_blank');
+        console.log('✅ Opened in new tab (web)');
+      } else {
+        Linking.openURL(downloadUrl)
+          .then(() => console.log('✅ Opened URL in browser'))
+          .catch((error) => {
+            console.error('❌ Failed to open URL:', error);
+            Alert.alert('Error', 'Cannot open browser');
+          });
+      }
+    } catch (error) {
+      console.error('💥 Rental report download error:', error);
+      Alert.alert('Error', `Failed to download rental report: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   if ((rentalLoading || itemsLoading) && !isNew) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
@@ -453,7 +641,30 @@ export default function RentalDetailsScreen({ navigation, route }: any) {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Customer Details */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Customer Details</Text>
+          <View style={styles.sectionTitleRow}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Customer Details</Text>
+            {(() => {
+              // Only show indicator if rental actually has a linked expense
+              if (rentalLinkedExpense && rentalLinkedExpense.id) {
+                const indicator = getExpenseIndicator(formData.paymentStatus);
+                if (indicator) {
+                  return (
+                    <View style={[
+                      styles.linkedExpenseIndicator, 
+                      { backgroundColor: `${indicator.color}20`, borderColor: indicator.color }
+                    ]}>
+                      <Ionicons 
+                        name={indicator.icon as any} 
+                        size={14} 
+                        color={indicator.color} 
+                      />
+                    </View>
+                  );
+                }
+              }
+              return null;
+            })()}
+          </View>
           
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.text }]}>Customer Name *</Text>
@@ -737,6 +948,34 @@ export default function RentalDetailsScreen({ navigation, route }: any) {
               <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
+
+          {/* Linked Expense Section */}
+          {rentalLinkedExpense && rentalLinkedExpense.id && (
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.text }]}>Linked Expense</Text>
+              <View style={[styles.linkedExpenseContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={styles.linkedExpenseInfo}>
+                  <Text style={[styles.linkedExpenseText, { color: colors.text }]}>
+                    {formatIndianCurrency(Number(rentalLinkedExpense.amount))} - {rentalLinkedExpense.description}
+                  </Text>
+                  <Text style={[styles.linkedExpenseDate, { color: colors.textSecondary }]}>
+                    {format(new Date(rentalLinkedExpense.date), 'MMM dd, yyyy')}
+                  </Text>
+                </View>
+                <TouchableOpacity 
+                  style={[styles.deleteExpenseButton, { borderColor: '#dc2626' }]}
+                  onPress={handleDeleteExpense}
+                  disabled={deleteExpenseMutation.isPending}
+                >
+                  {deleteExpenseMutation.isPending ? (
+                    <ActivityIndicator size="small" color="#dc2626" />
+                  ) : (
+                    <Ionicons name="trash-outline" size={16} color="#dc2626" />
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -757,6 +996,13 @@ export default function RentalDetailsScreen({ navigation, route }: any) {
             >
               <Ionicons name="download-outline" size={20} color={colors.text} />
               <Text style={[styles.pdfButtonText, { color: colors.text }]}>Invoice</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.pdfButton, { borderColor: colors.border }]}
+              onPress={handleDownloadReport}
+            >
+              <Ionicons name="clipboard-outline" size={20} color={colors.text} />
+              <Text style={[styles.pdfButtonText, { color: colors.text }]}>Report</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -842,7 +1088,7 @@ export default function RentalDetailsScreen({ navigation, route }: any) {
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowStatusDropdown(false)}>
           <View style={[styles.dropdownList, { backgroundColor: colors.card }]}>
             <Text style={[styles.dropdownListTitle, { color: colors.text }]}>Select Status</Text>
-            {['Quote', 'Invoice', 'Paid', 'Returned'].map((status) => (
+            {['Inquired', 'In Progress', 'Completed'].map((status) => (
               <TouchableOpacity
                 key={status}
                 style={[styles.dropdownListItem, { borderBottomColor: colors.border }]}
@@ -868,10 +1114,7 @@ export default function RentalDetailsScreen({ navigation, route }: any) {
               <TouchableOpacity
                 key={status}
                 style={[styles.dropdownListItem, { borderBottomColor: colors.border }]}
-                onPress={() => {
-                  setFormData({ ...formData, paymentStatus: status });
-                  setShowPaymentStatusDropdown(false);
-                }}
+                onPress={() => handlePaymentStatusChange(status)}
               >
                 <Text style={[styles.dropdownListItemText, { color: colors.text }]}>{status}</Text>
                 {formData.paymentStatus === status && <Ionicons name="checkmark" size={20} color={accentColor} />}
@@ -981,6 +1224,124 @@ export default function RentalDetailsScreen({ navigation, route }: any) {
                 onPress={handleAddRate}
               >
                 <Text style={[styles.dialogButtonText, { color: '#fff' }]}>Save Rate</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Time Unit Dropdown for Add Rate Dialog */}
+      <Modal visible={showTimeUnitDropdown} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowTimeUnitDropdown(false)}>
+          <View style={[styles.dropdownList, { backgroundColor: colors.card }]}>
+            <Text style={[styles.dropdownListTitle, { color: colors.text }]}>Select Time Unit</Text>
+            {['hrs', 'days'].map((unit) => (
+              <TouchableOpacity
+                key={unit}
+                style={[styles.dropdownListItem, { borderBottomColor: colors.border }]}
+                onPress={() => {
+                  setNewRateForm({ ...newRateForm, timeUnit: unit });
+                  setShowTimeUnitDropdown(false);
+                }}
+              >
+                <Text style={[styles.dropdownListItemText, { color: colors.text }]}>
+                  {unit === 'hrs' ? 'Hours' : 'Days'}
+                </Text>
+                {newRateForm.timeUnit === unit && <Ionicons name="checkmark" size={20} color={accentColor} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Expense Link Modal */}
+      <Modal visible={showExpenseLinkModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.dialogContainer, { backgroundColor: colors.card }]}>
+            <View style={styles.dialogHeader}>
+              <Text style={[styles.dialogTitle, { color: colors.text }]}>Link Payment Expense</Text>
+              <TouchableOpacity onPress={() => setShowExpenseLinkModal(false)}>
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={[styles.dialogSubtext, { color: colors.textSecondary }]}>
+              Creating expense record for payment status: <Text style={{ fontWeight: '600' }}>{pendingPaymentStatus}</Text>
+            </Text>
+
+            <View style={styles.dialogContent}>
+              {pendingPaymentStatus === 'Partial' && (
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: colors.text }]}>Payment Amount (₹) *</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+                    value={expenseFormData.amount}
+                    onChangeText={(text) => {
+                      const amount = parseFloat(text) || 0;
+                      if (amount <= total) {
+                        setExpenseFormData({ ...expenseFormData, amount: text });
+                      }
+                    }}
+                    keyboardType="numeric"
+                    placeholder={`Max: ${formatIndianCurrency(total)}`}
+                    placeholderTextColor={colors.textSecondary}
+                  />
+                  <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+                    Maximum amount: {formatIndianCurrency(total)}
+                  </Text>
+                </View>
+              )}
+
+              {pendingPaymentStatus === 'Paid' && (
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: colors.text }]}>Payment Amount</Text>
+                  <Text style={[styles.readOnlyAmount, { color: colors.text, backgroundColor: colors.surface }]}>
+                    {formatIndianCurrency(total)}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Payment Date *</Text>
+                <DatePicker
+                  label="Payment Date *"
+                  value={expenseFormData.date}
+                  onChange={(date) => setExpenseFormData({ ...expenseFormData, date })}
+                />
+              </View>
+
+              <View style={[styles.infoContainer, { backgroundColor: colors.surface }]}>
+                <Ionicons name="information-circle" size={16} color={colors.textSecondary} />
+                <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                  This will create a credit expense record and update the account balance.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.dialogFooter}>
+              <TouchableOpacity 
+                style={[styles.dialogButton, styles.dialogButtonSecondary, { borderColor: colors.border }]}
+                onPress={() => {
+                  setShowExpenseLinkModal(false);
+                  setIsCreatingExpense(false);
+                }}
+                disabled={isCreatingExpense}
+              >
+                <Text style={[styles.dialogButtonText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.dialogButton, styles.dialogButtonPrimary, { 
+                  backgroundColor: accentColor,
+                  opacity: isCreatingExpense ? 0.7 : 1
+                }]}
+                onPress={handleExpenseLinkConfirm}
+                disabled={isCreatingExpense || (pendingPaymentStatus === 'Partial' && (!expenseFormData.amount || parseFloat(expenseFormData.amount) <= 0))}
+              >
+                {isCreatingExpense ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={[styles.dialogButtonText, { color: '#fff' }]}>Link Expense</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -1267,5 +1628,66 @@ const styles = StyleSheet.create({
   existingRateItem: {
     fontSize: 12,
     marginBottom: 4,
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  readOnlyAmount: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  infoContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+    marginTop: 8,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  linkedExpenseIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  linkedExpenseContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  linkedExpenseInfo: {
+    flex: 1,
+  },
+  linkedExpenseText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  linkedExpenseDate: {
+    fontSize: 12,
+  },
+  deleteExpenseButton: {
+    padding: 8,
+    borderRadius: 6,
+    borderWidth: 1,
   },
 });

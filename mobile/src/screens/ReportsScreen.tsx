@@ -1,9 +1,10 @@
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Modal, Pressable, FlatList } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, useMemo } from 'react';
-import { useEvents, useExpenses, useAssets } from '../hooks/useApi';
+import { useEvents, useExpenses, useAssets, useRentals } from '../hooks/useApi';
 import { useTheme } from '../contexts';
 import { useNavigation } from '@react-navigation/native';
+import { use } from 'passport';
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -59,8 +60,9 @@ export default function ReportsScreen() {
   const { data: events = [], isLoading: eventsLoading } = useEvents();
   const { data: expenses = [], isLoading: expensesLoading } = useExpenses();
   const { data: assets = [], isLoading: assetsLoading } = useAssets();
+  const { data: rentals = [], isLoading: rentalsLoading } = useRentals();
 
-  const isLoading = eventsLoading || expensesLoading || assetsLoading;
+  const isLoading = eventsLoading || expensesLoading || assetsLoading || rentalsLoading;
 
   const [reportModal, setReportModal] = useState<ReportModalState>({
     visible: false,
@@ -89,10 +91,31 @@ export default function ReportsScreen() {
         if (parsed) yearSet.add(parsed.year);
       }
     });
+    rentals.forEach((r: any) => {
+      if (r.rentalDate) {
+        const parsed = parseISODate(r.rentalDate);
+        if (parsed) yearSet.add(parsed.year);
+      }
+    });
     return Array.from(yearSet).sort((a, b) => b - a);
-  }, [events, expenses, assets, currentYear]);
+  }, [events, expenses, assets, rentals, currentYear]);
 
   const filterByMonthYear = <T extends { date?: string; eventDate?: string; purchaseDate?: string | null }>(
+    items: T[],
+    month: number,
+    year: number,
+    dateField: keyof T
+  ) => {
+    return items.filter((item) => {
+      const dateValue = item[dateField];
+      if (!dateValue) return false;
+      const parsed = parseISODate(dateValue as string);
+      if (!parsed) return false;
+      return parsed.month === month && parsed.year === year;
+    });
+  };
+
+  const filterByRentalMonthYear = <T extends { date?: string; rentalDate?: string; returnDate?: string | null }>(
     items: T[],
     month: number,
     year: number,
@@ -115,13 +138,24 @@ export default function ReportsScreen() {
     return { completed, inProgress, missed, total: filtered.length };
   };
 
+  const getRentalStats = (month: number, year: number) => {
+    const filtered = filterByRentalMonthYear(rentals, month, year, "rentalDate");
+    const completed = filtered.filter((r: any) => r.rentalStatus === "Completed").length;
+    const inProgress = filtered.filter((r: any) => r.rentalStatus === "In Progress").length;
+    const missed = filtered.filter((r: any) => r.rentalStatus === "Inquired").length;
+    return { completed, inProgress, missed, total: filtered.length };
+  };
+
   const getFinancialStats = (month: number, year: number) => {
     const filteredExpenses = filterByMonthYear(expenses, month, year, "date");
     const income = filteredExpenses
       .filter((e: any) => e.to_account === "DDC Fund" && e.from_account !== "Client Payment")
       .reduce((sum: number, e: any) => sum + Number(e.amount), 0);
     const incomeFromEvent = filteredExpenses
-      .filter((e: any) => e.to_account === "DDC Fund" && e.from_account === "Client Payment")
+      .filter((e: any) => e.category === "Event" && e.to_account === "DDC Fund" && e.from_account === "Client Payment")
+      .reduce((sum: number, e: any) => sum + Number(e.amount), 0);
+    const incomeFromService = filteredExpenses
+      .filter((e: any) => e.category === "Rental Service" && e.to_account === "DDC Fund" && e.from_account === "Client Payment")
       .reduce((sum: number, e: any) => sum + Number(e.amount), 0);
     const eventExpenses = filteredExpenses
       .filter((e: any) => e.from_account === "DDC Fund" && e.category === "Event")
@@ -134,7 +168,7 @@ export default function ReportsScreen() {
       .reduce((sum: number, e: any) => sum + Number(e.amount), 0);
     const totalExpenses = eventExpenses + assetExpenses + officeExpenses;
     const totalIncome = income + incomeFromEvent;
-    return { income, incomeFromEvent, eventExpenses, assetExpenses, officeExpenses, totalExpenses, totalIncome };
+    return { income, incomeFromEvent, incomeFromService, eventExpenses, assetExpenses, officeExpenses, totalExpenses, totalIncome };
   };
 
   const getAssetStats = (month: number, year: number) => {
@@ -143,6 +177,8 @@ export default function ReportsScreen() {
     const totalInvestment = filtered.reduce((sum: number, a: any) => sum + Number(a.purchasedAmount || 0), 0);
     return { count, totalInvestment };
   };
+
+  const rentalStats = getRentalStats(selectedMonth, selectedYear);
 
   const eventStats = getEventStats(selectedMonth, selectedYear);
   const financialStats = getFinancialStats(selectedMonth, selectedYear);
@@ -257,6 +293,7 @@ export default function ReportsScreen() {
       data: [
         { label: 'Investment Income', value: formatCurrency(stats.income) },
         { label: 'Event Income', value: formatCurrency(stats.incomeFromEvent) },
+        { label: 'Service Income', value: formatCurrency(stats.incomeFromService) },
         { label: 'Total Income', value: formatCurrency(stats.totalIncome) },
       ]
     });
@@ -603,6 +640,31 @@ export default function ReportsScreen() {
             <View style={[styles.statBox, { backgroundColor: isDark ? 'rgba(255,193,7,0.1)' : '#fff8e6' }]}>
               <Ionicons name="alert-circle" size={24} color="#ffc107" />
               <Text style={[styles.statNumber, { color: colors.text }]}>{eventStats.missed}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Inquiry</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Rentals Overview */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="briefcase" size={20} color={colors.primary} />
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Rentals Overview</Text>
+          </View>
+          <View style={styles.statsRow}>
+            <View style={[styles.statBox, { backgroundColor: isDark ? 'rgba(0,184,148,0.1)' : '#e6fff5' }]}>
+              <Ionicons name="checkmark-circle" size={24} color="#00b894" />
+              <Text style={[styles.statNumber, { color: colors.text }]}>{rentalStats.completed}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Completed</Text>
+            </View>
+            <View style={[styles.statBox, { backgroundColor: isDark ? 'rgba(0,123,255,0.1)' : '#e7f3ff' }]}>
+              <Ionicons name="time" size={24} color="#007bff" />
+              <Text style={[styles.statNumber, { color: colors.text }]}>{rentalStats.inProgress}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>In Progress</Text>
+            </View>
+            <View style={[styles.statBox, { backgroundColor: isDark ? 'rgba(255,193,7,0.1)' : '#fff8e6' }]}>
+              <Ionicons name="alert-circle" size={24} color="#ffc107" />
+              <Text style={[styles.statNumber, { color: colors.text }]}>{rentalStats.missed}</Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Inquiry</Text>
             </View>
           </View>

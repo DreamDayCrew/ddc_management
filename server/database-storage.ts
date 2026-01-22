@@ -60,10 +60,61 @@ export class DatabaseStorage implements IStorage {
       // Simple query to test connection - use a query that works even on empty tables
       await sql`SELECT 1`;
       console.log('Database connection test successful with HTTP');
+      
+      // Try to add rentalId column if it doesn't exist
+      await this.ensureRentalIdColumn();
+      
       return true;
     } catch (error) {
       console.error('Database connection test failed with HTTP:', error);
       return false;
+    }
+  }
+
+  private async ensureRentalIdColumn(): Promise<void> {
+    try {
+      // First drop the view that depends on the column
+      await sql`DROP VIEW IF EXISTS expenses_with_balance`;
+      console.log('[DB] Dropped existing expenses_with_balance view');
+    } catch (error: any) {
+      console.log('[DB] Could not drop view:', error.message);
+    }
+
+    try {
+      // Check if column exists and alter its type if needed
+      await sql`ALTER TABLE expenses ALTER COLUMN rental_id TYPE VARCHAR`;
+      console.log('[DB] Successfully altered rental_id column to VARCHAR type');
+    } catch (error: any) {
+      // If column doesn't exist, create it
+      try {
+        await sql`ALTER TABLE expenses ADD COLUMN rental_id VARCHAR`;
+        console.log('[DB] Successfully added rental_id column as VARCHAR to expenses table');
+      } catch (addError: any) {
+        console.log('[DB] Could not add rental_id column:', addError.message);
+      }
+    }
+    
+    // Recreate the view with the rental_id column
+    try {
+      await sql`
+        CREATE VIEW expenses_with_balance AS
+        SELECT 
+          e.*,
+          (SELECT SUM(
+            CASE 
+              WHEN e2.type = 'Credit' THEN e2.amount 
+              ELSE -e2.amount 
+            END
+          ) 
+          FROM expenses e2 
+          WHERE e2.created_at <= e.created_at
+          ) AS closing_balance
+        FROM expenses e
+        ORDER BY e.created_at
+      `;
+      console.log('[DB] Successfully created expenses_with_balance view with rental_id');
+    } catch (error: any) {
+      console.log('[DB] Could not recreate expenses_with_balance view:', error.message);
     }
   }
 
@@ -344,6 +395,19 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getExpenseByRentalId(rentalId: string): Promise<Expense | undefined> {
+    console.log(`[DB] Fetching expense by rental ID: ${rentalId}`);
+    try {
+      const result = await db.select().from(expenses).where(eq(expenses.rentalId, rentalId));
+      console.log(`[DB] Expense for rental ${rentalId}:`, result[0] ? 'Found' : 'Not found');
+      return result[0];
+    } catch (error) {
+      console.error(`[DB] Error fetching expense by rental ${rentalId}:`, error);
+      // If column doesn't exist yet, return undefined gracefully
+      return undefined;
+    }
+  }
+
   async getExpensesByPlanId(planId: string): Promise<Expense[]> {
     console.log(`[DB] Fetching all expenses by plan ID: ${planId}`);
     try {
@@ -390,6 +454,8 @@ export class DatabaseStorage implements IStorage {
         updated_at: new Date(),
         eventId: expense.eventId || null,
         fulfillmentPlanId: expense.fulfillmentPlanId || null,
+        assetId: expense.assetId || null,
+        rentalId: expense.rentalId || null,
       };
       
       console.log('[DB] Processed expense data for insert:', JSON.stringify(insertData, null, 2));

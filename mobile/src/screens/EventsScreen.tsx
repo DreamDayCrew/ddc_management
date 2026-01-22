@@ -104,11 +104,14 @@ export default function EventsScreen({ navigation }: Props) {
     if (!events) return [];
     
     return events.filter(event => {
-      // Text search (event name, venue, service)
+      // Text search (event name, venue, service, customer info)
       const matchesSearch = !searchText || 
         event.eventName.toLowerCase().includes(searchText.toLowerCase()) ||
         event.venue.toLowerCase().includes(searchText.toLowerCase()) ||
-        event.providedService.toLowerCase().includes(searchText.toLowerCase());
+        event.providedService.toLowerCase().includes(searchText.toLowerCase()) ||
+        (event.clientName && event.clientName.toLowerCase().includes(searchText.toLowerCase())) ||
+        (event.clientPhone && event.clientPhone.toLowerCase().includes(searchText.toLowerCase())) ||
+        (event.clientEmail && event.clientEmail.toLowerCase().includes(searchText.toLowerCase()));
       
       const eventDate = new Date(event.eventDate);
       
@@ -369,18 +372,7 @@ export default function EventsScreen({ navigation }: Props) {
             })()}
           </View>
           <View style={styles.actionButtons}>
-            <TouchableOpacity 
-              style={[styles.downloadButton, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.1)' : 'rgba(16, 185, 129, 0.1)' }]}
-              onPress={(e) => {
-                e.stopPropagation();
-                handleDownloadQuote(item);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`Download quote for ${item.eventName}`}
-            >
-              <Ionicons name="document-text-outline" size={20} color={isDark ? '#22c55e' : '#10b981'} />
-            </TouchableOpacity>
-            
+                        
             <TouchableOpacity 
               style={[styles.editButton, { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.1)' : 'rgba(128, 0, 32, 0.1)' }]}
               onPress={(e) => {
@@ -456,7 +448,7 @@ export default function EventsScreen({ navigation }: Props) {
             <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
-              placeholder="Search events by name, venue, or service..."
+              placeholder="Search by event name, venue, service, or customer..."
               placeholderTextColor={colors.textSecondary}
               value={searchText}
               onChangeText={setSearchText}

@@ -8,6 +8,8 @@ import { ServerInvoiceTemplate } from './invoice-template';
 import { ServerCatalogTemplate } from './catalog-template';
 import { ServerEventReportTemplate } from './event-report-template';
 import { RentalTemplate } from './rental-template';
+import { RentalListTemplate } from './rental-list-template';
+import RentalReportTemplate from './rental-report-template';
 import { EventListTemplate } from './event-list-template';
 import React from 'react';
 import multer from 'multer';
@@ -591,6 +593,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/expenses/by-rental/:rentalId", async (req, res) => {
+    const { rentalId } = req.params;
+    console.log(`[API] GET /api/expenses/by-rental/${rentalId} - Fetching expense by rental`);
+    try {
+      const expense = await storage.getExpenseByRentalId(rentalId);
+      if (!expense) {
+        console.log(`[API] No expense found for rental ${rentalId}`);
+        return res.status(404).json({ error: "Expense not found for this rental" });
+      }
+      console.log(`[API] Successfully fetched expense for rental ${rentalId}`);
+      res.json(expense);
+    } catch (error: any) {
+      console.error(`[API] Error fetching expense by rental ${rentalId}:`, error);
+      res.status(500).json({ 
+        error: `Failed to fetch expense for rental ${rentalId}`,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
   app.post("/api/expenses", async (req, res) => {
     console.log('[API] POST /api/expenses - Creating new expense');
     console.log('Request body:', JSON.stringify(req.body, null, 2));
@@ -619,6 +641,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`[API] Duplicate expense detected for event ${validatedData.eventId}`);
           return res.status(409).json({ 
             error: 'Expense already exists for this event',
+            existingExpenseId: existingExpense.id
+          });
+        }
+      }
+
+      // Server-side duplicate check for rental expenses
+      if (validatedData.rentalId) {
+        const existingExpense = await storage.getExpenseByRentalId(validatedData.rentalId);
+        if (existingExpense) {
+          console.log(`[API] Duplicate expense detected for rental ${validatedData.rentalId}`);
+          return res.status(409).json({ 
+            error: 'Expense already exists for this rental',
             existingExpenseId: existingExpense.id
           });
         }
@@ -2532,6 +2566,150 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Rental List PDF Download - MUST be before /api/rentals/:id to prevent route conflict
+  app.get("/api/rentals/download", async (req, res) => {
+    console.log('📊 RENTAL SERVICES LIST DOWNLOAD API called');
+    console.log('🔍 Request URL:', req.url);
+    console.log('🔍 Request Query:', req.query);
+    
+    try {
+      // Parse options from query parameters
+      const options = {
+        customerInfo: req.query.customerInfo === 'true',
+        rentalInfo: req.query.rentalInfo === 'true',
+        paymentInfo: req.query.paymentInfo === 'true',
+      };
+      
+      // Parse filter parameters
+      const filters = {
+        rentalStatus: (req.query.rentalStatus as string) || '',
+        paymentStatus: (req.query.paymentStatus as string) || '',
+        searchQuery: (req.query.searchQuery as string) || '',
+        statusFilter: (req.query.statusFilter as string) || '',
+        paymentStatusFilter: (req.query.paymentStatusFilter as string) || '',
+        startDate: (req.query.startDate as string) || '',
+        endDate: (req.query.endDate as string) || '',
+      };
+      
+      console.log('📋 PDF options:', options);
+      console.log('🔍 Filters:', filters);
+      
+      // Get all rentals and apply filters
+      const allRentals = await storage.getRentals();
+      let filteredRentals = allRentals;
+      
+      // Apply rental status filter
+      if (filters.rentalStatus) {
+        filteredRentals = filteredRentals.filter(r => r.status === filters.rentalStatus);
+      }
+      if (filters.statusFilter) {
+        filteredRentals = filteredRentals.filter(r => r.status === filters.statusFilter);
+      }
+      
+      // Apply payment status filter
+      if (filters.paymentStatus) {
+        filteredRentals = filteredRentals.filter(r => r.paymentStatus === filters.paymentStatus);
+      }
+      if (filters.paymentStatusFilter) {
+        filteredRentals = filteredRentals.filter(r => r.paymentStatus === filters.paymentStatusFilter);
+      }
+      
+      // Apply search filter
+      if (filters.searchQuery) {
+        const query = filters.searchQuery.toLowerCase();
+        filteredRentals = filteredRentals.filter(r => 
+          r.customerName.toLowerCase().includes(query) ||
+          (r.customerPhone && r.customerPhone.toLowerCase().includes(query)) ||
+          (r.customerEmail && r.customerEmail.toLowerCase().includes(query))
+        );
+      }
+      
+      // Apply date range filter
+      if (filters.startDate && filters.endDate) {
+        const startDate = new Date(filters.startDate);
+        const endDate = new Date(filters.endDate);
+        filteredRentals = filteredRentals.filter(r => {
+          const rentalDate = new Date(r.rentalDate);
+          return rentalDate >= startDate && rentalDate <= endDate;
+        });
+      }
+      
+      console.log(`✅ Found ${filteredRentals.length} matching rentals`);
+      
+      if (filteredRentals.length === 0) {
+        return res.status(400).json({ error: "No rentals match the selected filters" });
+      }
+      
+      // Fetch linked expense details for each rental
+      const rentalsWithExpenses = await Promise.all(
+        filteredRentals.map(async (rental) => {
+          try {
+            // Get linked expense for this rental
+            const linkedExpense = await storage.getExpenseByRentalId(rental.id);
+            return {
+              ...rental,
+              linkedExpenses: linkedExpense ? [{
+                id: linkedExpense.id,
+                amount: linkedExpense.amount,
+                date: linkedExpense.date,
+                description: linkedExpense.description ?? undefined
+              }] : []
+            };
+          } catch (error) {
+            console.warn(`Failed to fetch expense for rental ${rental.id}:`, error);
+            return {
+              ...rental,
+              linkedExpenses: []
+            };
+          }
+        })
+      );
+      
+      // Get configuration
+      const config = await storage.getConfiguration();
+      if (!config) {
+        return res.status(400).json({ error: "Configuration not found" });
+      }
+      
+      const generatedDate = new Date().toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      
+      console.log('🎨 Rendering PDF with React PDF');
+      
+      // Generate PDF using the RentalListTemplate
+      const pdfElement = RentalListTemplate({
+        rentals: rentalsWithExpenses,
+        config,
+        options,
+        filters,
+        generatedDate,
+      });
+      
+      const pdfBuffer = await renderToBuffer(pdfElement as React.ReactElement);
+      
+      console.log(`📄 PDF generated successfully, size: ${pdfBuffer.length} bytes`);
+      
+      // Set response headers for PDF download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="rental-services-${new Date().toISOString().split('T')[0]}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      
+      // Send the PDF buffer
+      res.send(pdfBuffer);
+      
+    } catch (error: any) {
+      console.error('❌ PDF generation error:', error);
+      res.status(500).json({ 
+        error: "Failed to generate PDF", 
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  });
+
   // Get single rental
   app.get("/api/rentals/:id", async (req, res) => {
     try {
@@ -2577,9 +2755,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Generate Rental PDF (Quote or Invoice)
   app.get("/api/rentals/:id/pdf", async (req, res) => {
-    console.log('📄 Rental PDF API called');
+    console.log('🧾 INDIVIDUAL RENTAL INVOICE/QUOTE API called');
     console.log('  Rental ID:', req.params.id);
     console.log('  Type:', req.query.type);
+    console.log('🔍 Request URL:', req.url);
     
     try {
       const { id } = req.params;
@@ -2708,6 +2887,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Rental Report PDF generation endpoint
+  app.get("/api/rentals/:id/report", async (req, res) => {
+    console.log('📊 Rental Report API called');
+    console.log('  Rental ID:', req.params.id);
+    
+    try {
+      const { id } = req.params;
+      
+      // Fetch rental data
+      const rental = await storage.getRental(id);
+      if (!rental) {
+        console.error('❌ Rental not found for report:', id);
+        return res.status(404).json({ error: "Rental not found" });
+      }
+      
+      console.log('✅ Rental found for report:', rental.customerName);
+      
+      // Fetch rental items with asset details
+      const items = await storage.getRentalItems(id);
+      console.log('✅ Rental items found:', items.length);
+      
+      // Fetch assets for names
+      const assets = await storage.getAssets();
+      console.log('✅ Assets loaded:', assets.length);
+      
+      // Enrich items with asset details
+      const itemsWithAssets = items.map(item => {
+        const asset = assets.find(a => a.id === item.assetId);
+        return {
+          ...item,
+          assetName: asset?.name,
+          assetCategory: asset?.category,
+        };
+      });
+      
+      // Create rental with items structure
+      const rentalWithItems = {
+        ...rental,
+        customerPhone: rental.customerPhone ?? undefined,
+        customerEmail: rental.customerEmail ?? undefined,
+        customerAddress: rental.customerAddress ?? undefined,
+        notes: rental.notes ?? undefined,
+        totalAmount: rental.totalAmount ?? '0',
+        discountAmount: rental.discountAmount ?? '0',
+        discount: rental.discount ?? 'false',
+        paymentMode: rental.paymentMode ?? undefined,
+        paymentStatus: rental.paymentStatus ?? undefined,
+        status: rental.status ?? undefined,
+        returnDate: rental.returnDate ?? undefined,
+        items: itemsWithAssets,
+      };
+      
+      // Fetch configuration
+      const config = await storage.getConfiguration();
+      console.log('✅ Configuration loaded');
+      
+      // Fetch linked expense for this rental
+      let rentalExpense = null;
+      try {
+        rentalExpense = await storage.getExpenseByRentalId(id);
+      } catch (e) {
+        console.log('No linked expense found for rental');
+      }
+      
+      // Generate PDF
+      console.log('🎨 Starting Rental Report PDF generation...');
+      const reportElement = RentalReportTemplate({
+        rental: rentalWithItems,
+        configuration: config || null,
+        rentalExpense: rentalExpense || null,
+      });
+      
+      if (!reportElement) {
+        console.error('❌ Failed to generate rental report template');
+        return res.status(500).json({ error: "Failed to generate rental report template" });
+      }
+      
+      console.log('✅ Rental Report template generated successfully');
+      
+      const pdfBuffer = await renderToBuffer(reportElement as React.ReactElement);
+      console.log('✅ PDF buffer generated, size:', pdfBuffer.length, 'bytes');
+      
+      // Set response headers for PDF download
+      const fileName = `RentalReport_${rental.customerName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      
+      console.log('✅ Sending Rental Report PDF to client');
+      res.send(pdfBuffer);
+      
+    } catch (error: any) {
+      console.error('💥 Rental Report generation error:');
+      console.error('  Error message:', error.message);
+      console.error('  Error stack:', error.stack);
+      res.status(500).json({ 
+        error: "Failed to generate rental report",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   });
 

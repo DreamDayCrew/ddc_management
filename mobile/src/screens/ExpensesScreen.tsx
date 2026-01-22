@@ -69,6 +69,13 @@ export default function ExpensesScreen() {
       queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/repayments'] });
       queryClient.invalidateQueries({ queryKey: ['/api/account-balance'] });
+      // Also invalidate all rental expense queries to ensure rental screens update
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          return Array.isArray(query.queryKey) && 
+                 query.queryKey[0] === '/api/expenses/by-rental';
+        }
+      });
       Alert.alert('Success', 'Expense deleted successfully');
     },
     onError: (error: Error) => {
@@ -658,7 +665,17 @@ export default function ExpensesScreen() {
           <View style={[styles.confirmationBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.confirmTitle, { color: colors.text }]}>Delete Expense</Text>
             <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
-              Are you sure you want to delete this expense?
+              {expenseToDelete && ((expenseToDelete as any).eventId || (expenseToDelete as any).rentalId) ? (
+                <>
+                  This expense is linked with {(expenseToDelete as any).eventId ? 'an event' : 'a rental service'}. 
+                  {'\n\n'}
+                  Deleting this expense will unlink it from the {(expenseToDelete as any).eventId ? 'event' : 'rental service'} and permanently remove the expense record.
+                  {'\n\n'}
+                  Do you really want to delete this linked expense?
+                </>
+              ) : (
+                'Are you sure you want to delete this expense?'
+              )}
             </Text>
             <View style={styles.confirmButtons}>
               <TouchableOpacity 
@@ -671,7 +688,9 @@ export default function ExpensesScreen() {
                 style={[styles.confirmButton, styles.deleteConfirmButton]}
                 onPress={confirmDelete}
               >
-                <Text style={styles.deleteButtonText}>Delete</Text>
+                <Text style={styles.deleteButtonText}>
+                  {expenseToDelete && ((expenseToDelete as any).eventId || (expenseToDelete as any).rentalId) ? 'Delete & Unlink' : 'Delete'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

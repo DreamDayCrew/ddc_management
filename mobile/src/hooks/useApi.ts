@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Alert } from 'react-native';
 import { api } from '../lib/api';
-import type { Event, Expense, TeamMember, Asset, Requirement, AccountBalance, Repayment } from '../types';
+import type { Event, Expense, TeamMember, Asset, Requirement, AccountBalance, Repayment, Rental } from '../types';
 
 // Events hooks
 export function useEvents(params?: { startDate?: string; endDate?: string }) {
@@ -139,6 +139,25 @@ export function useAssets() {
   });
 }
 
+export function useRentals() {
+  return useQuery<Rental[]>({
+    queryKey: ['/api/rentals'],
+    queryFn: async () => {
+      const data = await api.getRentals();
+      // Use a Set to track unique asset IDs
+      const uniqueIds = new Set<string>();
+      // Filter out duplicates by checking the Set
+      return data.filter(rental => {
+        if (uniqueIds.has(rental.id)) {
+          return false;
+        }
+        uniqueIds.add(rental.id);
+        return true;
+      });
+    }
+  });
+}
+
 export function useCreateAsset() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -244,14 +263,6 @@ export function useDeleteRentalRate() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/rental-rates'] });
     },
-  });
-}
-
-// Rentals hooks
-export function useRentals() {
-  return useQuery({
-    queryKey: ['/api/rentals'],
-    queryFn: api.getRentals,
   });
 }
 

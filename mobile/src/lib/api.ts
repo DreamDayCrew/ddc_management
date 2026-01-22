@@ -131,6 +131,12 @@ class ApiClient {
 
   async delete<T>(url: string, data?: any): Promise<T> {
     const response = await this.client.delete<T>(url, { data });
+    
+    // Handle 204 No Content response (successful deletion)
+    if (response.status === 204 || !response.data) {
+      return {} as T; // Return empty object for void responses
+    }
+    
     // Handle string responses that should be JSON (parse if needed)
     if (typeof response.data === 'string') {
       // Check if it's HTML error page

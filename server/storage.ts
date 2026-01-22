@@ -62,6 +62,7 @@ export interface IStorage {
   getExpense(id: string): Promise<Expense | undefined>;
   getExpenseByEventId(eventId: string): Promise<Expense | undefined>;
   getExpenseByPlanId(planId: string): Promise<Expense | undefined>;
+  getExpenseByRentalId(rentalId: string): Promise<Expense | undefined>;
   createExpense(expense: InsertExpense): Promise<Expense>;
   updateExpense(id: string, expense: Partial<InsertExpense>): Promise<Expense | undefined>;
   deleteExpense(id: string): Promise<boolean>;
@@ -355,6 +356,10 @@ export class MemStorage implements IStorage {
 
   async getExpenseByPlanId(planId: string): Promise<Expense | undefined> {
     return Array.from(this.expenses.values()).find(e => e.fulfillmentPlanId === planId);
+  }
+
+  async getExpenseByRentalId(rentalId: string): Promise<Expense | undefined> {
+    return Array.from(this.expenses.values()).find(e => e.rentalId === rentalId);
   }
 
   async createExpense(expense: InsertExpense): Promise<Expense> {

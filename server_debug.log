@@ -1,0 +1,18 @@
+
+> dream-day-crew@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+Storage initialization: {
+  hasDatabaseUrl: true,
+  databaseUrl: '[REDACTED]',
+  storageType: 'DatabaseStorage'
+}
+✅ Cloudinary configured successfully
+4:00:39 PM [express] Database seeding disabled - ready for production data
+4:00:39 PM [express] 🚀 Server running on port 5001
+4:00:39 PM [express] 🌍 Environment: development
+Database connection test successful with HTTP
+[DB] Dropped existing expenses_with_balance view
+[DB] Successfully altered rental_id column to VARCHAR type
+[DB] Successfully created expenses_with_balance view with rental_id
+4:00:43 PM [express] 💾 Database: Connected (Neon)
