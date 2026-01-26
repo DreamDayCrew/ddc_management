@@ -8,6 +8,7 @@ import { api } from '../lib/api';
 import type { Rental } from '../types';
 import { useTheme } from '../contexts';
 import { format } from 'date-fns';
+import envConfig from '../config/environment';
 
 const BRAND_MAROON = '#800020';
 
@@ -212,7 +213,7 @@ export default function RentalsScreen({ navigation }: any) {
       }).toString();
       
       // Use the same base URL logic as the API
-      const baseURL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+      const baseURL = envConfig.API_URL;
       const downloadUrl = `${baseURL}/api/rentals/download?${params}`;
       
       console.log('Download URL:', downloadUrl);

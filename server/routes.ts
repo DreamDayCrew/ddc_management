@@ -2928,17 +2928,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create rental with items structure
       const rentalWithItems = {
         ...rental,
-        customerPhone: rental.customerPhone ?? undefined,
-        customerEmail: rental.customerEmail ?? undefined,
-        customerAddress: rental.customerAddress ?? undefined,
-        notes: rental.notes ?? undefined,
-        totalAmount: rental.totalAmount ?? '0',
-        discountAmount: rental.discountAmount ?? '0',
-        discount: rental.discount ?? 'false',
-        paymentMode: rental.paymentMode ?? undefined,
-        paymentStatus: rental.paymentStatus ?? undefined,
-        status: rental.status ?? undefined,
-        returnDate: rental.returnDate ?? undefined,
         items: itemsWithAssets,
       };
       

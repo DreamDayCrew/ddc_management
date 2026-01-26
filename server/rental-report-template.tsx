@@ -1,6 +1,6 @@
 import React from 'react';
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
-import type { Configuration, Expense } from '@shared/schema';
+import type { Configuration, Expense, Rental, RentalItem } from '@shared/schema';
 
 const BRAND_MAROON = '#800020';
 
@@ -273,7 +273,7 @@ interface RentalReportProps {
   rentalExpense: Expense | null;
 }
 
-export const RentalReportTemplate: React.FC<RentalReportProps> = ({
+const RentalReportTemplate: React.FC<RentalReportProps> = ({
   rental,
   configuration,
   rentalExpense,

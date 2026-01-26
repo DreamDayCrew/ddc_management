@@ -177,10 +177,9 @@ export default function DashboardScreen() {
   // Rental Service statistics
   const safeRentals = Array.isArray(rentals) ? rentals : [];
   const totalRentals = safeRentals.length;
-  const quotedRentals = safeRentals.filter(r => r.status === 'Quoted').length;
-  const confirmedRentals = safeRentals.filter(r => r.status === 'Confirmed').length;
+  const inquiredRentals = safeRentals.filter(r => r.status === 'Inquired').length;
+  const inProgressRentals = safeRentals.filter(r => r.status === 'In Progress').length;
   const completedRentals = safeRentals.filter(r => r.status === 'Completed').length;
-  const cancelledRentals = safeRentals.filter(r => r.status === 'Cancelled').length;
 
   // Upcoming events for timeline
   const upcoming = safeEvents
@@ -576,66 +575,99 @@ export default function DashboardScreen() {
       </TouchableOpacity>
 
       {/* Rental Service Statistics */}
-      <TouchableOpacity 
-        style={styles.section}
-        onPress={() => {
-          navigation.dispatch(
-            CommonActions.reset({
-              index: 1,
-              routes: [
-                { name: 'More', state: { routes: [{ name: 'MoreMenu' }] } },
-                { name: 'More', state: { routes: [{ name: 'MoreMenu' }, { name: 'Rentals' }] } },
-              ],
-            })
-          );
-        }}
-        activeOpacity={0.8}
-      >
+      <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Rental Service Statistics</Text>
-        <View style={styles.statsGrid}>
-          <View style={[styles.statCard, styles.modernStatCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: colors.primary, borderLeftWidth: 4 }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: `${colors.primary}20` }]}>
-              <Ionicons name="briefcase-outline" size={28} color={colors.primary} />
-            </View>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{totalRentals}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Services</Text>
-          </View>
+        
+        <TouchableOpacity
+          onPress={() => {
+            navigation.dispatch(
+              CommonActions.reset({
+                index: 1,
+                routes: [                  
+                  { name: 'Dashboard' },
+                  { name: 'RentalsList' }
+                ],
+              })
+            );
+          }}
+          style={[styles.viewAllButtonNew, { backgroundColor: colors.primary }]}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.viewAllButtonText}>View All Rental Services</Text>
+          <Ionicons name="arrow-forward" size={16} color="#fff" />
+        </TouchableOpacity>
 
-          <View style={[styles.statCard, styles.modernStatCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: '#6b7280', borderLeftWidth: 4 }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: '#6b728020' }]}>
-              <Ionicons name="document-outline" size={28} color="#6b7280" />
-            </View>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{quotedRentals}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Quoted</Text>
-          </View>
-
-          <View style={[styles.statCard, styles.modernStatCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: '#fbbf24', borderLeftWidth: 4 }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: '#fbbf2420' }]}>
-              <Ionicons name="checkmark-outline" size={28} color="#fbbf24" />
-            </View>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{confirmedRentals}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Confirmed</Text>
-          </View>
-
-          <View style={[styles.statCard, styles.modernStatCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: '#10b981', borderLeftWidth: 4 }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: '#10b98120' }]}>
-              <Ionicons name="checkmark-done-outline" size={28} color="#10b981" />
-            </View>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{completedRentals}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Completed</Text>
-          </View>
-
-          {cancelledRentals > 0 && (
-            <View style={[styles.statCard, styles.modernStatCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: '#ef4444', borderLeftWidth: 4 }]}>
-              <View style={[styles.statIconContainer, { backgroundColor: '#ef444420' }]}>
-                <Ionicons name="close-outline" size={28} color="#ef4444" />
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.rentalStatsScroll}
+          style={styles.rentalStatsContainer}
+        >
+          <LinearGradient
+            colors={isDark ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
+            style={[styles.rentalStatCard, styles.primaryRentalCard]}
+          >
+            <View style={styles.rentalCardHeader}>
+              <View style={[styles.rentalIconCircle, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+                <Ionicons name="briefcase" size={24} color="#fff" />
               </View>
-              <Text style={[styles.statNumber, { color: colors.text }]}>{cancelledRentals}</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Cancelled</Text>
+              <Text style={styles.rentalCardLabel}>Total Services</Text>
             </View>
-          )}
-        </View>
-      </TouchableOpacity>
+            <Text style={styles.rentalCardNumber}>{totalRentals}</Text>
+            <View style={styles.rentalCardFooter}>
+              <Text style={styles.rentalCardSubtext}>All rental services</Text>
+            </View>
+          </LinearGradient>
+
+          <LinearGradient
+            colors={isDark ? ['#2d1b45', '#3d2563'] : ['#a8edea', '#fed6e3']}
+            style={[styles.rentalStatCard, styles.quotedRentalCard]}
+          >
+            <View style={styles.rentalCardHeader}>
+              <View style={[styles.rentalIconCircle, { backgroundColor: 'rgba(107, 114, 128, 0.2)' }]}>
+                <Ionicons name="document-text" size={24} color={isDark ? '#9ca3af' : '#6b7280'} />
+              </View>
+              <Text style={[styles.rentalCardLabel, { color: isDark ? '#e5e7eb' : '#374151' }]}>Inquired</Text>
+            </View>
+            <Text style={[styles.rentalCardNumber, { color: isDark ? '#f3f4f6' : '#111827' }]}>{inquiredRentals}</Text>
+            <View style={styles.rentalCardFooter}>
+              <Text style={[styles.rentalCardSubtext, { color: isDark ? '#d1d5db' : '#6b7280' }]}>Pending approval</Text>
+            </View>
+          </LinearGradient>
+
+          <LinearGradient
+            colors={isDark ? ['#451a03', '#78350f'] : ['#fbbf24', '#f59e0b']}
+            style={[styles.rentalStatCard, styles.confirmedRentalCard]}
+          >
+            <View style={styles.rentalCardHeader}>
+              <View style={[styles.rentalIconCircle, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+                <Ionicons name="checkmark-circle" size={24} color="#fff" />
+              </View>
+              <Text style={styles.rentalCardLabel}>In Progress</Text>
+            </View>
+            <Text style={styles.rentalCardNumber}>{inProgressRentals}</Text>
+            <View style={styles.rentalCardFooter}>
+              <Text style={styles.rentalCardSubtext}>Active bookings</Text>
+            </View>
+          </LinearGradient>
+
+          <LinearGradient
+            colors={isDark ? ['#064e3b', '#047857'] : ['#10b981', '#059669']}
+            style={[styles.rentalStatCard, styles.completedRentalCard]}
+          >
+            <View style={styles.rentalCardHeader}>
+              <View style={[styles.rentalIconCircle, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+                <Ionicons name="checkmark-done-circle" size={24} color="#fff" />
+              </View>
+              <Text style={styles.rentalCardLabel}>Completed</Text>
+            </View>
+            <Text style={styles.rentalCardNumber}>{completedRentals}</Text>
+            <View style={styles.rentalCardFooter}>
+              <Text style={styles.rentalCardSubtext}>Successfully done</Text>
+            </View>
+          </LinearGradient>
+        </ScrollView>
+      </View>
 
       <View style={{ height: 40 }} />
       </ScrollView>
@@ -1256,5 +1288,105 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(79, 70, 229, 0.15)',
     borderRadius: 12,
     padding: 4,
+  },
+  
+  // Rental Statistics Styles
+  rentalStatsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  viewAllButtonNew: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginBottom: 20,
+    gap: 8,
+    alignSelf: 'flex-end',
+    minWidth: 180,
+  },
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  viewAllButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  rentalStatsContainer: {
+    marginHorizontal: -16,
+  },
+  rentalStatsScroll: {
+    paddingHorizontal: 16,
+    gap: 16,
+  },
+  rentalStatCard: {
+    width: 160,
+    height: 160,
+    borderRadius: 20,
+    padding: 20,
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  rentalCardHeader: {
+    alignItems: 'flex-start',
+  },
+  rentalIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  rentalCardLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+    opacity: 0.9,
+  },
+  rentalCardNumber: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#fff',
+    letterSpacing: -1,
+  },
+  rentalCardFooter: {
+    marginTop: 8,
+    minHeight: 20,
+  },
+  rentalCardSubtext: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '500',
+    lineHeight: 16,
+  },
+  primaryRentalCard: {
+    // Primary gradient already handled in LinearGradient colors
+  },
+  quotedRentalCard: {
+    // Quoted gradient already handled in LinearGradient colors
+  },
+  confirmedRentalCard: {
+    // Confirmed gradient already handled in LinearGradient colors
+  },
+  completedRentalCard: {
+    // Completed gradient already handled in LinearGradient colors
+  },
+  cancelledRentalCard: {
+    // Cancelled gradient already handled in LinearGradient colors
   },
 });
