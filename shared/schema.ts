@@ -111,7 +111,7 @@ export const expenses = pgTable("expenses", {
 });
 
 // Expenses with Balance View Schema
-export const expensesWithBalance = pgTable("expenses_with_balance", {
+export const expensesWithBalance = pgTable("expenses_with_closing_balance", {
   id: varchar("id").primaryKey(),
   type: text("type").notNull(),
   category: text("category").notNull(),

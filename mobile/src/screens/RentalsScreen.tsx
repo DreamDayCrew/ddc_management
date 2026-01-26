@@ -348,7 +348,7 @@ export default function RentalsScreen({ navigation }: any) {
           onPress={() => setShowDownloadModal(true)}
           activeOpacity={0.8}
         >
-          <Ionicons name="download-outline" size={20} color={colors.textSecondary} />
+          <Ionicons name="download-outline" size={20} color={isDark ? '#6366f1' : BRAND_MAROON}  />
         </TouchableOpacity>
 
         {/* Filter Toggle Button */}

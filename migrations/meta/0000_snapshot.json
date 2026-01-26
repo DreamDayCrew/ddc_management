@@ -513,8 +513,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.expenses_with_balance": {
-      "name": "expenses_with_balance",
+    "public.expenses_with_closing_balance": {
+      "name": "expenses_with_closing_balance",
       "schema": "",
       "columns": {
         "id": {

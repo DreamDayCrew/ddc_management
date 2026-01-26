@@ -82,7 +82,7 @@ CREATE TABLE "expenses" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "expenses_with_balance" (
+CREATE TABLE "expenses_with_closing_balance" (
 	"id" varchar PRIMARY KEY NOT NULL,
 	"type" text NOT NULL,
 	"category" text NOT NULL,

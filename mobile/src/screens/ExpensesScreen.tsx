@@ -29,6 +29,21 @@ const getLast1MonthDate = () => {
 export default function ExpensesScreen() {
   const { colors, isDark } = useTheme();
   const queryClient = useQueryClient();
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // Manual refresh handler
+    const handleManualRefresh = async () => {
+      setIsRefreshing(true);
+      try {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['/api/expenses'] }),
+          queryClient.invalidateQueries({ queryKey: ['/api/repayments'] }),
+          queryClient.invalidateQueries({ queryKey: ['/api/account-balance'] }),
+        ]);
+      } finally {
+        setIsRefreshing(false);
+      }
+    };
   const oneMonthAgo = useMemo(getLast1MonthDate, []);
   // Fetch ALL expenses to preserve correct closing_balance from database view
   const { data: allExpenses, isLoading, error } = useExpenses();
@@ -313,6 +328,22 @@ export default function ExpensesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Manual Refresh Button 
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginHorizontal: 16, marginTop: 16 }}>
+        <TouchableOpacity
+          style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? '#4a5568' : BRAND_MAROON, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 10 }}
+          onPress={handleManualRefresh}
+          disabled={isRefreshing}
+          activeOpacity={0.8}
+        >
+          {isRefreshing ? (
+            <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+          ) : (
+            <Ionicons name="refresh" size={18} color="#fff" style={{ marginRight: 8 }} />
+          )}
+          <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Refresh</Text>
+        </TouchableOpacity>
+      </View>*/}
       
       {/* Search and Filter Section */}
       <View style={[styles.searchFilterContainer, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 16 }]}>
@@ -334,6 +365,20 @@ export default function ExpensesScreen() {
             )}
           </View>
         </View>
+
+        {/* Manual Refresh Button */}
+        <TouchableOpacity
+          style={[styles.filterButton, { backgroundColor: colors.surface, marginRight: 8 }]}
+          onPress={handleManualRefresh}
+          disabled={isRefreshing}
+          activeOpacity={0.8}
+        >
+          {isRefreshing ? (
+            <ActivityIndicator size="small" color={isDark ? '#6366f1' : BRAND_MAROON} style={{ marginRight: 8 }} />
+          ) : (
+            <Ionicons name="refresh" size={20} color={isDark ? '#6366f1' : BRAND_MAROON} />
+          )}
+        </TouchableOpacity>
 
         {/* Filter Toggle Button */}
         <TouchableOpacity

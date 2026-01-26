@@ -33,6 +33,7 @@ export default function ConfigurationScreen() {
   const [panNumber, setPanNumber] = useState('');
   const [includeGst, setIncludeGst] = useState(false);
   const [website, setWebsite] = useState('');
+  const [socialLinks, setSocialLinks] = useState<string>('');
   const [address, setAddress] = useState('');
   const [logo, setLogo] = useState<string | null>(null);
   const [signatureImage, setSignatureImage] = useState<string | null>(null);
@@ -74,6 +75,7 @@ export default function ConfigurationScreen() {
       console.log('Setting includeGst:', includeGstValue, 'from:', config.includeGst);
       setIncludeGst(includeGstValue);
       setWebsite(config.website || '');
+      setSocialLinks(Array.isArray(config.socialLinks) ? config.socialLinks.join(', ') : (config.socialLinks || ''));
       setAddress(config.address || '');
       setLogo(config.logo || null);
       setSignatureImage(config.signatureImage || null);
@@ -190,6 +192,7 @@ export default function ConfigurationScreen() {
       panNumber: panNumber.trim() || null,
       includeGst: includeGst ? 'true' : 'false',
       website: website.trim() || null,
+      socialLinks: socialLinks.split(',').map(s => s.trim()).filter(Boolean),
       address: address.trim() || null,
       logo: logo || null,
       signatureImage: signatureImage || null,
@@ -312,15 +315,19 @@ export default function ConfigurationScreen() {
             />
           </View>
 
-          <View style={[styles.inputGroup, styles.switchContainer]}>
-            <Text style={[styles.label, { color: colors.text }]}>Include GST in Invoices</Text>
-            <Switch
-              value={includeGst}
-              onValueChange={setIncludeGst}
-              trackColor={{ false: colors.border, true: isDark ? '#4a5568' : BRAND_MAROON }}
-              thumbColor="#ffffff"
-              style={styles.switchStyle} 
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>Social Links</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+              value={socialLinks}
+              onChangeText={setSocialLinks}
+              placeholder="@dreamdaycrew, @another, ..."
+              placeholderTextColor={colors.textSecondary}
+              autoCapitalize="none"
+              autoCorrect={false}
+              data-testid="input-social-links"
             />
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>Enter comma-separated social handles or URLs</Text>
           </View>
 
           <View style={styles.inputGroup}>
@@ -449,6 +456,17 @@ export default function ConfigurationScreen() {
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Invoice Settings</Text>
           
+          <View style={[styles.inputGroup, styles.switchContainer]}>
+            <Text style={[styles.label, { color: colors.text }]}>Include GST in Invoices</Text>
+            <Switch
+              value={includeGst}
+              onValueChange={setIncludeGst}
+              trackColor={{ false: colors.border, true: isDark ? '#4a5568' : BRAND_MAROON }}
+              thumbColor="#ffffff"
+              style={styles.switchStyle} 
+            />
+          </View>
+
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.text }]}>Terms and Conditions</Text>
             <Text style={[styles.helperText, { color: colors.textSecondary }]}>

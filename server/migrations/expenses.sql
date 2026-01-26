@@ -32,7 +32,7 @@ BEFORE UPDATE ON expenses
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
-CREATE OR REPLACE VIEW expenses_with_balance AS
+CREATE OR REPLACE VIEW expenses_with_closing_balance AS
 SELECT
     e.*,
     SUM(

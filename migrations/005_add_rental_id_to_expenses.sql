@@ -4,10 +4,10 @@
 ALTER TABLE expenses 
 ADD COLUMN rental_id VARCHAR;
 
--- Update the expenses_with_balance view to include the new rentalId column
-DROP VIEW IF EXISTS expenses_with_balance;
+-- Update the expenses_with_closing_balance view to include the new rentalId column
+DROP VIEW IF EXISTS expenses_with_closing_balance;
 
-CREATE VIEW expenses_with_balance AS
+CREATE VIEW expenses_with_closing_balance AS
 SELECT 
   e.*,
   (SELECT SUM(
