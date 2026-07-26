@@ -1,10 +1,12 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Modal, Pressable, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Modal, Pressable, FlatList, Alert, Platform } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, useMemo } from 'react';
-import { useEvents, useExpenses, useAssets, useRentals } from '../hooks/useApi';
+import { useEvents, useExpenses, useAssets, useRentals, usePeriodReport } from '../hooks/useApi';
 import { useTheme } from '../contexts';
 import { useNavigation } from '@react-navigation/native';
-import { use } from 'passport';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import { api } from '../lib/api';
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -56,6 +58,73 @@ export default function ReportsScreen() {
   const [showLeftYearDropdown, setShowLeftYearDropdown] = useState(false);
   const [showRightMonthDropdown, setShowRightMonthDropdown] = useState(false);
   const [showRightYearDropdown, setShowRightYearDropdown] = useState(false);
+
+  // ── Period Report state ────────────────────────────────────────────
+  type PeriodFilter = 'thisYear' | 'lastYear' | 'last6m' | 'last3m' | 'custom';
+  const PERIOD_CHIPS: { key: PeriodFilter; label: string }[] = [
+    { key: 'thisYear', label: 'This Year' },
+    { key: 'lastYear', label: 'Last Year' },
+    { key: 'last6m', label: '6 Months' },
+    { key: 'last3m', label: '3 Months' },
+  ];
+  const [activePeriod, setActivePeriod] = useState<PeriodFilter>('thisYear');
+  const [periodExpanded, setPeriodExpanded] = useState(true);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const periodRange = useMemo(() => {
+    const today = new Date();
+    const fmt = (d: Date) => d.toISOString().split('T')[0];
+    const fmtLabel = (d: Date) => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const year = today.getFullYear();
+    switch (activePeriod) {
+      case 'thisYear': return { startDate: `${year}-01-01`, endDate: `${year}-12-31`, label: `${year} (Full Year)` };
+      case 'lastYear': return { startDate: `${year - 1}-01-01`, endDate: `${year - 1}-12-31`, label: `${year - 1} (Full Year)` };
+      case 'last6m': {
+        const s = new Date(today); s.setMonth(s.getMonth() - 6);
+        return { startDate: fmt(s), endDate: fmt(today), label: `${fmtLabel(s)} – ${fmtLabel(today)}` };
+      }
+      case 'last3m': {
+        const s = new Date(today); s.setMonth(s.getMonth() - 3);
+        return { startDate: fmt(s), endDate: fmt(today), label: `${fmtLabel(s)} – ${fmtLabel(today)}` };
+      }
+      default: return { startDate: `${year}-01-01`, endDate: `${year}-12-31`, label: `${year}` };
+    }
+  }, [activePeriod]);
+
+  const { data: periodData, isLoading: periodLoading } = usePeriodReport({
+    startDate: periodRange.startDate,
+    endDate: periodRange.endDate,
+  });
+
+  const handleDownloadPeriodPdf = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      const pdfUrl = api.getPeriodReportPdfUrl({
+        startDate: periodRange.startDate,
+        endDate: periodRange.endDate,
+        periodLabel: periodRange.label,
+      });
+      const fileUri = `${FileSystem.documentDirectory}period-report-${periodRange.startDate}-${periodRange.endDate}.pdf`;
+      const downloadResult = await FileSystem.downloadAsync(pdfUrl, fileUri);
+      if (downloadResult.status === 200) {
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(downloadResult.uri, {
+            mimeType: 'application/pdf',
+            dialogTitle: `Period Report - ${periodRange.label}`,
+          });
+        } else {
+          Alert.alert('Downloaded', `Report saved to: ${downloadResult.uri}`);
+        }
+      } else {
+        Alert.alert('Error', 'Failed to download PDF');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to download PDF');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+  // ──────────────────────────────────────────────────────────────────
 
   const { data: events = [], isLoading: eventsLoading } = useEvents();
   const { data: expenses = [], isLoading: expensesLoading } = useExpenses();
@@ -377,6 +446,186 @@ export default function ReportsScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         nestedScrollEnabled={true}
       >
+        {/* ── Period Report ── */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <TouchableOpacity
+            style={styles.cardHeader}
+            onPress={() => setPeriodExpanded(!periodExpanded)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="bar-chart" size={20} color={colors.primary} />
+            <Text style={[styles.cardTitle, { color: colors.text, flex: 1 }]}>Period Report</Text>
+            <Ionicons name={periodExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          {periodExpanded && (
+            <View>
+              {/* Period Chips */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ marginBottom: 12 }}
+                contentContainerStyle={{ gap: 8, paddingHorizontal: 2 }}
+              >
+                {PERIOD_CHIPS.map((chip) => (
+                  <TouchableOpacity
+                    key={chip.key}
+                    onPress={() => setActivePeriod(chip.key)}
+                    style={[
+                      periodStyles.chip,
+                      activePeriod === chip.key
+                        ? { backgroundColor: colors.primary, borderColor: colors.primary }
+                        : { backgroundColor: 'transparent', borderColor: colors.border },
+                    ]}
+                  >
+                    <Text style={[
+                      periodStyles.chipText,
+                      { color: activePeriod === chip.key ? '#fff' : colors.textSecondary },
+                    ]}>{chip.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* Active period label */}
+              <Text style={[periodStyles.periodLabelText, { color: colors.textSecondary }]}>
+                {periodRange.label}
+              </Text>
+
+              {/* Loading */}
+              {periodLoading && (
+                <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={[{ marginTop: 8, fontSize: 13 }, { color: colors.textSecondary }]}>
+                    Loading period data...
+                  </Text>
+                </View>
+              )}
+
+              {/* Data */}
+              {!periodLoading && periodData && (
+                <View>
+                  {/* Financial Summary Row */}
+                  <View style={periodStyles.financialRow}>
+                    <View style={[periodStyles.financialCard, { backgroundColor: isDark ? 'rgba(22,163,74,0.12)' : '#f0fdf4' }]}>
+                      <Text style={[periodStyles.financialLabel, { color: colors.textSecondary }]}>Revenue</Text>
+                      <Text style={[periodStyles.financialValue, { color: '#16a34a' }]}>{formatCurrency(periodData.summary.totalRevenue)}</Text>
+                    </View>
+                    <View style={[periodStyles.financialCard, { backgroundColor: isDark ? 'rgba(220,38,38,0.12)' : '#fef2f2' }]}>
+                      <Text style={[periodStyles.financialLabel, { color: colors.textSecondary }]}>Expenses</Text>
+                      <Text style={[periodStyles.financialValue, { color: '#dc2626' }]}>{formatCurrency(periodData.summary.totalDebits)}</Text>
+                    </View>
+                    <View style={[periodStyles.financialCard, { backgroundColor: isDark ? 'rgba(30,30,60,0.4)' : '#1a1a2e', flex: 1.2 }]}>
+                      <Text style={[periodStyles.financialLabel, { color: '#aaa' }]}>Net Profit</Text>
+                      <Text style={[periodStyles.financialValue, { color: periodData.summary.netProfit >= 0 ? '#4ade80' : '#f87171' }]}>
+                        {periodData.summary.netProfit >= 0 ? '+' : ''}{formatCurrency(periodData.summary.netProfit)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Event Status Row */}
+                  <View style={periodStyles.statusRow}>
+                    {[
+                      { label: 'Total', value: periodData.summary.totalEvents, color: colors.text },
+                      { label: 'Done', value: periodData.summary.completedEvents, color: '#16a34a' },
+                      { label: 'Active', value: periodData.summary.inProgressEvents, color: '#d97706' },
+                      { label: 'Inquiry', value: periodData.summary.inquiredEvents, color: '#2563eb' },
+                    ].map((s) => (
+                      <View key={s.label} style={[periodStyles.statusBox, { backgroundColor: isDark ? colors.surface : '#f8f9fa' }]}>
+                        <Text style={[periodStyles.statusValue, { color: s.color }]}>{s.value}</Text>
+                        <Text style={[periodStyles.statusLabel, { color: colors.textSecondary }]}>{s.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Events list (first 5) */}
+                  {periodData.events.length > 0 && (
+                    <View style={periodStyles.eventsSection}>
+                      <Text style={[periodStyles.sectionHeader, { color: colors.text }]}>
+                        Event Breakdown ({periodData.events.length})
+                      </Text>
+                      {periodData.events.slice(0, 5).map((ev: any) => (
+                        <View key={ev.id} style={[periodStyles.eventRow, { borderBottomColor: colors.border }]}>
+                          <View style={{ flex: 1, marginRight: 8 }}>
+                            <Text style={[periodStyles.eventName, { color: colors.text }]} numberOfLines={1}>{ev.eventName}</Text>
+                            <Text style={[periodStyles.eventMeta, { color: colors.textSecondary }]}>{ev.service}</Text>
+                          </View>
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={[
+                              periodStyles.eventStatus,
+                              {
+                                color: ev.status === 'Completed' ? '#16a34a'
+                                  : ev.status === 'In Progress' ? '#d97706' : '#2563eb',
+                              },
+                            ]}>{ev.status}</Text>
+                            <Text style={[periodStyles.eventAmount, { color: colors.text }]}>
+                              {ev.quote > 0 ? formatCurrency(ev.quote) : '—'}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                      {periodData.events.length > 5 && (
+                        <Text style={[{ textAlign: 'center', fontSize: 12, paddingTop: 8 }, { color: colors.textSecondary }]}>
+                          +{periodData.events.length - 5} more events
+                        </Text>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Services Breakdown */}
+                  {periodData.topServices.length > 0 && (
+                    <View style={periodStyles.eventsSection}>
+                      <Text style={[periodStyles.sectionHeader, { color: colors.text }]}>Services</Text>
+                      {periodData.topServices.map((svc: any) => {
+                        const maxRev = Math.max(...periodData.topServices.map((s: any) => s.revenue), 1);
+                        const pct = maxRev > 0 ? (svc.revenue / maxRev) * 100 : 0;
+                        return (
+                          <View key={svc.service} style={{ marginBottom: 10 }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <Text style={{ fontSize: 13, color: colors.text }}>{svc.service}</Text>
+                              <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                                {svc.count} event{svc.count !== 1 ? 's' : ''} · {svc.revenue > 0 ? formatCurrency(svc.revenue) : '—'}
+                              </Text>
+                            </View>
+                            <View style={{ height: 4, backgroundColor: isDark ? '#333' : '#e5e7eb', borderRadius: 2 }}>
+                              <View style={{ height: 4, width: `${pct}%`, backgroundColor: colors.primary, borderRadius: 2 }} />
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+
+                  {/* Empty state */}
+                  {periodData.summary.totalEvents === 0 && (
+                    <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                      <Ionicons name="calendar-outline" size={32} color={colors.textSecondary} />
+                      <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+                        No events found for this period
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Download PDF Button */}
+                  <TouchableOpacity
+                    style={[periodStyles.downloadBtn, { backgroundColor: colors.primary, opacity: isDownloadingPdf ? 0.6 : 1 }]}
+                    onPress={handleDownloadPeriodPdf}
+                    disabled={isDownloadingPdf}
+                  >
+                    {isDownloadingPdf ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Ionicons name="download-outline" size={18} color="#fff" />
+                    )}
+                    <Text style={periodStyles.downloadBtnText}>
+                      {isDownloadingPdf ? 'Generating PDF...' : 'Download PDF Report'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+
         {/* Updated Events Overview with Real Logic */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.cardHeader}>
@@ -1464,4 +1713,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18, 
   }
+});
+
+
+const periodStyles = StyleSheet.create({
+  chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
+  chipText: { fontSize: 13, fontWeight: '500' },
+  periodLabelText: { fontSize: 12, marginBottom: 12, fontStyle: 'italic' },
+  financialRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  financialCard: { flex: 1, borderRadius: 8, padding: 10 },
+  financialLabel: { fontSize: 10, textTransform: 'uppercase', marginBottom: 4 },
+  financialValue: { fontSize: 15, fontWeight: '700' },
+  statusRow: { flexDirection: 'row', gap: 6, marginBottom: 16 },
+  statusBox: { flex: 1, alignItems: 'center', padding: 10, borderRadius: 8 },
+  statusValue: { fontSize: 22, fontWeight: '800' },
+  statusLabel: { fontSize: 10, marginTop: 2 },
+  eventsSection: { marginBottom: 16 },
+  sectionHeader: { fontSize: 13, fontWeight: '600', marginBottom: 10 },
+  eventRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 0.5 },
+  eventName: { fontSize: 13, fontWeight: '500' },
+  eventMeta: { fontSize: 11, marginTop: 2 },
+  eventStatus: { fontSize: 11, fontWeight: '600' },
+  eventAmount: { fontSize: 13, fontWeight: '600', marginTop: 2 },
+  downloadBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 10, marginTop: 8 },
+  downloadBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });

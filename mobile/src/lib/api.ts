@@ -193,6 +193,14 @@ export const api = {
     const queryString = queryParams.toString();
     return apiClient.get<Event[]>(`/api/events${queryString ? `?${queryString}` : ''}`);
   },
+  getPeriodReport: (params: { startDate: string; endDate: string }) => {
+    const queryParams = new URLSearchParams(params);
+    return apiClient.get<any>(`/api/reports/period?${queryParams.toString()}`);
+  },
+  getPeriodReportPdfUrl: (params: { startDate: string; endDate: string; periodLabel: string }) => {
+    const queryParams = new URLSearchParams(params);
+    return `${API_BASE_URL}/api/reports/period/pdf?${queryParams.toString()}`;
+  },
   getEvent: (id: string) => apiClient.get<Event>(`/api/events/${id}`),
   createEvent: (data: InsertEvent) => apiClient.post<Event>('/api/events', data),
   updateEvent: (id: string, data: Partial<InsertEvent>) => apiClient.patch<Event>(`/api/events/${id}`, data),

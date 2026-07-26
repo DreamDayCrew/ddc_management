@@ -3,6 +3,15 @@ import { Alert } from 'react-native';
 import { api } from '../lib/api';
 import type { Event, Expense, TeamMember, Asset, Requirement, AccountBalance, Repayment, Rental } from '../types';
 
+// Period Report hook
+export function usePeriodReport(params: { startDate: string; endDate: string }) {
+  return useQuery<any>({
+    queryKey: ['/api/reports/period', params],
+    queryFn: () => api.getPeriodReport(params),
+    enabled: !!(params.startDate && params.endDate),
+  });
+}
+
 // Events hooks
 export function useEvents(params?: { startDate?: string; endDate?: string }) {
   return useQuery<Event[]>({

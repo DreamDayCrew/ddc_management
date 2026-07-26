@@ -1,8 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
+import { PDFDownloadLink } from "@react-pdf/renderer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -33,8 +38,17 @@ import {
   Clock,
   AlertCircle,
   ArrowLeftRight,
+  FileDown,
+  DollarSign,
+  BarChart3,
+  CheckCircle2,
+  Search,
+  X,
 } from "lucide-react";
-import type { Event, Expense, Asset } from "@shared/schema";
+import { cn } from "@/lib/utils";
+import { format, subMonths, startOfYear, endOfYear, subYears } from "date-fns";
+import { PeriodReportPdf, type PeriodReportData } from "@/components/period-report-pdf";
+import type { Event, Expense, Asset, Configuration } from "@shared/schema";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -58,6 +72,47 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
+// ── Period Report helpers ──────────────────────────────────────────────────
+
+type PeriodKey = "thisYear" | "lastYear" | "last6m" | "last3m" | "custom";
+
+const PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = [
+  { value: "thisYear", label: "This Year" },
+  { value: "lastYear", label: "Last Year" },
+  { value: "last6m", label: "Last 6 Months" },
+  { value: "last3m", label: "Last 3 Months" },
+  { value: "custom", label: "Custom" },
+];
+
+function buildPeriodRange(key: PeriodKey, customStart: string, customEnd: string) {
+  const today = new Date();
+  const fmt = (d: Date) => format(d, "yyyy-MM-dd");
+  const fmtDisplay = (d: Date) => format(d, "dd MMM yyyy");
+  switch (key) {
+    case "thisYear": {
+      const s = startOfYear(today); const e = endOfYear(today);
+      return { startDate: fmt(s), endDate: fmt(e), label: `${format(today, "yyyy")} (Full Year)` };
+    }
+    case "lastYear": {
+      const prev = subYears(today, 1); const s = startOfYear(prev); const e = endOfYear(prev);
+      return { startDate: fmt(s), endDate: fmt(e), label: `${format(prev, "yyyy")} (Full Year)` };
+    }
+    case "last6m": {
+      const s = subMonths(today, 6);
+      return { startDate: fmt(s), endDate: fmt(today), label: `${fmtDisplay(s)} – ${fmtDisplay(today)}` };
+    }
+    case "last3m": {
+      const s = subMonths(today, 3);
+      return { startDate: fmt(s), endDate: fmt(today), label: `${fmtDisplay(s)} – ${fmtDisplay(today)}` };
+    }
+    case "custom":
+      if (customStart && customEnd) {
+        return { startDate: customStart, endDate: customEnd, label: `${fmtDisplay(new Date(customStart))} – ${fmtDisplay(new Date(customEnd))}` };
+      }
+      return { startDate: fmt(startOfYear(today)), endDate: fmt(today), label: "Custom Range" };
+  }
+}
+
 export default function Reports() {
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth();
@@ -72,6 +127,33 @@ export default function Reports() {
   const [leftYear, setLeftYear] = useState<number>(lastMonthYear);
   const [rightMonth, setRightMonth] = useState<number>(currentMonth);
   const [rightYear, setRightYear] = useState<number>(currentYear);
+
+  // Period report state
+  const [activePeriod, setActivePeriod] = useState<PeriodKey>("thisYear");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [eventSearch, setEventSearch] = useState("");
+
+  const { startDate: pStartDate, endDate: pEndDate, label: periodLabel } = useMemo(
+    () => buildPeriodRange(activePeriod, customStart, customEnd),
+    [activePeriod, customStart, customEnd],
+  );
+  const periodUrl = `/api/reports/period?startDate=${pStartDate}&endDate=${pEndDate}`;
+
+  const { data: periodData, isLoading: periodLoading } = useQuery<PeriodReportData>({
+    queryKey: [periodUrl],
+  });
+  const { data: config } = useQuery<Configuration>({
+    queryKey: ["/api/configuration"],
+  });
+  const filteredPeriodEvents = useMemo(() => {
+    if (!periodData) return [];
+    if (!eventSearch) return periodData.events;
+    const q = eventSearch.toLowerCase();
+    return periodData.events.filter(
+      (e) => e.eventName.toLowerCase().includes(q) || e.venue.toLowerCase().includes(q) || e.service.toLowerCase().includes(q),
+    );
+  }, [periodData, eventSearch]);
 
   const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
@@ -247,10 +329,238 @@ export default function Reports() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold" data-testid="heading-reports">Reports</h1>
-        <div className="flex items-center gap-2">
+    <div className="container mx-auto p-4 md:p-6 space-y-4">
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold" data-testid="heading-reports">Reports</h1>
+        <p className="text-muted-foreground text-sm mt-1">Financial and event performance analysis</p>
+      </div>
+
+      <Tabs defaultValue="period" className="w-full">
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="period" className="flex-1 sm:flex-none gap-2">
+            <BarChart3 className="h-4 w-4" />Period Report
+          </TabsTrigger>
+          <TabsTrigger value="monthly" className="flex-1 sm:flex-none gap-2">
+            <Calendar className="h-4 w-4" />Monthly Report
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ── Period Report Tab ───────────────────────────────────── */}
+        <TabsContent value="period" className="mt-6 space-y-6">
+          {/* Period selector */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">Select Period</span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {PERIOD_OPTIONS.map((opt) => (
+                <button key={opt.value} onClick={() => { setActivePeriod(opt.value); if (opt.value !== "custom") { setCustomStart(""); setCustomEnd(""); } }}
+                  className={cn("flex-shrink-0 inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-150 border",
+                    activePeriod === opt.value ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                  )}
+                >{opt.label}</button>
+              ))}
+            </div>
+            {activePeriod === "custom" && (
+              <div className="flex flex-wrap gap-3 items-end p-4 bg-muted/40 rounded-xl border border-border/60">
+                <div className="flex-1 min-w-[150px]">
+                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">From</Label>
+                  <Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="h-9" />
+                </div>
+                <div className="flex-1 min-w-[150px]">
+                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">To</Label>
+                  <Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="h-9" />
+                </div>
+                <button className="h-9 px-3 text-sm text-muted-foreground hover:text-foreground" onClick={() => { setCustomStart(""); setCustomEnd(""); }}>
+                  <X className="h-3.5 w-3.5 mr-1 inline" />Clear
+                </button>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs"><Calendar className="h-3 w-3 mr-1" />{periodLabel}</Badge>
+                {periodData && <span className="text-xs text-muted-foreground">{periodData.summary.totalEvents} event{periodData.summary.totalEvents !== 1 ? "s" : ""}</span>}
+              </div>
+              {periodData && config && (
+                <PDFDownloadLink document={<PeriodReportPdf data={periodData} config={config} periodLabel={periodLabel} />} fileName={`period-report-${pStartDate}-to-${pEndDate}.pdf`}>
+                  {({ loading }) => (
+                    <Button size="sm" disabled={loading} className="gap-2 shrink-0">
+                      <FileDown className="h-4 w-4" />{loading ? "Preparing PDF…" : "Download PDF"}
+                    </Button>
+                  )}
+                </PDFDownloadLink>
+              )}
+            </div>
+          </div>
+
+          {periodLoading && (
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+              {[1,2,3,4].map((i) => (<Card key={i}><CardContent className="p-5"><Skeleton className="h-4 w-24 mb-3" /><Skeleton className="h-8 w-32" /></CardContent></Card>))}
+            </div>
+          )}
+
+          {!periodLoading && periodData && (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                {[
+                  { label: "Total Revenue", value: formatCurrency(periodData.summary.totalRevenue), sub: "completed events", color: "text-green-600 dark:text-green-400", icon: <DollarSign className="h-4 w-4" /> },
+                  { label: "Total Income", value: formatCurrency(periodData.summary.totalCredits), sub: "credits received", color: "text-blue-600 dark:text-blue-400", icon: <TrendingUp className="h-4 w-4" /> },
+                  { label: "Total Expenses", value: formatCurrency(periodData.summary.totalDebits), sub: "debits paid", color: "text-red-600 dark:text-red-400", icon: <TrendingDown className="h-4 w-4" /> },
+                  { label: "Net Profit", value: formatCurrency(periodData.summary.netProfit), sub: "income − expenses", color: "", icon: <BarChart3 className="h-4 w-4" />, dark: true },
+                ].map((s) => (
+                  <Card key={s.label} className={cn(s.dark && "bg-foreground text-background border-0")}>
+                    <CardContent className="p-4">
+                      <p className={cn("text-xs uppercase tracking-wide mb-1", s.dark ? "text-muted-foreground/60" : "text-muted-foreground")}>{s.label}</p>
+                      <p className={cn("text-xl font-bold tabular-nums truncate", s.dark ? "text-background" : s.color)}>{s.value}</p>
+                      <p className={cn("text-xs mt-1", s.dark ? "text-muted-foreground/60" : "text-muted-foreground")}>{s.sub}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { label: "Total", value: periodData.summary.totalEvents, bg: "bg-muted/50", tc: "" },
+                  { label: "Completed", value: periodData.summary.completedEvents, bg: "bg-green-50 dark:bg-green-950/30", tc: "text-green-700 dark:text-green-400" },
+                  { label: "In Progress", value: periodData.summary.inProgressEvents, bg: "bg-amber-50 dark:bg-amber-950/30", tc: "text-amber-700 dark:text-amber-400" },
+                  { label: "Inquired", value: periodData.summary.inquiredEvents, bg: "bg-blue-50 dark:bg-blue-950/30", tc: "text-blue-700 dark:text-blue-400" },
+                ].map((item) => (
+                  <div key={item.label} className={cn("rounded-xl p-4 border", item.bg)}>
+                    <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
+                    <p className={cn("text-3xl font-bold", item.tc)}>{item.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {periodData.events.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <CardTitle className="text-base">Event Breakdown</CardTitle>
+                      <div className="relative w-full sm:w-60">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input placeholder="Search events…" value={eventSearch} onChange={(e) => setEventSearch(e.target.value)} className="pl-8 h-8 text-sm" />
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead><tr className="border-b bg-muted/30">
+                          <th className="text-left p-3 font-medium text-muted-foreground">Event</th>
+                          <th className="text-left p-3 font-medium text-muted-foreground">Date</th>
+                          <th className="text-left p-3 font-medium text-muted-foreground hidden md:table-cell">Service</th>
+                          <th className="text-left p-3 font-medium text-muted-foreground">Status</th>
+                          <th className="text-right p-3 font-medium text-muted-foreground">Quote</th>
+                        </tr></thead>
+                        <tbody>
+                          {filteredPeriodEvents.map((ev, i) => (
+                            <tr key={ev.id} className={cn("border-b last:border-0", i % 2 === 1 && "bg-muted/20")}>
+                              <td className="p-3"><p className="font-medium leading-tight">{ev.eventName}</p><p className="text-xs text-muted-foreground mt-0.5">{ev.venue}</p></td>
+                              <td className="p-3 text-muted-foreground whitespace-nowrap">{new Date(ev.eventDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                              <td className="p-3 text-muted-foreground hidden md:table-cell">{ev.service}</td>
+                              <td className="p-3">
+                                <Badge variant="outline" className={cn("text-xs",
+                                  ev.status === "Completed" && "border-green-500 text-green-600 dark:text-green-400",
+                                  ev.status === "In Progress" && "border-amber-500 text-amber-600 dark:text-amber-400",
+                                  ev.status === "Inquired" && "border-blue-500 text-blue-600 dark:text-blue-400",
+                                )}>{ev.status}</Badge>
+                              </td>
+                              <td className="p-3 text-right font-medium tabular-nums">{ev.quote > 0 ? formatCurrency(ev.quote) : <span className="text-muted-foreground">—</span>}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="sm:hidden divide-y">
+                      {filteredPeriodEvents.map((ev) => (
+                        <div key={ev.id} className="p-4 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0"><p className="font-medium text-sm truncate">{ev.eventName}</p><p className="text-xs text-muted-foreground">{ev.venue}</p></div>
+                            <Badge variant="outline" className={cn("text-xs shrink-0",
+                              ev.status === "Completed" && "border-green-500 text-green-600",
+                              ev.status === "In Progress" && "border-amber-500 text-amber-600",
+                              ev.status === "Inquired" && "border-blue-500 text-blue-600",
+                            )}>{ev.status}</Badge>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{new Date(ev.eventDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                            <span>{ev.service}</span>
+                            <span className="font-semibold text-foreground tabular-nums">{ev.quote > 0 ? formatCurrency(ev.quote) : "—"}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {filteredPeriodEvents.length === 0 && <div className="text-center py-10 text-muted-foreground text-sm">No events match your search</div>}
+                  </CardContent>
+                </Card>
+              )}
+
+              {periodData.topServices.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3"><CardTitle className="text-base">Services Breakdown</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                    {periodData.topServices.map((svc) => {
+                      const maxRev = Math.max(...periodData.topServices.map((s) => s.revenue), 1);
+                      const pct = maxRev > 0 ? (svc.revenue / maxRev) * 100 : 0;
+                      return (
+                        <div key={svc.service}>
+                          <div className="flex items-center justify-between text-sm mb-1.5">
+                            <span className="font-medium">{svc.service}</span>
+                            <div className="flex items-center gap-3 text-muted-foreground">
+                              <span>{svc.count} event{svc.count !== 1 ? "s" : ""}</span>
+                              <span className="font-semibold text-foreground tabular-nums">{svc.revenue > 0 ? formatCurrency(svc.revenue) : "—"}</span>
+                            </div>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card>
+                <CardHeader className="pb-3"><CardTitle className="text-base">Income & Expense Summary</CardTitle></CardHeader>
+                <CardContent className="space-y-2 p-4">
+                  {[
+                    { label: "Total Credits (Income)", value: periodData.expenseSummary.totalCredits, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/30" },
+                    { label: "Total Debits (Expenses)", value: periodData.expenseSummary.totalDebits, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-950/30" },
+                    { label: "Transfers", value: periodData.expenseSummary.totalTransfers, color: "text-foreground", bg: "bg-muted/30" },
+                  ].map((row) => (
+                    <div key={row.label} className={cn("flex items-center justify-between rounded-lg px-4 py-3", row.bg)}>
+                      <span className="text-sm">{row.label}</span>
+                      <span className={cn("font-semibold tabular-nums", row.color)}>{formatCurrency(row.value)}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between rounded-lg px-4 py-3 bg-foreground text-background mt-2">
+                    <span className="text-sm font-semibold">Net Profit / Loss</span>
+                    <span className={cn("font-bold tabular-nums text-lg", periodData.summary.netProfit >= 0 ? "text-green-400" : "text-red-400")}>
+                      {periodData.summary.netProfit >= 0 ? "+" : ""}{formatCurrency(periodData.summary.netProfit)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {periodData.summary.totalEvents === 0 && (
+                <Card><CardContent className="flex flex-col items-center justify-center py-12">
+                  <AlertCircle className="h-10 w-10 text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground text-center">No events found for this period. Try a different range.</p>
+                </CardContent></Card>
+              )}
+            </>
+          )}
+        </TabsContent>
+
+        {/* ── Monthly Report Tab ──────────────────────────────────── */}
+        <TabsContent value="monthly" className="mt-6">
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <h2 className="text-xl font-semibold">Monthly Report</h2>
+              <div className="flex items-center gap-2">
           <Select
             value={selectedMonth.toString()}
             onValueChange={(v) => setSelectedMonth(parseInt(v))}
@@ -587,6 +897,9 @@ export default function Reports() {
           </CardContent>
         </Card>
       </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

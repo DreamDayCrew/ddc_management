@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type Event, type Requirement, type Configuration } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Download, Loader2 } from "lucide-react";
+import { Plus, Search, Download, Loader2, CalendarDays, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { EventCard } from "@/components/event-card";
 import {
@@ -27,16 +27,35 @@ import { EventForm } from "@/components/forms/event-form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-
-// Helper function to get last 3 months range
-const getLast3MonthsRange = () => {
-  const now = new Date();
-  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-  return threeMonthsAgo;
-};
+import { cn } from "@/lib/utils";
+import { subMonths, format } from "date-fns";
 
 const EVENT_STATUSES = ["Inquired", "In Progress", "Completed"];
 const PAYMENT_STATUSES = ["Pending", "Partial", "Paid"];
+
+type DateFilter = "all" | "1month" | "3months" | "6months" | "custom";
+
+const FILTER_OPTIONS: { value: DateFilter; label: string }[] = [
+  { value: "1month", label: "Last Month" },
+  { value: "3months", label: "3 Months" },
+  { value: "6months", label: "6 Months" },
+  { value: "all", label: "All Time" },
+  { value: "custom", label: "Custom" },
+];
+
+function buildEventsUrl(dateFilter: DateFilter, customStart: string, customEnd: string): string {
+  const today = new Date();
+  const fmt = (d: Date) => format(d, "yyyy-MM-dd");
+  switch (dateFilter) {
+    case "1month": return `/api/events?startDate=${fmt(subMonths(today, 1))}&endDate=${fmt(today)}`;
+    case "3months": return `/api/events?startDate=${fmt(subMonths(today, 3))}&endDate=${fmt(today)}`;
+    case "6months": return `/api/events?startDate=${fmt(subMonths(today, 6))}&endDate=${fmt(today)}`;
+    case "custom":
+      if (customStart && customEnd) return `/api/events?startDate=${customStart}&endDate=${customEnd}`;
+      return "/api/events";
+    default: return "/api/events";
+  }
+}
 
 export default function Events() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -56,22 +75,21 @@ export default function Events() {
   });
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [dateFilter, setDateFilter] = useState<DateFilter>("3months");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
 
-  const threeMonthsAgo = useMemo(getLast3MonthsRange, []);
+  const eventsUrl = useMemo(
+    () => buildEventsUrl(dateFilter, customStartDate, customEndDate),
+    [dateFilter, customStartDate, customEndDate],
+  );
 
   const { data: configuration } = useQuery<Configuration>({
     queryKey: ["/api/configuration"],
   });
 
   const { data: events = [], isLoading } = useQuery<Event[]>({
-    queryKey: ["/api/events"],
-    select: (data) => {
-      // Filter to only show events from last 3 months based on event date
-      return data.filter((event) => {
-        const eventDate = new Date(event.eventDate);
-        return eventDate >= threeMonthsAgo;
-      });
-    },
+    queryKey: [eventsUrl],
   });
 
   // Fetch requirements for all events to get counts
@@ -88,6 +106,7 @@ export default function Events() {
 
   const filteredEvents = events
     .filter((event) => {
+      if (!searchQuery) return true;
       const query = searchQuery.toLowerCase();
       return (
         event.eventName.toLowerCase().includes(query) ||
@@ -96,12 +115,7 @@ export default function Events() {
         event.providedService.toLowerCase().includes(query)
       );
     })
-    .sort((a, b) => {
-      // Sort by eventDate (latest first)
-      const dateA = new Date(a.eventDate).getTime();
-      const dateB = new Date(b.eventDate).getTime();
-      return dateB - dateA;
-    });
+    .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
 
   const inquiredEvents = filteredEvents.filter((e) => e.eventStatus === "Inquired");
   const inProgressEvents = filteredEvents.filter((e) => e.eventStatus === "In Progress");
@@ -155,6 +169,14 @@ export default function Events() {
       });
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleFilterChange = (value: DateFilter) => {
+    setDateFilter(value);
+    if (value !== "custom") {
+      setCustomStartDate("");
+      setCustomEndDate("");
     }
   };
 
@@ -356,6 +378,50 @@ export default function Events() {
           className="pl-10"
           data-testid="input-search-events"
         />
+      </div>
+
+      {/* Date Range Filter */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-muted-foreground">Date Range</span>
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {FILTER_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => handleFilterChange(opt.value)}
+              className={cn(
+                "flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-150 border",
+                dateFilter === opt.value
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground",
+              )}
+            >
+              {opt.value === "custom" && dateFilter === "custom" && customStartDate && customEndDate ? (
+                <>{customStartDate} → {customEndDate}<X className="h-3 w-3 ml-0.5" onClick={(e) => { e.stopPropagation(); setCustomStartDate(""); setCustomEndDate(""); }} /></>
+              ) : opt.label}
+            </button>
+          ))}
+        </div>
+        {dateFilter === "custom" && (
+          <div className="flex flex-wrap gap-3 items-end p-4 bg-muted/40 rounded-xl border border-border/60">
+            <div className="flex-1 min-w-[160px]">
+              <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">From</Label>
+              <Input id="start-date" type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="h-9" />
+            </div>
+            <div className="flex-1 min-w-[160px]">
+              <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">To</Label>
+              <Input id="end-date" type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="h-9" />
+            </div>
+            <button className="h-9 px-3 text-sm text-muted-foreground hover:text-foreground" onClick={() => { setCustomStartDate(""); setCustomEndDate(""); }}>
+              <X className="h-3.5 w-3.5 mr-1 inline" />Clear
+            </button>
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Showing {filteredEvents.length} event{filteredEvents.length !== 1 ? "s" : ""}
+        </p>
       </div>
 
       <Tabs defaultValue="all" className="w-full">

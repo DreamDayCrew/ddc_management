@@ -63,10 +63,12 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  // Database seeding disabled - using production data from Neon
-  // Seeding was temporarily enabled during migration
-  // You can now add your real production data through the app
-  log("Database seeding disabled - ready for production data");
+  try {
+    await seedDatabase();
+    log("Database seeded successfully");
+  } catch (error) {
+    log("Database seeding skipped or failed: " + String(error));
+  }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

@@ -11,6 +11,7 @@ import { RentalTemplate } from './rental-template';
 import { RentalListTemplate } from './rental-list-template';
 import RentalReportTemplate from './rental-report-template';
 import { EventListTemplate } from './event-list-template';
+import { PeriodReportServerTemplate } from './period-report-template';
 import React from 'react';
 import multer from 'multer';
 import path from 'path';
@@ -2979,6 +2980,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Failed to generate rental report",
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
+    }
+  });
+
+  // Period Report PDF download (server-rendered, used by mobile app)
+  app.get("/api/reports/period/pdf", async (req, res) => {
+    try {
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+      const periodLabel = req.query.periodLabel as string || "Period Report";
+
+      const allEvents = await storage.getEvents(startDate, endDate);
+      const allExpenses = await storage.getExpenses();
+
+      const periodExpenses = allExpenses.filter((exp) => {
+        const expDate = typeof exp.date === "string"
+          ? exp.date
+          : new Date(exp.date as unknown as Date).toISOString().split("T")[0];
+        if (startDate && expDate < startDate) return false;
+        if (endDate && expDate > endDate) return false;
+        return true;
+      });
+
+      const completedEvents = allEvents.filter((e) => e.eventStatus === "Completed");
+      const inquiredEvents = allEvents.filter((e) => e.eventStatus === "Inquired");
+      const inProgressEvents = allEvents.filter((e) => e.eventStatus === "In Progress");
+      const totalRevenue = completedEvents.reduce((sum, e) => sum + Number(e.finalizedQuote || e.initialQuote || 0), 0);
+      const totalCredits = periodExpenses.filter((e) => e.type === "Credit").reduce((sum, e) => sum + Number(e.amount), 0);
+      const totalDebits = periodExpenses.filter((e) => e.type === "Debit").reduce((sum, e) => sum + Number(e.amount), 0);
+
+      const serviceMap: Record<string, { count: number; revenue: number }> = {};
+      allEvents.forEach((event) => {
+        const svc = event.providedService;
+        if (!serviceMap[svc]) serviceMap[svc] = { count: 0, revenue: 0 };
+        serviceMap[svc].count++;
+        if (event.eventStatus === "Completed") serviceMap[svc].revenue += Number(event.finalizedQuote || event.initialQuote || 0);
+      });
+      const topServices = Object.entries(serviceMap).map(([service, d]) => ({ service, ...d })).sort((a, b) => b.revenue - a.revenue);
+
+      const data = {
+        period: { start: startDate || null, end: endDate || null },
+        summary: { totalEvents: allEvents.length, completedEvents: completedEvents.length, inquiredEvents: inquiredEvents.length, inProgressEvents: inProgressEvents.length, totalRevenue, totalCredits, totalDebits, netProfit: totalCredits - totalDebits },
+        events: allEvents.map((e) => ({ id: e.id, eventName: e.eventName, eventDate: e.eventDate, venue: e.venue, service: e.providedService, status: e.eventStatus, quote: Number(e.finalizedQuote || e.initialQuote || 0), paymentStatus: e.paymentStatus })),
+        expenseSummary: { totalCredits, totalDebits, totalTransfers: periodExpenses.filter((e) => e.type === "Transfer").reduce((sum, e) => sum + Number(e.amount), 0) },
+        topServices,
+      };
+
+      const config = await storage.getConfiguration();
+      const configData = { businessName: config?.businessName || "DDC", logo: config?.logo, address: config?.address, phone: config?.phone, email: config?.email, signatureImage: config?.signatureImage };
+
+      const pdfBuffer = await renderToBuffer(
+        React.createElement(PeriodReportServerTemplate, { data, config: configData, periodLabel })
+      );
+
+      const fileName = `Period_Report_${(startDate || "").replace(/-/g, "")}_${(endDate || "").replace(/-/g, "")}.pdf`;
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+      res.setHeader("Content-Length", pdfBuffer.length);
+      res.send(pdfBuffer);
+    } catch (error: any) {
+      console.error("Period report PDF error:", error);
+      res.status(500).json({ error: "Failed to generate period report PDF", details: error.message });
+    }
+  });
+
+  // Period Report route
+  app.get("/api/reports/period", async (req, res) => {
+    try {
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+
+      const allEvents = await storage.getEvents(startDate, endDate);
+      const allExpenses = await storage.getExpenses();
+
+      const periodExpenses = allExpenses.filter((exp) => {
+        const expDate = typeof exp.date === "string"
+          ? exp.date
+          : new Date(exp.date as unknown as Date).toISOString().split("T")[0];
+        if (startDate && expDate < startDate) return false;
+        if (endDate && expDate > endDate) return false;
+        return true;
+      });
+
+      const completedEvents = allEvents.filter((e) => e.eventStatus === "Completed");
+      const inquiredEvents = allEvents.filter((e) => e.eventStatus === "Inquired");
+      const inProgressEvents = allEvents.filter((e) => e.eventStatus === "In Progress");
+
+      const totalRevenue = completedEvents.reduce(
+        (sum, e) => sum + Number(e.finalizedQuote || e.initialQuote || 0), 0
+      );
+      const totalCredits = periodExpenses
+        .filter((e) => e.type === "Credit")
+        .reduce((sum, e) => sum + Number(e.amount), 0);
+      const totalDebits = periodExpenses
+        .filter((e) => e.type === "Debit")
+        .reduce((sum, e) => sum + Number(e.amount), 0);
+
+      const serviceMap: Record<string, { count: number; revenue: number }> = {};
+      allEvents.forEach((event) => {
+        const svc = event.providedService;
+        if (!serviceMap[svc]) serviceMap[svc] = { count: 0, revenue: 0 };
+        serviceMap[svc].count++;
+        if (event.eventStatus === "Completed") {
+          serviceMap[svc].revenue += Number(event.finalizedQuote || event.initialQuote || 0);
+        }
+      });
+      const topServices = Object.entries(serviceMap)
+        .map(([service, data]) => ({ service, ...data }))
+        .sort((a, b) => b.revenue - a.revenue);
+
+      res.json({
+        period: { start: startDate || null, end: endDate || null },
+        summary: {
+          totalEvents: allEvents.length,
+          completedEvents: completedEvents.length,
+          inquiredEvents: inquiredEvents.length,
+          inProgressEvents: inProgressEvents.length,
+          totalRevenue,
+          totalCredits,
+          totalDebits,
+          netProfit: totalCredits - totalDebits,
+        },
+        events: allEvents.map((e) => ({
+          id: e.id,
+          eventName: e.eventName,
+          eventDate: e.eventDate,
+          venue: e.venue,
+          service: e.providedService,
+          status: e.eventStatus,
+          quote: Number(e.finalizedQuote || e.initialQuote || 0),
+          paymentStatus: e.paymentStatus,
+        })),
+        expenseSummary: {
+          totalCredits,
+          totalDebits,
+          totalTransfers: periodExpenses
+            .filter((e) => e.type === "Transfer")
+            .reduce((sum, e) => sum + Number(e.amount), 0),
+        },
+        topServices,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
 

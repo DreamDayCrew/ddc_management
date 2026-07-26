@@ -1,5 +1,11 @@
 import { storage } from "./storage";
 
+function dateOffset(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
 export async function seedDatabase() {
   // Create initial configuration
   const config = await storage.getConfiguration();
@@ -151,7 +157,7 @@ export async function seedDatabase() {
       description: "Payment received from Sharma Wedding",
       amount: "150000",
       mode: "Cash",
-      date: new Date(),
+      date: dateOffset(-Math.floor(Math.random() * 30 + 1)),
       status: "Completed",
     });
 
@@ -160,7 +166,7 @@ export async function seedDatabase() {
       description: "Payment to Royal Decorators for venue decoration",
       amount: "35000",
       mode: "Gray",
-      date: new Date(),
+      date: dateOffset(-Math.floor(Math.random() * 30 + 1)),
       status: "Completed",
     });
 
@@ -169,7 +175,7 @@ export async function seedDatabase() {
       description: "Advance payment - Corporate Event",
       amount: "80000",
       mode: "Cash",
-      date: new Date(),
+      date: dateOffset(-Math.floor(Math.random() * 30 + 1)),
       status: "Completed",
     });
 
@@ -178,7 +184,7 @@ export async function seedDatabase() {
       description: "Venue booking payment",
       amount: "45000",
       mode: "Cash",
-      date: new Date(),
+      date: dateOffset(-Math.floor(Math.random() * 30 + 1)),
       status: "Completed",
     });
 
@@ -187,7 +193,7 @@ export async function seedDatabase() {
       description: "Internal fund transfer to operations account",
       amount: "50000",
       mode: "Bank Transfer",
-      date: new Date(),
+      date: dateOffset(-Math.floor(Math.random() * 30 + 1)),
       status: "Pending",
     });
   }
@@ -198,8 +204,8 @@ export async function seedDatabase() {
     const event1 = await storage.createEvent({
       providedService: "Wedding Planning",
       eventName: "Wedding Reception - Sharma Family",
-      registeredOn: "2025-10-01",
-      eventDate: "2025-11-15",
+      registeredOn: dateOffset(-45),
+      eventDate: dateOffset(14),
       venue: "Grand Palace Hotel, Mumbai",
       clientInfo: "Mr. Rajesh Sharma - 9876543210",
       eventStatus: "In Progress",
@@ -213,9 +219,9 @@ export async function seedDatabase() {
 
     const event2 = await storage.createEvent({
       providedService: "Corporate Event",
-      eventName: "Corporate Annual Meet 2025",
-      registeredOn: "2025-09-15",
-      eventDate: "2025-12-10",
+      eventName: "Corporate Annual Meet",
+      registeredOn: dateOffset(-20),
+      eventDate: dateOffset(60),
       venue: "Convention Center, Delhi",
       clientInfo: "TechCorp Solutions - contact@techcorp.com",
       eventStatus: "Inquired",
@@ -230,8 +236,8 @@ export async function seedDatabase() {
     const event3 = await storage.createEvent({
       providedService: "Birthday Party",
       eventName: "Birthday Celebration - Priya",
-      registeredOn: "2025-08-10",
-      eventDate: "2025-09-20",
+      registeredOn: dateOffset(-60),
+      eventDate: dateOffset(-21),
       venue: "Riverside Garden, Pune",
       clientInfo: "Mrs. Meena Patel - 9123456789",
       eventStatus: "Completed",

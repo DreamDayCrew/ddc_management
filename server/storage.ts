@@ -82,7 +82,7 @@ export interface IStorage {
   deleteRepayment(id: number): Promise<boolean>;
 
   // Events
-  getEvents(): Promise<Event[]>;
+  getEvents(startDate?: string, endDate?: string): Promise<Event[]>;
   getEvent(id: string): Promise<Event | undefined>;
   createEvent(event: InsertEvent): Promise<Event>;
   updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event | undefined>;
@@ -781,8 +781,15 @@ export class MemStorage implements IStorage {
   }
 
   // Events
-  async getEvents(): Promise<Event[]> {
-    return Array.from(this.events.values());
+  async getEvents(startDate?: string, endDate?: string): Promise<Event[]> {
+    let events = Array.from(this.events.values());
+    if (startDate) {
+      events = events.filter(e => e.eventDate >= startDate);
+    }
+    if (endDate) {
+      events = events.filter(e => e.eventDate <= endDate);
+    }
+    return events;
   }
 
   async getEvent(id: string): Promise<Event | undefined> {
